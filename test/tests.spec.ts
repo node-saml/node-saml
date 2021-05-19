@@ -1,16 +1,16 @@
 "use strict";
-import { Strategy as SamlStrategy, SAML } from "../../src/passport-saml";
+import { SAML } from "../src/saml";
 import url = require("url");
 import * as querystring from "querystring";
 import { parseString } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { SamlConfig, Profile } from "../../src/passport-saml/types.js";
-import { RacComparision } from "../../src/node-saml/types.js";
+import { SamlConfig } from "../src/types.js";
+import { RacComparision } from "../src/types.js";
 import * as should from "should";
 import assert = require("assert");
-import { FAKE_CERT, TEST_CERT } from "../types";
-import { signXmlResponse } from "../../src/node-saml/utility";
+import { FAKE_CERT, TEST_CERT } from "./types";
+import { signXmlResponse } from "../src/utility";
 
 export const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -276,16 +276,11 @@ describe("node-saml /", function () {
       ) {
         const samlObj = new SAML(samlConfig);
         const decryptionCert = fs.readFileSync(
-          __dirname + "/../static/testshib encryption cert.pem",
+          __dirname + "/static/testshib encryption cert.pem",
           "utf-8"
         );
-        let metadata = samlObj.generateServiceProviderMetadata(decryptionCert, signingCert);
+        const metadata = samlObj.generateServiceProviderMetadata(decryptionCert, signingCert);
         // splits are to get a nice diff if they don't match for some reason
-        metadata.split("\n").should.eql(expectedMetadata.split("\n"));
-
-        // verify that we are exposed through Strategy as well
-        const strategy = new SamlStrategy(samlConfig, noop);
-        metadata = strategy.generateServiceProviderMetadata(decryptionCert, signingCert);
         metadata.split("\n").should.eql(expectedMetadata.split("\n"));
       }
 
@@ -294,11 +289,11 @@ describe("node-saml /", function () {
           issuer: "http://example.serviceprovider.com",
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
-          decryptionPvk: fs.readFileSync(__dirname + "/../static/testshib encryption pvk.pem"),
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           cert: FAKE_CERT,
         };
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/../static/expected metadata.xml",
+          __dirname + "/static/expected metadata.xml",
           "utf-8"
         );
 
@@ -313,7 +308,7 @@ describe("node-saml /", function () {
           cert: FAKE_CERT,
         };
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/../static/expected metadata without key.xml",
+          __dirname + "/static/expected metadata without key.xml",
           "utf-8"
         );
 
@@ -327,11 +322,11 @@ describe("node-saml /", function () {
           host: "example.serviceprovider.com",
           path: "/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
-          decryptionPvk: fs.readFileSync(__dirname + "/../static/testshib encryption pvk.pem"),
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           cert: FAKE_CERT,
         };
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/../static/expected metadata.xml",
+          __dirname + "/static/expected metadata.xml",
           "utf-8"
         );
 
@@ -348,7 +343,7 @@ describe("node-saml /", function () {
           cert: FAKE_CERT,
         };
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/../static/expected metadata without key.xml",
+          __dirname + "/static/expected metadata without key.xml",
           "utf-8"
         );
 
@@ -362,17 +357,15 @@ describe("node-saml /", function () {
           host: "example.serviceprovider.com",
           path: "/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
-          decryptionPvk: fs.readFileSync(__dirname + "/../static/testshib encryption pvk.pem"),
-          privateKey: fs.readFileSync(__dirname + "/../static/acme_tools_com.key"),
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
           cert: FAKE_CERT,
         };
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/../static/expectedMetadataWithBothKeys.xml",
+          __dirname + "/static/expectedMetadataWithBothKeys.xml",
           "utf-8"
         );
-        const signingCert = fs
-          .readFileSync(__dirname + "/../static/acme_tools_com.cert")
-          .toString();
+        const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
 
         testMetadata(samlConfig, expectedMetadata, signingCert);
       });
@@ -384,17 +377,15 @@ describe("node-saml /", function () {
           host: "example.serviceprovider.com",
           path: "/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
-          decryptionPvk: fs.readFileSync(__dirname + "/../static/testshib encryption pvk.pem"),
-          privateKey: fs.readFileSync(__dirname + "/../static/acme_tools_com.key"),
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
           cert: FAKE_CERT,
         };
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/../static/expectedMetadataWithBothKeys.xml",
+          __dirname + "/static/expectedMetadataWithBothKeys.xml",
           "utf-8"
         );
-        const signingCert = fs
-          .readFileSync(__dirname + "/../static/acme_tools_com.cert")
-          .toString();
+        const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
 
         testMetadata(samlConfig, expectedMetadata, signingCert);
       });
@@ -405,14 +396,14 @@ describe("node-saml /", function () {
         issuer: "http://example.serviceprovider.com",
         callbackUrl: "http://example.serviceprovider.com/saml/callback",
         identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
-        decryptionPvk: fs.readFileSync(__dirname + "/../static/testshib encryption pvk.pem"),
+        decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
         logoutCallbackUrl: "http://example.serviceprovider.com/logout",
         cert: FAKE_CERT,
       };
 
       const samlObj = new SAML(samlConfig);
       const decryptionCert = fs.readFileSync(
-        __dirname + "/../static/testshib encryption cert.pem",
+        __dirname + "/static/testshib encryption cert.pem",
         "utf-8"
       );
       const metadata = samlObj.generateServiceProviderMetadata(decryptionCert);
@@ -426,13 +417,13 @@ describe("node-saml /", function () {
         issuer: "http://example.serviceprovider.com",
         callbackUrl: "http://example.serviceprovider.com/saml/callback",
         identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
-        decryptionPvk: fs.readFileSync(__dirname + "/../static/testshib encryption pvk.pem"),
+        decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
         wantAssertionsSigned: true,
       };
 
       const samlObj = new SAML(samlConfig);
       const decryptionCert = fs.readFileSync(
-        __dirname + "/../static/testshib encryption cert.pem",
+        __dirname + "/static/testshib encryption cert.pem",
         "utf-8"
       );
       const metadata = samlObj.generateServiceProviderMetadata(decryptionCert);
@@ -498,11 +489,11 @@ describe("node-saml /", function () {
 
         const container = {
           SAMLResponse: fs
-            .readFileSync(__dirname + "/../static/response-with-uncomplete-attribute.xml")
+            .readFileSync(__dirname + "/static/response-with-uncomplete-attribute.xml")
             .toString("base64"),
         };
 
-        const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
 
         const samlObj = new SAML({ cert: signingCert });
         const { profile } = await samlObj.validatePostResponseAsync(container);
@@ -811,8 +802,8 @@ describe("node-saml /", function () {
             "</saml2:Assertion>" +
             "</Response>";
 
-          const signingKey = fs.readFileSync(__dirname + "/../static/key.pem");
-          const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+          const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+          const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
           const signedXml = signXmlResponse(xml, { privateKey: signingKey });
 
           const base64xml = Buffer.from(signedXml).toString("base64");
@@ -875,8 +866,8 @@ describe("node-saml /", function () {
             "</saml2:Assertion>" +
             "</Response>";
 
-          const signingKey = fs.readFileSync(__dirname + "/../static/key.pem");
-          const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+          const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+          const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
           const signedXml = signXmlResponse(xml, { privateKey: signingKey });
 
           const base64xml = Buffer.from(signedXml).toString("base64");
@@ -902,7 +893,7 @@ describe("node-saml /", function () {
           entryPoint: "https://adfs.acme_tools.com/adfs/ls/",
           issuer: "acme_tools_com",
           callbackUrl: "https://relyingparty/adfs/postResponse",
-          privateKey: fs.readFileSync(__dirname + "/../static/acme_tools_com.key", "utf-8"),
+          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key", "utf-8"),
           authnContext: [
             "http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/password",
           ],
@@ -931,7 +922,7 @@ describe("node-saml /", function () {
           entryPoint: "",
           issuer: "acme_tools_com",
           callbackUrl: "https://relyingparty/adfs/postResponse",
-          privateKey: fs.readFileSync(__dirname + "/../static/acme_tools_com.key", "utf-8"),
+          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key", "utf-8"),
           authnContext: [
             "http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/password",
           ],
@@ -957,7 +948,7 @@ describe("node-saml /", function () {
           entryPoint: "https://adfs.acme_tools.com/adfs/ls/",
           issuer: "acme_tools_com",
           callbackUrl: "https://relyingparty/adfs/postResponse",
-          privateKey: fs.readFileSync(__dirname + "/../static/acme_tools_com.key", "utf-8"),
+          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key", "utf-8"),
           authnContext: [
             "http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/password",
           ],
@@ -965,7 +956,7 @@ describe("node-saml /", function () {
           additionalParams: {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
-          cert: fs.readFileSync(__dirname + "/../static/acme_tools_com.cert", "utf-8"),
+          cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "utf-8"),
         };
         const samlObj = new SAML(samlConfig);
         samlObj._generateUniqueID = function () {
@@ -984,7 +975,7 @@ describe("node-saml /", function () {
           entryPoint: "https://adfs.acme_tools.com/adfs/ls/",
           issuer: "acme_tools_com",
           callbackUrl: "https://relyingparty/adfs/postResponse",
-          privateKey: fs.readFileSync(__dirname + "/../static/acme_tools_com.key", "utf-8"),
+          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key", "utf-8"),
           authnContext: [
             "http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/password",
           ],
@@ -1578,8 +1569,8 @@ describe("node-saml /", function () {
           '<saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:19:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="INVALID-DATE" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
           "</samlp:Response>";
 
-        const signingKey = fs.readFileSync(__dirname + "/../static/key.pem");
-        const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+        const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
         const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
@@ -1663,8 +1654,8 @@ describe("node-saml /", function () {
           '<saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:19:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="INVALID-DATE"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
           "</samlp:Response>";
 
-        const signingKey = fs.readFileSync(__dirname + "/../static/key.pem");
-        const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+        const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
         const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
@@ -1685,8 +1676,8 @@ describe("node-saml /", function () {
           '<saml:SubjectConfirmationData NotOnOrAfter="INVALID-DATE" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
           "</samlp:Response>";
 
-        const signingKey = fs.readFileSync(__dirname + "/../static/key.pem");
-        const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+        const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
         const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
@@ -1753,8 +1744,8 @@ describe("node-saml /", function () {
         </samlp:Response>
         `;
 
-        const signingKey = fs.readFileSync(__dirname + "/../static/key.pem");
-        const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+        const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
         const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
@@ -1769,7 +1760,7 @@ describe("node-saml /", function () {
       });
 
       it("onelogin xml document with audience and no AudienceRestriction should not pass", async () => {
-        const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
         const xml = `<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="pfx1e2f568f-ba3e-9d81-af54-ab41fdbc648e" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50">
   <saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
   <ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
@@ -1811,7 +1802,7 @@ describe("node-saml /", function () {
       });
 
       it("onelogin xml document with audience not matching AudienceRestriction should not pass", async () => {
-        const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
         const xml = `<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="pfxeda919ac-e0ca-fff5-4987-efd3b459a1d5" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50">
   <saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
   <ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
@@ -1857,7 +1848,7 @@ describe("node-saml /", function () {
       });
 
       it("onelogin xml document with audience matching AudienceRestriction should pass", async () => {
-        const signingCert = fs.readFileSync(__dirname + "/../static/cert.pem", "utf-8");
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
         const xml = `<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="pfx9bf4fce3-7a3c-5530-22c9-d7c66cdaac4e" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50">
   <saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
   <ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
@@ -1907,7 +1898,7 @@ describe("node-saml /", function () {
     let samlObj: SAML;
     beforeEach(function () {
       samlObj = new SAML({
-        cert: fs.readFileSync(__dirname + "/../static/cert.pem", "ascii"),
+        cert: fs.readFileSync(__dirname + "/static/cert.pem", "ascii"),
       });
     });
 
@@ -1922,7 +1913,7 @@ describe("node-saml /", function () {
     it("errors if bad signature", async () => {
       const body = {
         SAMLRequest: fs.readFileSync(
-          __dirname + "/../static/logout_request_with_bad_signature.xml",
+          __dirname + "/static/logout_request_with_bad_signature.xml",
           "base64"
         ),
       };
@@ -1933,7 +1924,7 @@ describe("node-saml /", function () {
     it("returns profile for valid signature", async () => {
       const body = {
         SAMLRequest: fs.readFileSync(
-          __dirname + "/../static/logout_request_with_good_signature.xml",
+          __dirname + "/static/logout_request_with_good_signature.xml",
           "base64"
         ),
       };
@@ -1948,7 +1939,7 @@ describe("node-saml /", function () {
     it("returns profile for valid signature including session index", async () => {
       const body = {
         SAMLRequest: fs.readFileSync(
-          __dirname + "/../static/logout_request_with_session_index.xml",
+          __dirname + "/static/logout_request_with_session_index.xml",
           "base64"
         ),
       };
@@ -1963,12 +1954,12 @@ describe("node-saml /", function () {
     });
     it("returns profile for valid signature with encrypted nameID", async () => {
       const samlObj = new SAML({
-        cert: fs.readFileSync(__dirname + "/../static/cert.pem", "ascii"),
-        decryptionPvk: fs.readFileSync(__dirname + "/../static/key.pem", "ascii"),
+        cert: fs.readFileSync(__dirname + "/static/cert.pem", "ascii"),
+        decryptionPvk: fs.readFileSync(__dirname + "/static/key.pem", "ascii"),
       });
       const body = {
         SAMLRequest: fs.readFileSync(
-          __dirname + "/../static/logout_request_with_encrypted_name_id.xml",
+          __dirname + "/static/logout_request_with_encrypted_name_id.xml",
           "base64"
         ),
       };
@@ -1984,12 +1975,12 @@ describe("node-saml /", function () {
   });
   it("validatePostRequest errors for encrypted nameID with wrong decryptionPvk", async () => {
     const samlObj = new SAML({
-      cert: fs.readFileSync(__dirname + "/../static/cert.pem", "ascii"),
-      decryptionPvk: fs.readFileSync(__dirname + "/../static/acme_tools_com.key", "ascii"),
+      cert: fs.readFileSync(__dirname + "/static/cert.pem", "ascii"),
+      decryptionPvk: fs.readFileSync(__dirname + "/static/acme_tools_com.key", "ascii"),
     });
     const body = {
       SAMLRequest: fs.readFileSync(
-        __dirname + "/../static/logout_request_with_encrypted_name_id.xml",
+        __dirname + "/static/logout_request_with_encrypted_name_id.xml",
         "base64"
       ),
     };
@@ -2043,12 +2034,12 @@ describe("node-saml /", function () {
       let fakeClock: sinon.SinonFakeTimers;
       beforeEach(function () {
         samlObj = new SAML({
-          cert: fs.readFileSync(__dirname + "/../static/acme_tools_com.cert", "ascii"),
+          cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "ascii"),
           idpIssuer: "http://localhost:20000/saml2/idp/metadata.php",
         });
         this.request = Object.assign(
           {},
-          JSON.parse(fs.readFileSync(__dirname + "/../static/idp_slo_redirect.json", "utf8"))
+          JSON.parse(fs.readFileSync(__dirname + "/static/idp_slo_redirect.json", "utf8"))
         );
         fakeClock = sinon.useFakeTimers(Date.parse("2018-04-11T14:08:00Z"));
       });
@@ -2106,13 +2097,13 @@ describe("node-saml /", function () {
 
       beforeEach(function () {
         samlObj = new SAML({
-          cert: fs.readFileSync(__dirname + "/../static/acme_tools_com.cert", "ascii"),
+          cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "ascii"),
           idpIssuer: "http://localhost:20000/saml2/idp/metadata.php",
           validateInResponseTo: true,
         });
         this.request = Object.assign(
           {},
-          JSON.parse(fs.readFileSync(__dirname + "/../static/sp_slo_redirect.json", "utf8"))
+          JSON.parse(fs.readFileSync(__dirname + "/static/sp_slo_redirect.json", "utf8"))
         );
       });
       afterEach(async function () {
@@ -2136,7 +2127,7 @@ describe("node-saml /", function () {
       });
       it("errors if unsuccessful", async function () {
         this.request = JSON.parse(
-          fs.readFileSync(__dirname + "/../static/sp_slo_redirect_failure.json", "utf8")
+          fs.readFileSync(__dirname + "/static/sp_slo_redirect_failure.json", "utf8")
         );
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
@@ -2169,7 +2160,7 @@ describe("node-saml /", function () {
 
       it("accepts cert without header and footer line", async function () {
         samlObj.options.cert = fs.readFileSync(
-          __dirname + "/../static/acme_tools_com_without_header_and_footer.cert",
+          __dirname + "/static/acme_tools_com_without_header_and_footer.cert",
           "ascii"
         );
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());

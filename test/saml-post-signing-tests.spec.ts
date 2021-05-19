@@ -1,9 +1,9 @@
 import * as fs from "fs";
-import { signSamlPost, signAuthnRequestPost } from "../../src/node-saml/saml-post-signing";
-import { SamlSigningOptions } from "../../src/node-saml/types";
-import { parseXml2JsFromString } from "../../src/node-saml/xml";
+import { signSamlPost, signAuthnRequestPost } from "../src/saml-post-signing";
+import { SamlSigningOptions } from "../src/types";
+import { parseXml2JsFromString } from "../src/xml";
 
-const signingKey = fs.readFileSync(__dirname + "/../static/key.pem");
+const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
 
 describe("SAML POST Signing", function () {
   it("should sign a simple saml request", async function () {

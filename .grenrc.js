@@ -28,7 +28,7 @@ module.exports = {
   },
   changelogFilename: "CHANGELOG.md",
   username: "node-saml",
-  repo: "passport-saml",
+  repo: "node-saml",
   template: {
     issue: function (placeholders) {
       const parts = [

@@ -1,4 +1,6 @@
-import { SamlConfig } from "../src/passport-saml/types";
+import { SamlConfig, Profile } from "../src/types";
+
+import type * as express from "express";
 
 // a certificate which is re-used by several tests
 export const TEST_CERT =
@@ -23,4 +25,9 @@ export interface SamlCheck {
   samlResponse?: any;
   config: SamlConfig;
   expectedNameIDStartsWith?: string;
+}
+
+export interface RequestWithUser extends express.Request {
+  samlLogoutRequest: any;
+  user?: Profile;
 }

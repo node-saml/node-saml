@@ -14,22 +14,19 @@ import {
   AudienceRestrictionXML,
   AuthorizeRequestXML,
   CertCallback,
+  ErrorWithXmlStatus,
   LogoutRequestXML,
+  Profile,
   SamlIDPListConfig,
   SamlIDPEntryConfig,
   SamlOptions,
+  SamlConfig,
   ServiceMetadataXML,
   XMLInput,
   XMLObject,
   XMLOutput,
 } from "./types";
-import {
-  AuthenticateOptions,
-  AuthorizeOptions,
-  Profile,
-  SamlConfig,
-  ErrorWithXmlStatus,
-} from "../passport-saml/types";
+import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertRequired } from "./utility";
 import {
   buildXml2JsObject,

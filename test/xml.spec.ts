@@ -9,9 +9,9 @@ export const encrytpXml = util.promisify(xmlenc.encrypt);
 export const decryptXml = util.promisify(xmlenc.decrypt);
 
 describe("xml /", async function () {
-  const rsa_pub = fs.readFileSync(__dirname + "/../static/testshib encryption pub.pem");
-  const pem = fs.readFileSync(__dirname + "/../static/testshib encryption cert.pem");
-  const key = fs.readFileSync(__dirname + "/../static/testshib encryption pvk.pem");
+  const rsa_pub = fs.readFileSync(__dirname + "/static/testshib encryption pub.pem");
+  const pem = fs.readFileSync(__dirname + "/static/testshib encryption cert.pem");
+  const key = fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem");
 
   it("should decrypt aes128-cbc/rsa-oaep-mgf1p", async function () {
     const encryptOptions: xmlenc.EncryptOptions = {
