@@ -25,10 +25,10 @@ The examples utilize the [Feide OpenIdp identity provider](https://openidp.feide
 The SAML identity provider will redirect you to the URL provided by the `path` configuration.
 
 ```javascript
-  const {SAML} = require('node-saml');
+const { SAML } = require("node-saml");
 
-  const options = {};
-  const saml = new SAML(options);
+const options = {};
+const saml = new SAML(options);
 ```
 
 #### Config parameter details:
