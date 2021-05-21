@@ -1,7 +1,7 @@
 {
   "name": "node-saml",
   "version": "3.0.0",
-  "description": "SAML 2.0 authentication strategy for Node.js",
+  "description": "SAML 2.0 implementation for Node.js",
   "keywords": [
     "saml",
     "adfs",
