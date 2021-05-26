@@ -24,7 +24,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm ci
-      - run: npm --depth 9999 update
+      - run: npm update
+      # Remove the node_modules and re-install with updated package-lock.json
+      # because npm update command breaks some of the npm-cli packages
+      - run: rm -rf node_modules
+      - run: npm ci
       - run: npm test
         env:
           CI: true
