@@ -123,6 +123,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
 
   // extras
   disableRequestAcsUrl: boolean;
+  samlExtensions?: any;
 }
 
 export interface StrategyOptions {

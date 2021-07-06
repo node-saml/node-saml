@@ -352,6 +352,10 @@ class SAML {
       request["samlp:AuthnRequest"]["samlp:Scoping"] = scoping;
     }
 
+    if (this.options.samlExtensions != null) {
+      request["samlp:AuthnRequest"]["samlp:Extensions"] = this.options.samlExtensions;
+    }
+
     let stringRequest = buildXmlBuilderObject(request, false);
     // TODO: maybe we should always sign here
     if (isHttpPostBinding && isValidSamlSigningOptions(this.options)) {
