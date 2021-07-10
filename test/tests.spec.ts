@@ -26,10 +26,10 @@ describe("node-saml /", function () {
       }).throw("cert is required");
     });
 
-    it("_generateUniqueID should generate 20 char IDs", function () {
+    it("generateUniqueId should generate 21 char IDs", function () {
       const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
       for (let i = 0; i < 200; i++) {
-        samlObj._generateUniqueID().length.should.eql(20);
+        samlObj["generateUniqueId"]().length.should.eql(21);
       }
     });
 
@@ -903,11 +903,11 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: function () {
+            return "_12345678901234567890";
+          },
         };
         const samlObj = new SAML(samlConfig);
-        samlObj._generateUniqueID = function () {
-          return "12345678901234567890";
-        };
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         qry.SigAlg?.should.match("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
@@ -931,11 +931,11 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: function () {
+            return "_12345678901234567890";
+          },
         };
         const samlObj = new SAML(samlConfig);
-        samlObj._generateUniqueID = function () {
-          return "12345678901234567890";
-        };
 
         const request =
           '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
@@ -957,11 +957,11 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "utf-8"),
+          generateUniqueId: function () {
+            return "_12345678901234567890";
+          },
         };
         const samlObj = new SAML(samlConfig);
-        samlObj._generateUniqueID = function () {
-          return "12345678901234567890";
-        };
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         qry.SigAlg?.should.match("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
@@ -985,11 +985,11 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: function () {
+            return "_12345678901234567890";
+          },
         };
         const samlObj = new SAML(samlConfig);
-        samlObj._generateUniqueID = function () {
-          return "12345678901234567890";
-        };
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         qry.SigAlg?.should.match("http://www.w3.org/2000/09/xmldsig#rsa-sha1");

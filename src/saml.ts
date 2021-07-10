@@ -111,7 +111,7 @@ async function promiseWithNameID(nameid: Node): Promise<NameID> {
 
 class SAML {
   // note that some methods in SAML are not yet marked as private as they are used in testing.
-  // those methods start with an underscore, e.g. _generateUniqueID
+  // those methods start with an underscore, e.g. _generateLogoutRequest
   options: SamlOptions;
   // This is only for testing
   cacheProvider!: InMemoryCacheProvider;
@@ -197,8 +197,12 @@ class SAML {
     }
   }
 
-  _generateUniqueID() {
-    return crypto.randomBytes(10).toString("hex");
+  private generateUniqueId() {
+    if (this.options.generateUniqueId) {
+      return this.options.generateUniqueId();
+    } else {
+      return "_" + crypto.randomBytes(10).toString("hex");
+    }
   }
 
   private generateInstant() {
@@ -234,7 +238,7 @@ class SAML {
   ): Promise<string | undefined> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
-    const id = "_" + this._generateUniqueID();
+    const id = this.generateUniqueId();
     const instant = this.generateInstant();
 
     if (this.options.validateInResponseTo) {
@@ -361,7 +365,7 @@ class SAML {
   }
 
   async _generateLogoutRequest(user: Profile) {
-    const id = "_" + this._generateUniqueID();
+    const id = this.generateUniqueId();
     const instant = this.generateInstant();
 
     const request = {
@@ -403,7 +407,7 @@ class SAML {
   }
 
   _generateLogoutResponse(logoutRequest: Profile) {
-    const id = "_" + this._generateUniqueID();
+    const id = this.generateUniqueId();
     const instant = this.generateInstant();
 
     const request = {
