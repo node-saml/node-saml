@@ -164,7 +164,7 @@ describe("test validateXMLNamespace", () => {
     }).throw(TypeError);
     should(() => {
       validateXMLNamespace("", undefined);
-    }).throw("key should be define");
+    }).throw("key should be defined");
     should(() => {
       validateXMLNamespace("test", {});
     }).throw("test XML Element value should be object and not empty");
