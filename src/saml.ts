@@ -27,7 +27,7 @@ import {
   XMLOutput,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
-import { assertRequired } from "./utility";
+import { assertRequired, validateSAMLExtensionsElement } from "./utility";
 import {
   buildXml2JsObject,
   buildXmlBuilderObject,
@@ -265,6 +265,16 @@ class SAML {
       request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = this.getCallbackUrl(host);
     }
 
+    const samlExtensions = this.options.samlExtensions;
+    if (samlExtensions != null) {
+      if (validateSAMLExtensionsElement(samlExtensions)) {
+        request["samlp:AuthnRequest"]["samlp:Extensions"] = {
+          "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+          ...samlExtensions,
+        };
+      }
+    }
+
     if (this.options.identifierFormat != null) {
       request["samlp:AuthnRequest"]["samlp:NameIDPolicy"] = {
         "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
@@ -350,10 +360,6 @@ class SAML {
       }
 
       request["samlp:AuthnRequest"]["samlp:Scoping"] = scoping;
-    }
-
-    if (this.options.samlExtensions != null) {
-      request["samlp:AuthnRequest"]["samlp:Extensions"] = this.options.samlExtensions;
     }
 
     let stringRequest = buildXmlBuilderObject(request, false);

@@ -14,6 +14,7 @@ const capturedSamlRequestChecks: SamlCheck[] = [
         "md:RequestedAttribute": {
           "@isRequired": "true",
           "@Name": "Lastname",
+          "@xmlns:md": "urn:vetuma:SAML:2.0:metadata",
         },
         vetuma: {
           "@xmlns": "urn:vetuma:SAML:2.0:extensions",
@@ -35,6 +36,28 @@ const capturedSamlRequestChecks: SamlCheck[] = [
         "saml:Issuer": [
           { _: "onelogin_saml", $: { "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion" } },
         ],
+        "samlp:Extensions": [
+          {
+            $: {
+              "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+            },
+            "md:RequestedAttribute": [
+              {
+                $: {
+                  isRequired: "true",
+                  Name: "Lastname",
+                  "xmlns:md": "urn:vetuma:SAML:2.0:metadata",
+                },
+              },
+            ],
+            vetuma: [
+              {
+                $: { xmlns: "urn:vetuma:SAML:2.0:extensions" },
+                LG: ["sv"],
+              },
+            ],
+          },
+        ],
         "samlp:NameIDPolicy": [
           {
             $: {
@@ -51,21 +74,6 @@ const capturedSamlRequestChecks: SamlCheck[] = [
               {
                 _: "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
                 $: { "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion" },
-              },
-            ],
-          },
-        ],
-        "samlp:Extensions": [
-          {
-            "md:RequestedAttribute": [
-              {
-                $: { isRequired: "true", Name: "Lastname" },
-              },
-            ],
-            vetuma: [
-              {
-                $: { xmlns: "urn:vetuma:SAML:2.0:extensions" },
-                LG: ["sv"],
               },
             ],
           },
