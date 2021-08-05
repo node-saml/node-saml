@@ -5,6 +5,6 @@
   "recursive": true,
   "reporter": "spec",
   "require": ["choma", "ts-node/register"],
-  "files": "test/**/*.*.ts",
-  "watch-files": "test/**/*.*.ts"
+  "files": "test/**/*.[spec|test].ts",
+  "watch-files": "test/**/*.[spec|test].ts"
 }

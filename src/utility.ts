@@ -55,7 +55,7 @@ export function validateXMLNamespace(
   jsonXMLElementKey: string,
   jsonXMLElementValue: any
 ): boolean | JSONXMLSchemaError {
-  jsonXMLElementKey = assertRequired(jsonXMLElementKey, `key should be define`);
+  jsonXMLElementKey = assertRequired(jsonXMLElementKey, `key should be defined`);
 
   jsonXMLElementValue = assertObjectAndNotEmpty(
     jsonXMLElementValue,
