@@ -110,6 +110,7 @@ samlExtensions: {
   "md:RequestedAttribute": {
     "@isRequired": "true",
     "@Name": "Lastname",
+    "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata"
   },
   vetuma: {
     "@xmlns": "urn:vetuma:SAML:2.0:extensions",
