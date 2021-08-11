@@ -267,7 +267,7 @@ class SAML {
 
     const samlExtensions = this.options.samlExtensions;
     if (samlExtensions != null) {
-      if (!(typeof samlExtensions == "object")) {
+      if (typeof samlExtensions != "object") {
         throw TypeError("samlExtensions should be Object");
       }
       request["samlp:AuthnRequest"]["samlp:Extensions"] = {
