@@ -158,12 +158,3 @@ export class ErrorWithXmlStatus extends Error {
     super(message);
   }
 }
-
-/**
- * XML Schema Error on JSON Data
- */
-export class JSONXMLSchemaError extends Error {
-  constructor(message: string) {
-    super(message);
-  }
-}
