@@ -40,6 +40,7 @@ import {
 } from "./xml";
 import { certToPEM, generateUniqueId, keyToPEM, removeCertPEMHeaderAndFooter } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
+import { getAdditionalParams } from "./saml/common";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
@@ -513,39 +514,19 @@ class SAML {
   }
 
   _getAdditionalParams(
-    RelayState: string,
-    operation: string,
+    relayState: string,
+    operation: "authorize" | "logout",
     overrideParams?: querystring.ParsedUrlQuery
   ): querystring.ParsedUrlQuery {
-    const additionalParams: querystring.ParsedUrlQuery = {};
-
-    if (typeof RelayState === "string" && RelayState.length > 0) {
-      additionalParams.RelayState = RelayState;
-    }
-
-    const optionsAdditionalParams = this.options.additionalParams;
-    Object.keys(optionsAdditionalParams).forEach(function (k) {
-      additionalParams[k] = optionsAdditionalParams[k];
+    return getAdditionalParams({
+      relayState,
+      globalAdditionalParams: this.options.additionalParams,
+      operationAdditionalParams:
+        operation === "logout"
+          ? this.options.additionalLogoutParams
+          : this.options.additionalAuthorizeParams,
+      overrideParams,
     });
-
-    let optionsAdditionalParamsForThisOperation: Record<string, string> = {};
-    if (operation == "authorize") {
-      optionsAdditionalParamsForThisOperation = this.options.additionalAuthorizeParams;
-    }
-    if (operation == "logout") {
-      optionsAdditionalParamsForThisOperation = this.options.additionalLogoutParams;
-    }
-
-    Object.keys(optionsAdditionalParamsForThisOperation).forEach(function (k) {
-      additionalParams[k] = optionsAdditionalParamsForThisOperation[k];
-    });
-
-    overrideParams = overrideParams ?? {};
-    Object.keys(overrideParams).forEach(function (k) {
-      additionalParams[k] = overrideParams![k];
-    });
-
-    return additionalParams;
   }
 
   async getAuthorizeUrlAsync(

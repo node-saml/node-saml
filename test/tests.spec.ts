@@ -1180,7 +1180,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        ["logout", "authorize"].forEach(function (operation) {
+        (["logout", "authorize"] as const).forEach(function (operation) {
           const additionalParams = samlObj._getAdditionalParams("", operation);
           additionalParams.should.be.empty;
         });
@@ -1193,7 +1193,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        ["logout", "authorize"].forEach(function (operation) {
+        (["logout", "authorize"] as const).forEach(function (operation) {
           const additionalParams = samlObj._getAdditionalParams("test", operation);
 
           Object.keys(additionalParams).should.have.length(1);
@@ -1208,7 +1208,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        ["logout", "authorize"].forEach(function (operation) {
+        (["logout", "authorize"] as const).forEach(function (operation) {
           const additionalParams = samlObj._getAdditionalParams(
             { RelayState: "test" } as unknown as string,
             operation
@@ -1228,7 +1228,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        ["logout", "authorize"].forEach(function (operation) {
+        (["logout", "authorize"] as const).forEach(function (operation) {
           const additionalParams = samlObj._getAdditionalParams("", operation);
           Object.keys(additionalParams).should.have.length(1);
           additionalParams.should.containEql({ queryParam: "queryParamValue" });
