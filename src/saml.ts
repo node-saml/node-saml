@@ -6,7 +6,6 @@ import { URL } from "url";
 import * as querystring from "querystring";
 import * as util from "util";
 import { InMemoryCacheProvider } from "./inmemory-cache-provider";
-import * as algorithms from "./algorithms";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { ParsedQs } from "qs";
 import {
@@ -38,9 +37,9 @@ import {
   validateXmlSignatureForCert,
   xpath,
 } from "./xml";
-import { certToPEM, generateUniqueId, keyToPEM, removeCertPEMHeaderAndFooter } from "./crypto";
+import { certToPEM, generateUniqueId, removeCertPEMHeaderAndFooter } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
-import { getAdditionalParams } from "./saml/common";
+import { getAdditionalParams, requestToUrl } from "./saml/common";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
@@ -202,33 +201,11 @@ class SAML {
     }
   }
 
-  private signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
-    this.options.privateKey = assertRequired(this.options.privateKey, "privateKey is required");
-
-    const samlMessageToSign: querystring.ParsedUrlQueryInput = {};
-    samlMessage.SigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
-    const signer = algorithms.getSigner(this.options.signatureAlgorithm);
-    if (samlMessage.SAMLRequest) {
-      samlMessageToSign.SAMLRequest = samlMessage.SAMLRequest;
-    }
-    if (samlMessage.SAMLResponse) {
-      samlMessageToSign.SAMLResponse = samlMessage.SAMLResponse;
-    }
-    if (samlMessage.RelayState) {
-      samlMessageToSign.RelayState = samlMessage.RelayState;
-    }
-    if (samlMessage.SigAlg) {
-      samlMessageToSign.SigAlg = samlMessage.SigAlg;
-    }
-    signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(keyToPEM(this.options.privateKey), "base64");
-  }
-
   private async generateAuthorizeRequestAsync(
     isPassive: boolean,
     isHttpPostBinding: boolean,
     host: string | undefined
-  ): Promise<string | undefined> {
+  ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const id = this.options.generateUniqueId();
@@ -463,54 +440,38 @@ class SAML {
   }
 
   async _requestToUrlAsync(
-    request: string | null | undefined,
+    request: string | null,
     response: string | null,
     operation: string,
     additionalParameters: querystring.ParsedUrlQuery
   ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
+    this.options.signatureAlgorithm = assertRequired(
+      this.options.signatureAlgorithm,
+      "signatureAlgorithm is required"
+    );
 
-    let buffer: Buffer;
-    if (this.options.skipRequestCompression) {
-      buffer = Buffer.from((request || response)!, "utf8");
-    } else {
-      buffer = await deflateRawAsync((request || response)!);
+    const targetUrl =
+      operation === "logout" && this.options.logoutUrl
+        ? this.options.logoutUrl
+        : this.options.entryPoint;
+
+    const message = request || response;
+    const messageType = request ? "SAMLRequest" : "SAMLResponse";
+
+    if (!message) {
+      throw new Error("response or request should be provided");
     }
 
-    const base64 = buffer.toString("base64");
-    let target = new URL(this.options.entryPoint);
-
-    if (operation === "logout") {
-      if (this.options.logoutUrl) {
-        target = new URL(this.options.logoutUrl);
-      }
-    } else if (operation !== "authorize") {
-      throw new Error("Unknown operation: " + operation);
-    }
-
-    const samlMessage: querystring.ParsedUrlQuery = request
-      ? {
-          SAMLRequest: base64,
-        }
-      : {
-          SAMLResponse: base64,
-        };
-    Object.keys(additionalParameters).forEach((k) => {
-      samlMessage[k] = additionalParameters[k];
+    return await requestToUrl({
+      targetUrl,
+      skipRequestCompression: this.options.skipRequestCompression,
+      message,
+      messageType,
+      additionalParameters,
+      privateKey: this.options.privateKey,
+      signatureAlgorithm: this.options.signatureAlgorithm,
     });
-    if (isValidSamlSigningOptions(this.options)) {
-      if (!this.options.entryPoint) {
-        throw new Error('"entryPoint" config parameter is required for signed messages');
-      }
-
-      // sets .SigAlg and .Signature
-      this.signRequest(samlMessage);
-    }
-    Object.keys(samlMessage).forEach((k) => {
-      target.searchParams.set(k, samlMessage[k] as string);
-    });
-
-    return target.toString();
   }
 
   _getAdditionalParams(
