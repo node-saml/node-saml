@@ -2312,12 +2312,6 @@ describe("node-saml /", function () {
       afterEach(async function () {
         await samlObj.cacheProvider.removeAsync("_79db1e7ad12ca1d63e5b");
       });
-      it("errors if bad xml", async function () {
-        const body = {
-          SAMLRequest: "asdf",
-        };
-        await assert.rejects(samlObj.validateRedirectAsync(body, ""));
-      });
       it("errors if idpIssuer is set and wrong issuer", async function () {
         samlObj.options.idpIssuer = "foo";
         await assert.rejects(

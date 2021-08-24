@@ -21,7 +21,6 @@ import {
   SamlIDPEntryConfig,
   SamlOptions,
   SamlConfig,
-  ServiceMetadataXML,
   XMLInput,
   XMLObject,
   XMLOutput,
@@ -37,9 +36,10 @@ import {
   validateXmlSignatureForCert,
   xpath,
 } from "./xml";
-import { certToPEM, generateUniqueId, removeCertPEMHeaderAndFooter } from "./crypto";
+import { certToPEM, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { getAdditionalParams, requestToUrl } from "./saml/common";
+import { generateServiceProviderMetadata } from "./saml/metadata";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
@@ -69,7 +69,7 @@ async function processValidlySignedPostRequestAsync(
       throw new Error("Missing SAML issuer");
     }
     const nameID = await self._getNameIdAsync(self, dom);
-    if (nameID.value) {
+    if (nameID && nameID.value) {
       profile.nameID = nameID.value;
       if (nameID.format) {
         profile.nameIDFormat = nameID.format;
@@ -345,7 +345,7 @@ class SAML {
     return stringRequest;
   }
 
-  async _generateLogoutRequest(user: Profile) {
+  async _generateLogoutRequest(user: Profile): Promise<string> {
     const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
@@ -446,10 +446,6 @@ class SAML {
     additionalParameters: querystring.ParsedUrlQuery
   ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
-    this.options.signatureAlgorithm = assertRequired(
-      this.options.signatureAlgorithm,
-      "signatureAlgorithm is required"
-    );
 
     const targetUrl =
       operation === "logout" && this.options.logoutUrl
@@ -540,17 +536,14 @@ class SAML {
     };
 
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
-    let buffer: Buffer;
-    if (this.options.skipRequestCompression) {
-      buffer = Buffer.from(request!, "utf8");
-    } else {
-      buffer = await deflateRawAsync(request!);
-    }
+    const buffer = this.options.skipRequestCompression
+      ? Buffer.from(request, "utf8")
+      : await deflateRawAsync(request);
 
     const operation = "authorize";
     const additionalParameters = this._getAdditionalParams(RelayState, operation);
     const samlMessage: querystring.ParsedUrlQueryInput = {
-      SAMLRequest: buffer!.toString("base64"),
+      SAMLRequest: buffer.toString("base64"),
     };
 
     Object.keys(additionalParameters).forEach((k) => {
@@ -1300,99 +1293,44 @@ class SAML {
 
   generateServiceProviderMetadata(
     decryptionCert: string | null,
-    signingCert?: string | string[] | null
+    signingCerts?: string | string[] | null
   ): string {
-    const metadata: ServiceMetadataXML = {
-      EntityDescriptor: {
-        "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
-        "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
-        "@entityID": this.options.issuer,
-        "@ID": this.options.generateUniqueId(),
-        SPSSODescriptor: {
-          "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
-        },
-      },
-    };
-
-    if (this.options.decryptionPvk != null || this.options.privateKey != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = [];
-      if (isValidSamlSigningOptions(this.options)) {
-        signingCert = assertRequired(
-          signingCert,
-          "Missing signingCert while generating metadata for signing service provider messages"
-        );
-
-        metadata.EntityDescriptor.SPSSODescriptor["@AuthnRequestsSigned"] = true;
-
-        const certArray = Array.isArray(signingCert) ? signingCert : [signingCert];
-        const signingKeyDescriptors = certArray.map((cert) => ({
-          "@use": "signing",
-          "ds:KeyInfo": {
-            "ds:X509Data": {
-              "ds:X509Certificate": {
-                "#text": removeCertPEMHeaderAndFooter(cert),
-              },
-            },
-          },
-        }));
-        metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push(signingKeyDescriptors);
-      }
-
-      if (this.options.decryptionPvk != null) {
-        decryptionCert = assertRequired(
-          decryptionCert,
+    if (this.options.decryptionPvk != null) {
+      if (!decryptionCert) {
+        throw new Error(
           "Missing decryptionCert while generating metadata for decrypting service provider"
         );
-
-        decryptionCert = removeCertPEMHeaderAndFooter(decryptionCert);
-
-        metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
-          "@use": "encryption",
-          "ds:KeyInfo": {
-            "ds:X509Data": {
-              "ds:X509Certificate": {
-                "#text": decryptionCert,
-              },
-            },
-          },
-          EncryptionMethod: [
-            // this should be the set that the xmlenc library supports
-            { "@Algorithm": "http://www.w3.org/2009/xmlenc11#aes256-gcm" },
-            { "@Algorithm": "http://www.w3.org/2009/xmlenc11#aes128-gcm" },
-            { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#aes256-cbc" },
-            { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#aes128-cbc" },
-          ],
-        });
       }
+    } else {
+      // ignore decryption cert if we don't have a decryption private key
+      // TODO we should probably fail here
+      decryptionCert = null;
     }
 
-    if (this.options.logoutCallbackUrl != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.SingleLogoutService = {
-        "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-        "@Location": this.options.logoutCallbackUrl,
-      };
+    if (this.options.privateKey != null) {
+      if (!signingCerts) {
+        throw new Error(
+          "Missing signingCert while generating metadata for signing service provider messages"
+        );
+      }
+      if (!Array.isArray(signingCerts)) {
+        signingCerts = [signingCerts];
+      }
+    } else {
+      // ignore signing cert if we don't have a signing private key
+      // TODO we should probably fail here
+      signingCerts = null;
     }
 
-    if (this.options.identifierFormat != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.NameIDFormat = this.options.identifierFormat;
-    }
-
-    if (this.options.wantAssertionsSigned) {
-      metadata.EntityDescriptor.SPSSODescriptor["@WantAssertionsSigned"] = true;
-    }
-
-    metadata.EntityDescriptor.SPSSODescriptor.AssertionConsumerService = {
-      "@index": "1",
-      "@isDefault": "true",
-      "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-      "@Location": this.getCallbackUrl(),
-    };
-
-    let metadataXml = buildXmlBuilderObject(metadata, true);
-    if (this.options.signMetadata === true && isValidSamlSigningOptions(this.options)) {
-      metadataXml = signXmlMetadata(metadataXml, this.options);
-    }
-    return metadataXml;
+    return generateServiceProviderMetadata({
+      issuer: this.options.issuer,
+      callbackUrl: this.getCallbackUrl(), // TODO it would probably be useful to have a host parameter here
+      logoutCallbackUrl: this.options.logoutCallbackUrl,
+      identifierFormat: this.options.identifierFormat,
+      wantAssertionsSigned: this.options.wantAssertionsSigned,
+      signingCerts,
+      decryptionCert,
+    });
   }
 
   /**
