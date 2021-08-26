@@ -64,6 +64,7 @@ const saml = new SAML(options);
 - `skipRequestCompression`: if set to true, the SAML request from the service provider won't be compressed.
 - `authnRequestBinding`: if set to `HTTP-POST`, will request authentication from IDP via HTTP POST binding, otherwise defaults to HTTP Redirect
 - `disableRequestAcsUrl`: if truthy, SAML AuthnRequest from the service provider will not include the optional AssertionConsumerServiceURL. Default is falsy so it is automatically included.
+- `generateUniqueId`: optional function which will be called to generate unique IDs for SAML requests.
 - `scoping`: An optional configuration which implements the functionality [explained in the SAML spec paragraph "3.4.1.2 Element <Scoping>"](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf). The config object is structured as following:
 
 ```javascript

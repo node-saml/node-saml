@@ -31,9 +31,9 @@ describe("crypto.ts", function () {
   });
 
   describe("generateUniqueID", function () {
-    it("should generate 20 char IDs", function () {
+    it("should generate 21 char IDs", function () {
       for (let i = 0; i < 200; i++) {
-        generateUniqueId().length.should.eql(20);
+        generateUniqueId().length.should.eql(21);
       }
     });
   });

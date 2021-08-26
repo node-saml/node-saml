@@ -162,6 +162,7 @@ class SAML {
       logoutUrl: ctorOptions.logoutUrl ?? ctorOptions.entryPoint ?? "", // Default to Entry Point
       signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, or sha512
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
+      generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
 
       racComparison: ctorOptions.racComparison ?? "exact",
     };
@@ -228,7 +229,7 @@ class SAML {
   ): Promise<string | undefined> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
-    const id = "_" + generateUniqueId();
+    const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
     if (this.options.validateInResponseTo) {
@@ -355,7 +356,7 @@ class SAML {
   }
 
   async _generateLogoutRequest(user: Profile) {
-    const id = "_" + generateUniqueId();
+    const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
     const request = {
@@ -397,7 +398,7 @@ class SAML {
   }
 
   _generateLogoutResponse(logoutRequest: Profile) {
-    const id = "_" + generateUniqueId();
+    const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
     const request = {

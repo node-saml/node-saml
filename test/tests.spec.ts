@@ -861,16 +861,11 @@ describe("node-saml /", function () {
 
     describe("getAuthorizeUrl request signature checks /", function () {
       let fakeClock: sinon.SinonFakeTimers;
-      let fakeGenerateUniqueID: sinon.SinonStub;
       beforeEach(function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
-        fakeGenerateUniqueID = sinon.stub(crypto, "generateUniqueID").callsFake(() => {
-          return "12345678901234567890";
-        });
       });
       afterEach(function () {
         fakeClock.restore();
-        fakeGenerateUniqueID.restore();
       });
 
       it("acme_tools request signed with sha256", async () => {
@@ -888,6 +883,7 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: () => "_12345678901234567890",
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
@@ -913,6 +909,7 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: () => "_12345678901234567890",
         };
         const samlObj = new SAML(samlConfig);
 
@@ -936,6 +933,7 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "utf-8"),
+          generateUniqueId: () => "_12345678901234567890",
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
@@ -961,6 +959,7 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: () => "_12345678901234567890",
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
