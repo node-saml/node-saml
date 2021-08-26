@@ -40,77 +40,13 @@ import { certToPEM, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { getAdditionalParams, requestToUrlAsync } from "./saml/common";
 import { generateServiceProviderMetadata } from "./saml/metadata";
+import {
+  processValidlySignedPostRequestAsync,
+  processValidlySignedSamlLogoutAsync,
+} from "./saml/logout";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
-
-interface NameID {
-  value: string | null;
-  format: string | null;
-}
-
-async function processValidlySignedPostRequestAsync(
-  self: SAML,
-  doc: XMLOutput,
-  dom: Document
-): Promise<{ profile: Profile; loggedOut: boolean }> {
-  const request = doc.LogoutRequest;
-  if (request) {
-    const profile = {} as Profile;
-    if (request.$.ID) {
-      profile.ID = request.$.ID;
-    } else {
-      throw new Error("Missing SAML LogoutRequest ID");
-    }
-    const issuer = request.Issuer;
-    if (issuer && issuer[0]._) {
-      profile.issuer = issuer[0]._;
-    } else {
-      throw new Error("Missing SAML issuer");
-    }
-    const nameID = await self._getNameIdAsync(self, dom);
-    if (nameID && nameID.value) {
-      profile.nameID = nameID.value;
-      if (nameID.format) {
-        profile.nameIDFormat = nameID.format;
-      }
-    } else {
-      throw new Error("Missing SAML NameID");
-    }
-    const sessionIndex = request.SessionIndex;
-    if (sessionIndex) {
-      profile.sessionIndex = sessionIndex[0]._;
-    }
-    return { profile, loggedOut: true };
-  } else {
-    throw new Error("Unknown SAML request message");
-  }
-}
-
-async function processValidlySignedSamlLogoutAsync(
-  self: SAML,
-  doc: XMLOutput,
-  dom: Document
-): Promise<{ profile: Profile | null; loggedOut: boolean }> {
-  const response = doc.LogoutResponse;
-  const request = doc.LogoutRequest;
-
-  if (response) {
-    return { profile: null, loggedOut: true };
-  } else if (request) {
-    return await processValidlySignedPostRequestAsync(self, doc, dom);
-  } else {
-    throw new Error("Unknown SAML response message");
-  }
-}
-
-async function promiseWithNameID(nameid: Node): Promise<NameID> {
-  const format = xpath.selectAttributes(nameid, "@Format");
-  return {
-    value: nameid.textContent,
-    format: format && format[0] && format[0].nodeValue,
-  };
-}
 
 class SAML {
   // note that some methods in SAML are not yet marked as private as they are used in testing.
@@ -861,7 +797,7 @@ class SAML {
   async validateRedirectAsync(
     container: ParsedQs,
     originalQuery: string
-  ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
+  ): Promise<{ profile: Profile | null; loggedOut: true }> {
     const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
 
     const data = Buffer.from(container[samlMessageType] as string, "base64");
@@ -873,7 +809,7 @@ class SAML {
       ? await this.verifyLogoutResponse(doc)
       : this.verifyLogoutRequest(doc);
     await this.hasValidSignatureForRedirect(container, originalQuery);
-    return await processValidlySignedSamlLogoutAsync(this, doc, dom);
+    return await processValidlySignedSamlLogoutAsync(doc, dom, this.options.decryptionPvk ?? null);
   }
 
   private async hasValidSignatureForRedirect(
@@ -1237,7 +1173,7 @@ class SAML {
 
   async validatePostRequestAsync(
     container: Record<string, string>
-  ): Promise<{ profile: Profile; loggedOut: boolean }> {
+  ): Promise<{ profile: Profile; loggedOut: true }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
     const dom = parseDomFromString(xml);
     const doc = await parseXml2JsFromString(xml);
@@ -1245,50 +1181,7 @@ class SAML {
     if (!this.validateSignature(xml, dom.documentElement, certs)) {
       throw new Error("Invalid signature on documentElement");
     }
-    return await processValidlySignedPostRequestAsync(this, doc, dom);
-  }
-
-  async _getNameIdAsync(self: SAML, doc: Node): Promise<NameID> {
-    const nameIds = xpath.selectElements(
-      doc,
-      "/*[local-name()='LogoutRequest']/*[local-name()='NameID']"
-    );
-    const encryptedIds = xpath.selectElements(
-      doc,
-      "/*[local-name()='LogoutRequest']/*[local-name()='EncryptedID']"
-    );
-
-    if (nameIds.length + encryptedIds.length > 1) {
-      throw new Error("Invalid LogoutRequest");
-    }
-    if (nameIds.length === 1) {
-      return promiseWithNameID(nameIds[0]);
-    }
-    if (encryptedIds.length === 1) {
-      self.options.decryptionPvk = assertRequired(
-        self.options.decryptionPvk,
-        "No decryption key found getting name ID for encrypted SAML response"
-      );
-
-      const encryptedDatas = xpath.selectElements(
-        encryptedIds[0],
-        "./*[local-name()='EncryptedData']"
-      );
-
-      if (encryptedDatas.length !== 1) {
-        throw new Error("Invalid LogoutRequest");
-      }
-      const encryptedDataXml = encryptedDatas[0].toString();
-
-      const decryptedXml = await decryptXml(encryptedDataXml, self.options.decryptionPvk);
-      const decryptedDoc = parseDomFromString(decryptedXml);
-      const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
-      if (decryptedIds.length !== 1) {
-        throw new Error("Invalid EncryptedAssertion content");
-      }
-      return await promiseWithNameID(decryptedIds[0]);
-    }
-    throw new Error("Missing SAML NameID");
+    return await processValidlySignedPostRequestAsync(doc, dom, this.options.decryptionPvk ?? null);
   }
 
   generateServiceProviderMetadata(
