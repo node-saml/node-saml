@@ -37,6 +37,8 @@ import {
   validateXmlSignatureForCert,
   xpath,
 } from "./xml";
+import { certToPEM, generateUniqueId, keyToPEM, removeCertPEMHeaderAndFooter } from "./crypto";
+import { dateStringToTimestamp, generateInstant } from "./datetime";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
@@ -111,7 +113,7 @@ async function promiseWithNameID(nameid: Node): Promise<NameID> {
 
 class SAML {
   // note that some methods in SAML are not yet marked as private as they are used in testing.
-  // those methods start with an underscore, e.g. _generateUniqueID
+  // those methods start with an underscore, e.g. _generateLogoutRequest
   options: SamlOptions;
   // This is only for testing
   cacheProvider!: InMemoryCacheProvider;
@@ -160,6 +162,7 @@ class SAML {
       logoutUrl: ctorOptions.logoutUrl ?? ctorOptions.entryPoint ?? "", // Default to Entry Point
       signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, or sha512
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
+      generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
 
       racComparison: ctorOptions.racComparison ?? "exact",
     };
@@ -197,14 +200,6 @@ class SAML {
     }
   }
 
-  _generateUniqueID() {
-    return crypto.randomBytes(10).toString("hex");
-  }
-
-  private generateInstant() {
-    return new Date().toISOString();
-  }
-
   private signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
     this.options.privateKey = assertRequired(this.options.privateKey, "privateKey is required");
 
@@ -224,7 +219,7 @@ class SAML {
       samlMessageToSign.SigAlg = samlMessage.SigAlg;
     }
     signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(this._keyToPEM(this.options.privateKey), "base64");
+    samlMessage.Signature = signer.sign(keyToPEM(this.options.privateKey), "base64");
   }
 
   private async generateAuthorizeRequestAsync(
@@ -234,8 +229,8 @@ class SAML {
   ): Promise<string | undefined> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
-    const id = "_" + this._generateUniqueID();
-    const instant = this.generateInstant();
+    const id = this.options.generateUniqueId();
+    const instant = generateInstant();
 
     if (this.options.validateInResponseTo) {
       await this.cacheProvider.saveAsync(id, instant);
@@ -361,8 +356,8 @@ class SAML {
   }
 
   async _generateLogoutRequest(user: Profile) {
-    const id = "_" + this._generateUniqueID();
-    const instant = this.generateInstant();
+    const id = this.options.generateUniqueId();
+    const instant = generateInstant();
 
     const request = {
       "samlp:LogoutRequest": {
@@ -403,8 +398,8 @@ class SAML {
   }
 
   _generateLogoutResponse(logoutRequest: Profile) {
-    const id = "_" + this._generateUniqueID();
-    const instant = this.generateInstant();
+    const id = this.options.generateUniqueId();
+    const instant = generateInstant();
 
     const request = {
       "samlp:LogoutResponse": {
@@ -652,15 +647,6 @@ class SAML {
     );
   }
 
-  _certToPEM(cert: string): string {
-    cert = cert.match(/.{1,64}/g)!.join("\n");
-
-    if (cert.indexOf("-BEGIN CERTIFICATE-") === -1) cert = "-----BEGIN CERTIFICATE-----\n" + cert;
-    if (cert.indexOf("-END CERTIFICATE-") === -1) cert = cert + "\n-----END CERTIFICATE-----\n";
-
-    return cert;
-  }
-
   private async certsToCheck(): Promise<string[]> {
     let checkedCerts: string[];
 
@@ -724,12 +710,7 @@ class SAML {
 
     const signature = signatures[0];
     return certs.some((certToCheck) => {
-      return validateXmlSignatureForCert(
-        signature,
-        this._certToPEM(certToCheck),
-        fullXml,
-        currentNode
-      );
+      return validateXmlSignatureForCert(signature, certToPEM(certToCheck), fullXml, currentNode);
     });
   }
 
@@ -983,7 +964,7 @@ class SAML {
     const verifier = crypto.createVerify(matchingAlgo);
     verifier.update(urlString);
 
-    return verifier.verify(this._certToPEM(cert), signature, "base64");
+    return verifier.verify(certToPEM(cert), signature, "base64");
   }
 
   private verifyLogoutRequest(doc: XMLOutput) {
@@ -1237,12 +1218,12 @@ class SAML {
     if (this.options.acceptedClockSkewMs == -1) return null;
 
     if (notBefore) {
-      const notBeforeMs = this.dateStringToTimestamp(notBefore, "NotBefore");
+      const notBeforeMs = dateStringToTimestamp(notBefore, "NotBefore");
       if (nowMs + this.options.acceptedClockSkewMs < notBeforeMs)
         return new Error("SAML assertion not yet valid");
     }
     if (notOnOrAfter) {
-      const notOnOrAfterMs = this.dateStringToTimestamp(notOnOrAfter, "NotOnOrAfter");
+      const notOnOrAfterMs = dateStringToTimestamp(notOnOrAfter, "NotOnOrAfter");
       if (nowMs - this.options.acceptedClockSkewMs >= notOnOrAfterMs)
         return new Error("SAML assertion expired: clocks skewed too much");
     }
@@ -1367,9 +1348,7 @@ class SAML {
     if (this.options.decryptionPvk != null || this.options.privateKey != null) {
       metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = [];
       if (this.options.privateKey != null) {
-        signingCert = signingCert!.replace(/-+BEGIN CERTIFICATE-+\r?\n?/, "");
-        signingCert = signingCert.replace(/-+END CERTIFICATE-+\r?\n?/, "");
-        signingCert = signingCert.replace(/\r\n/g, "\n");
+        signingCert = removeCertPEMHeaderAndFooter(signingCert!);
 
         metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
           "@use": "signing",
@@ -1384,9 +1363,7 @@ class SAML {
       }
 
       if (this.options.decryptionPvk != null) {
-        decryptionCert = decryptionCert!.replace(/-+BEGIN CERTIFICATE-+\r?\n?/, "");
-        decryptionCert = decryptionCert.replace(/-+END CERTIFICATE-+\r?\n?/, "");
-        decryptionCert = decryptionCert.replace(/\r\n/g, "\n");
+        decryptionCert = removeCertPEMHeaderAndFooter(decryptionCert!);
 
         metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
           "@use": "encryption",
@@ -1432,27 +1409,6 @@ class SAML {
     return buildXmlBuilderObject(metadata, true);
   }
 
-  _keyToPEM(key: string | Buffer): typeof key extends string | Buffer ? string | Buffer : Error {
-    key = assertRequired(key, "key is required");
-
-    if (typeof key !== "string") return key;
-    if (key.split(/\r?\n/).length !== 1) return key;
-
-    const matchedKey = key.match(/.{1,64}/g);
-
-    if (matchedKey) {
-      const wrappedKey = [
-        "-----BEGIN PRIVATE KEY-----",
-        ...matchedKey,
-        "-----END PRIVATE KEY-----",
-        "",
-      ].join("\n");
-      return wrappedKey;
-    }
-
-    throw new Error("Invalid key");
-  }
-
   /**
    * Process max age assertion and use it if it is more restrictive than the NotOnOrAfter age
    * assertion received in the SAMLResponse.
@@ -1467,8 +1423,8 @@ class SAML {
     notOnOrAfter: string,
     issueInstant: string
   ): number {
-    const notOnOrAfterMs = this.dateStringToTimestamp(notOnOrAfter, "NotOnOrAfter");
-    const issueInstantMs = this.dateStringToTimestamp(issueInstant, "IssueInstant");
+    const notOnOrAfterMs = dateStringToTimestamp(notOnOrAfter, "NotOnOrAfter");
+    const issueInstantMs = dateStringToTimestamp(issueInstant, "IssueInstant");
 
     if (maxAssertionAgeMs === 0) {
       return notOnOrAfterMs;
@@ -1476,24 +1432,6 @@ class SAML {
 
     const maxAssertionTimeMs = issueInstantMs + maxAssertionAgeMs;
     return maxAssertionTimeMs < notOnOrAfterMs ? maxAssertionTimeMs : notOnOrAfterMs;
-  }
-
-  /**
-   * Convert a date string to a timestamp (in milliseconds).
-   *
-   * @param dateString A string representation of a date
-   * @param label Descriptive name of the date being passed in, e.g. "NotOnOrAfter"
-   * @throws Will throw an error if parsing `dateString` returns `NaN`
-   * @returns {number} The timestamp (in milliseconds) representation of the given date
-   */
-  private dateStringToTimestamp(dateString: string, label: string): number {
-    const dateMs = Date.parse(dateString);
-
-    if (isNaN(dateMs)) {
-      throw new Error(`Error parsing ${label}: '${dateString}' is not a valid date`);
-    }
-
-    return dateMs;
   }
 }
 
