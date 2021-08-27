@@ -1,13 +1,14 @@
 import { SAML } from "../src/saml";
-import { FAKE_CERT, SamlCheck } from "./types";
+import { FAKE_CERT } from "./types";
 import * as zlib from "zlib";
 import * as should from "should";
-import { parseString } from "xml2js";
+import { parseStringPromise } from "xml2js";
+import { assertRequired } from "../src/utility";
+import { SamlConfig } from "../src/types";
 
-const capturedSamlRequestChecks: SamlCheck[] = [
-  {
-    name: "Config with Extensions",
-    config: {
+describe("SAML request", function () {
+  it("Config with Extensions", function () {
+    const config: SamlConfig = {
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       samlExtensions: {
@@ -23,8 +24,9 @@ const capturedSamlRequestChecks: SamlCheck[] = [
           },
         },
       },
-    },
-    result: {
+    };
+
+    const result = {
       "samlp:AuthnRequest": {
         $: {
           "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
@@ -79,49 +81,27 @@ const capturedSamlRequestChecks: SamlCheck[] = [
           },
         ],
       },
-    },
-  },
-];
+    };
 
-describe("SAML request", function () {
-  function testForCheck(check: SamlCheck) {
-    return function (done: Mocha.Done) {
-      function helper(err: Error | null, samlRequest: Buffer) {
-        try {
-          should.not.exist(err);
-          parseString(samlRequest.toString(), function (err, doc) {
-            try {
-              should.not.exist(err);
-              delete doc["samlp:AuthnRequest"]["$"]["ID"];
-              delete doc["samlp:AuthnRequest"]["$"]["IssueInstant"];
-              doc.should.eql(check.result);
-              done();
-            } catch (err2) {
-              done(err2);
-            }
-          });
-        } catch (err3) {
-          done(err3);
-        }
-      }
-      const oSAML = new SAML(check.config);
-      oSAML.getAuthorizeFormAsync("http://localhost/saml/consume").then((formBody) => {
+    const oSAML = new SAML(config);
+    oSAML
+      .getAuthorizeFormAsync("http://localhost/saml/consume")
+      .then((formBody) => {
         formBody.should.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
         const samlRequestMatchValues = formBody.match(/<input.*name="SAMLRequest" value="([^"]*)"/);
-        const encodedSamlRequest = samlRequestMatchValues && samlRequestMatchValues[1];
+        const encodedSamlRequest = assertRequired(samlRequestMatchValues?.[1]);
 
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const buffer = Buffer.from(encodedSamlRequest!, "base64");
-        if (check.config.skipRequestCompression) {
-          return helper(null, buffer);
-        } else {
-          return zlib.inflateRaw(buffer, helper);
+        let buffer = Buffer.from(encodedSamlRequest, "base64");
+        if (!config.skipRequestCompression) {
+          buffer = zlib.inflateRawSync(buffer);
         }
-      });
-    };
-  }
 
-  capturedSamlRequestChecks.forEach(function (check) {
-    it(check.name, testForCheck(check));
+        return parseStringPromise(buffer.toString());
+      })
+      .then((doc) => {
+        delete doc["samlp:AuthnRequest"]["$"]["ID"];
+        delete doc["samlp:AuthnRequest"]["$"]["IssueInstant"];
+        doc.should.eql(result);
+      });
   });
 });
