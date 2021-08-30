@@ -424,6 +424,23 @@ describe("node-saml /", function () {
       metadata.should.containEql('WantAssertionsSigned="true"');
     });
 
+    it("generateServiceProviderMetadata contains AuthnRequestsSigned", function () {
+      const samlConfig = {
+        cert: TEST_CERT,
+        issuer: "http://example.serviceprovider.com",
+        callbackUrl: "http://example.serviceprovider.com/saml/callback",
+        identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+        privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
+        wantAssertionsSigned: true,
+      };
+
+      const samlObj = new SAML(samlConfig);
+      const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
+
+      const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
+      metadata.should.containEql('AuthnRequestsSigned="true"');
+    });
+
     describe("validatePostResponse checks /", function () {
       let fakeClock: sinon.SinonFakeTimers;
 
