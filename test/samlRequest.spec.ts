@@ -5,6 +5,7 @@ import * as should from "should";
 import { parseStringPromise } from "xml2js";
 import { assertRequired } from "../src/utility";
 import { SamlConfig } from "../src/types";
+import * as assert from "assert";
 
 describe("SAML request", function () {
   it("Config with Extensions", function () {
@@ -103,5 +104,18 @@ describe("SAML request", function () {
         delete doc["samlp:AuthnRequest"]["$"]["IssueInstant"];
         doc.should.eql(result);
       });
+  });
+
+  it("should throw error when samlExtensions is not a object", async function () {
+    const config: any = {
+      entryPoint: "https://wwwexampleIdp.com/saml",
+      cert: FAKE_CERT,
+      samlExtensions: "anyvalue",
+    };
+
+    const oSAML = new SAML(config);
+    await assert.rejects(oSAML.getAuthorizeFormAsync("http://localhost/saml/consume"), {
+      message: "samlExtensions should be Object",
+    });
   });
 });

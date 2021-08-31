@@ -268,7 +268,7 @@ class SAML {
     const samlExtensions = this.options.samlExtensions;
     if (samlExtensions != null) {
       if (typeof samlExtensions != "object") {
-        throw TypeError("samlExtensions should be Object");
+        throw new TypeError("samlExtensions should be Object");
       }
       request["samlp:AuthnRequest"]["samlp:Extensions"] = {
         "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
