@@ -265,14 +265,14 @@ class SAML {
       request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = this.getCallbackUrl(host);
     }
 
-    const samlExtensions = this.options.samlExtensions;
-    if (samlExtensions != null) {
-      if (typeof samlExtensions != "object") {
-        throw new TypeError("samlExtensions should be Object");
+    const samlAuthnRequestExtensions = this.options.samlAuthnRequestExtensions;
+    if (samlAuthnRequestExtensions != null) {
+      if (typeof samlAuthnRequestExtensions != "object") {
+        throw new TypeError("samlAuthnRequestExtensions should be Object");
       }
       request["samlp:AuthnRequest"]["samlp:Extensions"] = {
         "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
-        ...samlExtensions,
+        ...samlAuthnRequestExtensions,
       };
     }
 

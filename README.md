@@ -102,11 +102,11 @@ const saml = new SAML(options);
 - `logoutCallbackUrl`: The value with which to populate the `Location` attribute in the `SingleLogoutService` elements in the generated service provider metadata.
 
 - **SAML Extensions**
-- `samlExtensions`: Optional, The SAML extension provides a more flexible structure for expressing which combination of Attributes are requested by service providers in comparison to the existing mechanisms, [More about extensions](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html). There are many possible values for the `samlExtensions` element. It accepts fully customize [XMLBuilder](https://www.npmjs.com/package/xmlbuilder) type.
+- `samlAuthnRequestExtensions`: Optional, The SAML extension provides a more flexible structure for expressing which combination of Attributes are requested by service providers in comparison to the existing mechanisms, [More about extensions](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html). There are many possible values for the `samlAuthnRequestExtensions` element. It accepts fully customize [XMLBuilder](https://www.npmjs.com/package/xmlbuilder) type.
 
 ```javascript
 // Example
-samlExtensions: {
+samlAuthnRequestExtensions: {
   "md:RequestedAttribute": {
     "@isRequired": "true",
     "@Name": "Lastname",

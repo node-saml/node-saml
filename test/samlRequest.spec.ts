@@ -12,7 +12,7 @@ describe("SAML request", function () {
     const config: SamlConfig = {
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
-      samlExtensions: {
+      samlAuthnRequestExtensions: {
         "md:RequestedAttribute": {
           "@isRequired": "true",
           "@Name": "Lastname",
@@ -106,16 +106,16 @@ describe("SAML request", function () {
       });
   });
 
-  it("should throw error when samlExtensions is not a object", async function () {
+  it("should throw error when samlAuthnRequestExtensions is not a object", async function () {
     const config: any = {
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
-      samlExtensions: "anyvalue",
+      samlAuthnRequestExtensions: "anyvalue",
     };
 
     const oSAML = new SAML(config);
     await assert.rejects(oSAML.getAuthorizeFormAsync("http://localhost/saml/consume"), {
-      message: "samlExtensions should be Object",
+      message: "samlAuthnRequestExtensions should be Object",
     });
   });
 });
