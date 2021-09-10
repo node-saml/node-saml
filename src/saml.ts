@@ -1423,6 +1423,9 @@ class SAML {
     notOnOrAfter: string,
     issueInstant: string
   ): number {
+    if (!notOnOrAfter) {
+      return 0;
+    }
     const notOnOrAfterMs = dateStringToTimestamp(notOnOrAfter, "NotOnOrAfter");
     const issueInstantMs = dateStringToTimestamp(issueInstant, "IssueInstant");
 
