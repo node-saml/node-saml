@@ -136,6 +136,96 @@ describe("node-saml /", function () {
       }
     });
 
+    it("_generateLogoutRequest should throw error when samlLogoutRequestExtensions is not a object", async function () {
+      const config: any = {
+        entryPoint: "https://wwwexampleIdp.com/saml",
+        cert: FAKE_CERT,
+        samlLogoutRequestExtensions: "anyvalue",
+      };
+      const samlObj = new SAML(config);
+
+      await assert.rejects(
+        samlObj._generateLogoutRequest({
+          nameIDFormat: "foo",
+          nameID: "bar",
+        }),
+        {
+          message: "samlLogoutRequestExtensions should be Object",
+        }
+      );
+    });
+
+    it("_generateLogoutRequest should return extensions element when samlLogoutRequestExtensions is configured", function (done) {
+      try {
+        const expectedRequest = {
+          "samlp:LogoutRequest": {
+            $: {
+              "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+              "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
+              //ID: '_85ba0a112df1ffb57805',
+              Version: "2.0",
+              //IssueInstant: '2014-05-29T03:32:23Z',
+              Destination: "foo",
+            },
+            "saml:Issuer": [
+              { _: "onelogin_saml", $: { "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion" } },
+            ],
+            "samlp:Extensions": [
+              {
+                $: {
+                  "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+                },
+                vetuma: [
+                  {
+                    $: { xmlns: "urn:vetuma:SAML:2.0:extensions" },
+                    LG: ["sv"],
+                  },
+                ],
+              },
+            ],
+            "saml:NameID": [{ _: "bar", $: { Format: "foo" } }],
+          },
+        };
+
+        const samlObj = new SAML({
+          entryPoint: "foo",
+          cert: FAKE_CERT,
+          samlLogoutRequestExtensions: {
+            vetuma: {
+              "@xmlns": "urn:vetuma:SAML:2.0:extensions",
+              LG: {
+                "#text": "sv",
+              },
+            },
+          },
+        });
+
+        const logoutRequestPromise = samlObj._generateLogoutRequest({
+          nameIDFormat: "foo",
+          nameID: "bar",
+        });
+
+        logoutRequestPromise
+          .then(function (logoutRequest) {
+            parseString(logoutRequest, function (err, doc) {
+              try {
+                delete doc["samlp:LogoutRequest"]["$"]["ID"];
+                delete doc["samlp:LogoutRequest"]["$"]["IssueInstant"];
+                doc.should.eql(expectedRequest);
+                done();
+              } catch (err2) {
+                done(err2);
+              }
+            });
+          })
+          .catch((err: Error) => {
+            done(err);
+          });
+      } catch (err3) {
+        done(err3);
+      }
+    });
+
     it("_generateLogoutResponse", function (done) {
       const expectedResponse = {
         "samlp:LogoutResponse": {
