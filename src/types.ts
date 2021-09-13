@@ -124,6 +124,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   // extras
   disableRequestAcsUrl: boolean;
   samlAuthnRequestExtensions?: Record<string, unknown>;
+  samlLogoutRequestExtensions?: Record<string, unknown>;
 }
 
 export interface StrategyOptions {
