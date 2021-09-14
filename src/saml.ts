@@ -460,7 +460,7 @@ class SAML {
     Object.keys(additionalParameters).forEach((k) => {
       samlMessage[k] = additionalParameters[k];
     });
-    if (this.options.privateKey != null) {
+    if (isValidSamlSigningOptions(this.options)) {
       if (!this.options.entryPoint) {
         throw new Error('"entryPoint" config parameter is required for signed messages');
       }
@@ -1347,7 +1347,9 @@ class SAML {
 
     if (this.options.decryptionPvk != null || this.options.privateKey != null) {
       metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = [];
-      if (this.options.privateKey != null) {
+      if (isValidSamlSigningOptions(this.options)) {
+        metadata.EntityDescriptor.SPSSODescriptor["@AuthnRequestsSigned"] = true;
+
         signingCert = removeCertPEMHeaderAndFooter(signingCert!);
 
         metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
