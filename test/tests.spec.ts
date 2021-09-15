@@ -322,7 +322,7 @@ describe("node-saml /", function () {
       function testMetadata(
         samlConfig: SamlConfig,
         expectedMetadata: string,
-        signingCert?: string
+        signingCert?: string | string[]
       ) {
         const samlObj = new SAML(samlConfig);
         const decryptionCert = fs.readFileSync(
@@ -420,7 +420,7 @@ describe("node-saml /", function () {
         testMetadata(samlConfig, expectedMetadata, signingCert);
       });
 
-      it("config with protocol, path, host, decryptionPvk and privateKey should pass", function () {
+      it("config with encryption and two signing certificates should pass", function () {
         const samlConfig = {
           issuer: "http://example.serviceprovider.com",
           protocol: "http://",
@@ -432,12 +432,15 @@ describe("node-saml /", function () {
           cert: FAKE_CERT,
         };
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/static/expectedMetadataWithBothKeys.xml",
+          __dirname + "/static/expectedMetadataWithEncryptionAndTwoSigningKeys.xml",
           "utf-8"
         );
-        const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
+        const signingCerts = [
+          fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString(),
+          fs.readFileSync(__dirname + "/static/cert.pem").toString(),
+        ];
 
-        testMetadata(samlConfig, expectedMetadata, signingCert);
+        testMetadata(samlConfig, expectedMetadata, signingCerts);
       });
     });
 
