@@ -2,7 +2,7 @@
 import { SAML } from "../src/saml";
 import url = require("url");
 import * as querystring from "querystring";
-import { parseString } from "xml2js";
+import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types.js";
@@ -207,16 +207,16 @@ describe("node-saml /", function () {
 
         logoutRequestPromise
           .then(function (logoutRequest) {
-            parseString(logoutRequest, function (err, doc) {
-              try {
+            parseStringPromise(logoutRequest)
+              .then(function (doc) {
                 delete doc["samlp:LogoutRequest"]["$"]["ID"];
                 delete doc["samlp:LogoutRequest"]["$"]["IssueInstant"];
                 doc.should.eql(expectedRequest);
                 done();
-              } catch (err2) {
-                done(err2);
-              }
-            });
+              })
+              .catch((err: Error) => {
+                done(err);
+              });
           })
           .catch((err: Error) => {
             done(err);
