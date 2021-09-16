@@ -27,7 +27,7 @@ import {
   XMLOutput,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
-import { assertRequired } from "./utility";
+import { assertRequired, signXmlMetadata } from "./utility";
 import {
   buildXml2JsObject,
   buildXmlBuilderObject,
@@ -1408,7 +1408,12 @@ class SAML {
       "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
       "@Location": this.getCallbackUrl(),
     };
-    return buildXmlBuilderObject(metadata, true);
+
+    let metadataXml = buildXmlBuilderObject(metadata, true);
+    if (this.options.signMetadata && isValidSamlSigningOptions(this.options)) {
+      metadataXml = signXmlMetadata(metadataXml, this.options);
+    }
+    return metadataXml;
   }
 
   /**

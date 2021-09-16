@@ -20,3 +20,15 @@ export function signXmlResponse(samlMessage: string, options: SamlSigningOptions
     options
   );
 }
+
+export function signXmlMetadata(metadataXml: string, options: SamlSigningOptions): string {
+  const metadataXpath =
+    '//*[local-name(.)="EntityDescriptor" and namespace-uri(.)="urn:oasis:names:tc:SAML:2.0:metadata"]';
+
+  return signXml(
+    metadataXml,
+    metadataXpath,
+    { reference: metadataXpath, action: "prepend" },
+    options
+  );
+}
