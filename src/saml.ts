@@ -5,7 +5,7 @@ import * as crypto from "crypto";
 import { URL } from "url";
 import * as querystring from "querystring";
 import * as util from "util";
-import { CacheProvider as InMemoryCacheProvider } from "./inmemory-cache-provider";
+import { InMemoryCacheProvider } from "./inmemory-cache-provider";
 import * as algorithms from "./algorithms";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { ParsedQs } from "qs";
@@ -13,6 +13,7 @@ import {
   isValidSamlSigningOptions,
   AudienceRestrictionXML,
   AuthorizeRequestXML,
+  CacheProvider,
   CertCallback,
   ErrorWithXmlStatus,
   LogoutRequestXML,
@@ -116,7 +117,7 @@ class SAML {
   // those methods start with an underscore, e.g. _generateLogoutRequest
   options: SamlOptions;
   // This is only for testing
-  cacheProvider!: InMemoryCacheProvider;
+  cacheProvider: CacheProvider;
 
   constructor(ctorOptions: SamlConfig) {
     this.options = this.initialize(ctorOptions);

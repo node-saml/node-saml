@@ -227,40 +227,25 @@ received with an `InResponseTo` equal to the expired id will not validate and an
 
 ## Cache Provider
 
-When `InResponseTo` validation is turned on, Passport-SAML will store generated request ids used in SAML requests to the IdP. The implementation
-of how things are stored, checked to see if they exist, and eventually removed is from the Cache Provider used by Passport-SAML.
+When `InResponseTo` validation is turned on, Node SAML will store generated request ids used in SAML requests to the IdP. The implementation
+of how things are stored, checked to see if they exist, and eventually removed is handled by the configured `CacheProvider`.
 
 The default implementation is a simple in-memory cache provider. For multiple server/process scenarios, this will not be sufficient as
 the server/process that generated the request id and stored in memory could be different than the server/process handling the
 SAML response. The `InResponseTo` could fail in this case erroneously.
 
-To support this scenario you can provide an implementation for a cache provider by providing an object with following functions:
+To support this scenario you can create a cache provider that implements the following interface:
 
-```javascript
-{
-    save: function(key, value, callback) {
-      // save the key with the optional value, invokes the callback with the value saves
-    },
-    get: function(key, callback) {
-      // invokes 'callback' and passes the value if found, null otherwise
-    },
-    remove: function(key, callback) {
-      // removes the key from the cache, invokes `callback` with the
-      // key removed, null if no key is removed
-    }
+```typescript
+interface CacheProvider {
+  // Store an item in the cache, using the specified key and value.
+  saveAsync(key: string, value: string): Promise<CacheItem | null>;
+  // Returns the value of the specified key in the cache
+  getAsync(key: string): Promise<string | null>;
+  // Removes an item from the cache if the key exists
+  removeAsync(key: string): Promise<string | null>;
 }
 ```
-
-The `callback` argument is a function in the style of normal Node callbacks:
-
-```
-function callback(err, result)
-{
-
-}
-```
-
-Provide an instance of an object which has these functions passed to the `cacheProvider` config option when using Passport-SAML.
 
 ## SLO (single logout)
 
