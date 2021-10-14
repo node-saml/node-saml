@@ -137,10 +137,10 @@ export interface StrategyOptions {
 export type SamlConfig = Partial<SamlOptions> & StrategyOptions & MandatorySamlOptions;
 
 export interface Profile {
-  issuer?: string;
+  issuer: string;
   sessionIndex?: string;
-  nameID?: string;
-  nameIDFormat?: string;
+  nameID: string;
+  nameIDFormat: string;
   nameQualifier?: string;
   spNameQualifier?: string;
   ID?: string;
