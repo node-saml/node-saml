@@ -28,6 +28,6 @@ export interface SamlCheck {
 }
 
 export interface RequestWithUser extends express.Request {
-  samlLogoutRequest: any;
+  samlLogoutRequest: Profile;
   user?: Profile;
 }

@@ -31,7 +31,7 @@ describe("SAML.js", function () {
         samlLogoutRequest: {
           ID: 123,
         },
-      } as RequestWithUser;
+      } as unknown as RequestWithUser;
       options = {
         additionalParams: {
           additionalKey: "additionalValue",
@@ -109,7 +109,7 @@ describe("SAML.js", function () {
 
     describe("getLogoutResponseUrl", function () {
       it("calls callback with right host", function (done) {
-        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, function (err, target) {
+        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
           should.not.exist(err);
           try {
             target = assertRequired(target);
@@ -122,7 +122,7 @@ describe("SAML.js", function () {
         });
       });
       it("calls callback with right protocol", function (done) {
-        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, function (err, target) {
+        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
           should.not.exist(err);
           try {
             target = assertRequired(target);
@@ -135,7 +135,7 @@ describe("SAML.js", function () {
         });
       });
       it("calls callback with right path", function (done) {
-        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, function (err, target) {
+        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
           should.not.exist(err);
           try {
             target = assertRequired(target);
@@ -148,7 +148,7 @@ describe("SAML.js", function () {
         });
       });
       it("calls callback with original query string", function (done) {
-        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, function (err, target) {
+        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
           should.not.exist(err);
           try {
             target = assertRequired(target);
@@ -161,7 +161,7 @@ describe("SAML.js", function () {
         });
       });
       it("calls callback with additional run-time params in query string", function (done) {
-        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", options, function (err, target) {
+        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", options, true, function (err, target) {
           should.not.exist(err);
           try {
             target = assertRequired(target);
@@ -177,7 +177,7 @@ describe("SAML.js", function () {
       });
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml response object", function (done) {
-        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, function (err, target) {
+        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
           should.not.exist(err);
           try {
             target = assertRequired(target);
