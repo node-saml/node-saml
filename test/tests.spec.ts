@@ -11,13 +11,14 @@ import * as should from "should";
 import assert = require("assert");
 import { FAKE_CERT, TEST_CERT } from "./types";
 import { signXmlResponse } from "../src/utility";
-import * as crypto from "../src/crypto";
-import { parseDomFromString } from "../src/xml";
+import { parseDomFromString, xpath } from "../src/xml";
 
 export const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
 
 export const noop = (): void => undefined;
+
+const TEST_METADATA_ID_PLACEHOLDER = "d700077e-60ad-49c1-b93a-dd1753528708";
 
 describe("node-saml /", function () {
   describe("saml.js / ", function () {
@@ -420,8 +421,19 @@ describe("node-saml /", function () {
           "utf-8"
         );
         const metadata = samlObj.generateServiceProviderMetadata(decryptionCert, signingCert);
+        const doc = parseDomFromString(metadata);
+        const metadataIdAttribute = xpath.selectAttributes(
+          doc,
+          "/*[local-name()='EntityDescriptor']/@ID"
+        );
+        const metadataId = metadataIdAttribute[0]?.nodeValue ?? "";
+
+        const preparedMetadata = expectedMetadata
+          .replace(TEST_METADATA_ID_PLACEHOLDER, metadataId)
+          .split("\n");
+
         // splits are to get a nice diff if they don't match for some reason
-        metadata.split("\n").should.eql(expectedMetadata.split("\n"));
+        metadata.split("\n").should.eql(preparedMetadata);
       }
 
       it("config with callbackUrl and decryptionPvk should pass", function () {
@@ -605,10 +617,7 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
         const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
 
-        const expectedMetadata = fs.readFileSync(__dirname + "/static/signedMetadata.xml", "utf-8");
-
         const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
-        metadata.split("\n").should.eql(expectedMetadata.split("\n"));
 
         const dom = parseDomFromString(metadata);
         samlObj.validateSignature(metadata, dom.documentElement, [signingCert]).should.be.true;
