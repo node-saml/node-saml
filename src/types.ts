@@ -1,5 +1,3 @@
-import type { CacheProvider } from "./inmemory-cache-provider";
-
 export type SignatureAlgorithm = "sha1" | "sha256" | "sha512";
 
 export interface SamlSigningOptions {
@@ -17,6 +15,16 @@ export const isValidSamlSigningOptions = (
 
 export interface AudienceRestrictionXML {
   Audience?: XMLObject[];
+}
+export interface CacheItem {
+  value: string;
+  createdAt: number;
+}
+
+export interface CacheProvider {
+  saveAsync(key: string, value: string): Promise<CacheItem | null>;
+  getAsync(key: string): Promise<string | null>;
+  removeAsync(key: string): Promise<string | null>;
 }
 
 export type XMLValue = string | number | boolean | null | XMLObject | XMLValue[];
