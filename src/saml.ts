@@ -1333,7 +1333,7 @@ class SAML {
 
   generateServiceProviderMetadata(
     decryptionCert: string | null,
-    signingCert?: string | null
+    signingCert?: string | string[] | null
   ): string {
     const metadata: ServiceMetadataXML = {
       EntityDescriptor: {
@@ -1350,34 +1350,32 @@ class SAML {
     if (this.options.decryptionPvk != null || this.options.privateKey != null) {
       metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = [];
       if (isValidSamlSigningOptions(this.options)) {
-        if (typeof signingCert !== "string") {
-          throw new Error(
-            "Missing signingCert while generating metadata for signing service provider messages"
-          );
-        }
+        signingCert = assertRequired(
+          signingCert,
+          "Missing signingCert while generating metadata for signing service provider messages"
+        );
 
         metadata.EntityDescriptor.SPSSODescriptor["@AuthnRequestsSigned"] = true;
 
-        signingCert = removeCertPEMHeaderAndFooter(signingCert);
-
-        metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
+        const certArray = Array.isArray(signingCert) ? signingCert : [signingCert];
+        const signingKeyDescriptors = certArray.map((cert) => ({
           "@use": "signing",
           "ds:KeyInfo": {
             "ds:X509Data": {
               "ds:X509Certificate": {
-                "#text": signingCert,
+                "#text": removeCertPEMHeaderAndFooter(cert),
               },
             },
           },
-        });
+        }));
+        metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push(signingKeyDescriptors);
       }
 
       if (this.options.decryptionPvk != null) {
-        if (!decryptionCert) {
-          throw new Error(
-            "Missing decryptionCert while generating metadata for decrypting service provider"
-          );
-        }
+        decryptionCert = assertRequired(
+          decryptionCert,
+          "Missing decryptionCert while generating metadata for decrypting service provider"
+        );
 
         decryptionCert = removeCertPEMHeaderAndFooter(decryptionCert);
 
