@@ -1350,11 +1350,10 @@ class SAML {
     if (this.options.decryptionPvk != null || this.options.privateKey != null) {
       metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = [];
       if (isValidSamlSigningOptions(this.options)) {
-        if (!signingCert) {
-          throw new Error(
-            "Missing signingCert while generating metadata for signing service provider messages"
-          );
-        }
+        signingCert = assertRequired(
+          signingCert,
+          "Missing signingCert while generating metadata for signing service provider messages"
+        );
 
         metadata.EntityDescriptor.SPSSODescriptor["@AuthnRequestsSigned"] = true;
 
@@ -1373,11 +1372,10 @@ class SAML {
       }
 
       if (this.options.decryptionPvk != null) {
-        if (!decryptionCert) {
-          throw new Error(
-            "Missing decryptionCert while generating metadata for decrypting service provider"
-          );
-        }
+        decryptionCert = assertRequired(
+          decryptionCert,
+          "Missing decryptionCert while generating metadata for decrypting service provider"
+        );
 
         decryptionCert = removeCertPEMHeaderAndFooter(decryptionCert);
 
