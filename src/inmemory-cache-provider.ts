@@ -2,29 +2,26 @@
  * Simple in memory cache provider.  To be used to store state of requests that needs
  * to be validated/checked when a response is received.
  *
- * This is the default implementation of a cache provider used by Passport-SAML.  For
+ * This is the default implementation of a cache provider used by Node SAML.  For
  * multiple server instances/load balanced scenarios (I.e. the SAML request could have
  * been generated from a different server/process handling the SAML response) this
  * implementation will NOT be sufficient.
  *
  * The caller should provide their own implementation for a cache provider as defined
- * in the config options for Passport-SAML.
+ * in the config options.
  * @param options
  * @constructor
  */
 
-export interface CacheItem {
-  value: string;
-  createdAt: number;
-}
+import { CacheItem, CacheProvider } from "./types";
 
 interface CacheProviderOptions {
   keyExpirationPeriodMs: number;
 }
 
-export class CacheProvider {
-  cacheKeys: Record<string, CacheItem>;
-  options: CacheProviderOptions;
+export class InMemoryCacheProvider implements CacheProvider {
+  private cacheKeys: Record<string, CacheItem>;
+  private options: CacheProviderOptions;
 
   constructor(options: Partial<CacheProviderOptions>) {
     this.cacheKeys = {};

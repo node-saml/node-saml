@@ -11,6 +11,7 @@ import * as should from "should";
 import assert = require("assert");
 import { FAKE_CERT, TEST_CERT } from "./types";
 import { signXmlResponse } from "../src/utility";
+import * as crypto from "../src/crypto";
 
 export const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -24,13 +25,6 @@ describe("node-saml /", function () {
         const strategy = new SAML({ cert: undefined as any });
         typeof strategy.options.cert === "undefined";
       }).throw("cert is required");
-    });
-
-    it("_generateUniqueID should generate 20 char IDs", function () {
-      const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
-      for (let i = 0; i < 200; i++) {
-        samlObj._generateUniqueID().length.should.eql(20);
-      }
     });
 
     it("_generateLogoutRequest", function (done) {
@@ -54,6 +48,8 @@ describe("node-saml /", function () {
 
         const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
         const logoutRequestPromise = samlObj._generateLogoutRequest({
+          ID: "id",
+          issuer: "issuer",
           nameIDFormat: "foo",
           nameID: "bar",
         });
@@ -109,6 +105,8 @@ describe("node-saml /", function () {
 
         const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
         const logoutRequestPromise = samlObj._generateLogoutRequest({
+          ID: "id",
+          issuer: "issuer",
           nameIDFormat: "foo",
           nameID: "bar",
           nameQualifier: "Identity Provider",
@@ -226,7 +224,7 @@ describe("node-saml /", function () {
       }
     });
 
-    it("_generateLogoutResponse", function (done) {
+    it("_generateLogoutResponse success", function (done) {
       const expectedResponse = {
         "samlp:LogoutResponse": {
           $: {
@@ -248,7 +246,55 @@ describe("node-saml /", function () {
       };
 
       const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
-      const logoutRequest = samlObj._generateLogoutResponse({ ID: "quux" });
+      const logoutRequest = samlObj._generateLogoutResponse(
+        { ID: "quux", issuer: "issuer", nameID: "nameid", nameIDFormat: "nameidformat" },
+        true
+      );
+      parseString(logoutRequest, function (err, doc) {
+        try {
+          delete doc["samlp:LogoutResponse"]["$"]["ID"];
+          delete doc["samlp:LogoutResponse"]["$"]["IssueInstant"];
+          doc.should.eql(expectedResponse);
+          done();
+        } catch (err2) {
+          done(err2);
+        }
+      });
+    });
+
+    it("_generateLogoutResponse fail", function (done) {
+      const expectedResponse = {
+        "samlp:LogoutResponse": {
+          $: {
+            "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+            "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
+            //ID: '_d11b3c5e085b2417f4aa',
+            Version: "2.0",
+            //IssueInstant: '2014-05-29T01:11:32Z',
+            Destination: "foo",
+            InResponseTo: "quux",
+          },
+          "saml:Issuer": ["onelogin_saml"],
+          "samlp:Status": [
+            {
+              "samlp:StatusCode": [
+                {
+                  $: { Value: "urn:oasis:names:tc:SAML:2.0:status:Requester" },
+                  "samlp:StatusCode": [
+                    { $: { Value: "urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal" } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
+      const logoutRequest = samlObj._generateLogoutResponse(
+        { ID: "quux", issuer: "issuer", nameID: "nameid", nameIDFormat: "nameidformat" },
+        false
+      );
       parseString(logoutRequest, function (err, doc) {
         try {
           delete doc["samlp:LogoutResponse"]["$"]["ID"];
@@ -285,6 +331,8 @@ describe("node-saml /", function () {
 
         const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
         const logoutRequestPromise = samlObj._generateLogoutRequest({
+          ID: "id",
+          issuer: "issuer",
           nameIDFormat: "foo",
           nameID: "bar",
           sessionIndex: "session-id",
@@ -335,6 +383,8 @@ describe("node-saml /", function () {
       const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
       const cacheSaveSpy = sinon.spy(samlObj.cacheProvider, "saveAsync");
       const logoutRequestPromise = samlObj._generateLogoutRequest({
+        ID: "id",
+        issuer: "issuer",
         nameIDFormat: "foo",
         nameID: "bar",
         sessionIndex: "session-id",
@@ -362,7 +412,7 @@ describe("node-saml /", function () {
       function testMetadata(
         samlConfig: SamlConfig,
         expectedMetadata: string,
-        signingCert?: string
+        signingCert?: string | string[]
       ) {
         const samlObj = new SAML(samlConfig);
         const decryptionCert = fs.readFileSync(
@@ -460,7 +510,7 @@ describe("node-saml /", function () {
         testMetadata(samlConfig, expectedMetadata, signingCert);
       });
 
-      it("config with protocol, path, host, decryptionPvk and privateKey should pass", function () {
+      it("config with encryption and two signing certificates should pass", function () {
         const samlConfig = {
           issuer: "http://example.serviceprovider.com",
           protocol: "http://",
@@ -472,12 +522,15 @@ describe("node-saml /", function () {
           cert: FAKE_CERT,
         };
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/static/expectedMetadataWithBothKeys.xml",
+          __dirname + "/static/expectedMetadataWithEncryptionAndTwoSigningKeys.xml",
           "utf-8"
         );
-        const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
+        const signingCerts = [
+          fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString(),
+          fs.readFileSync(__dirname + "/static/cert.pem").toString(),
+        ];
 
-        testMetadata(samlConfig, expectedMetadata, signingCert);
+        testMetadata(samlConfig, expectedMetadata, signingCerts);
       });
     });
 
@@ -520,18 +573,21 @@ describe("node-saml /", function () {
       metadata.should.containEql('WantAssertionsSigned="true"');
     });
 
-    it("#_certToPEM should generate valid certificate", function () {
+    it("generateServiceProviderMetadata contains AuthnRequestsSigned", function () {
       const samlConfig = {
-        entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
-        cert: "-----BEGIN CERTIFICATE-----" + TEST_CERT + "-----END CERTIFICATE-----",
-        acceptedClockSkewMs: -1,
+        cert: TEST_CERT,
+        issuer: "http://example.serviceprovider.com",
+        callbackUrl: "http://example.serviceprovider.com/saml/callback",
+        identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+        privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
+        wantAssertionsSigned: true,
       };
-      const samlObj = new SAML(samlConfig);
-      const certificate = samlObj._certToPEM(samlConfig.cert);
 
-      if (!(certificate.match(/BEGIN/g)!.length == 1 && certificate.match(/END/g)!.length == 1)) {
-        throw Error("Certificate should have only 1 BEGIN and 1 END block");
-      }
+      const samlObj = new SAML(samlConfig);
+      const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
+
+      const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
+      metadata.should.containEql('AuthnRequestsSigned="true"');
     });
 
     describe("validatePostResponse checks /", function () {
@@ -650,7 +706,7 @@ describe("node-saml /", function () {
         it("must have a cert to construct a SAML object", function () {
           try {
             new SAML(noCertSamlConfig);
-          } catch (err) {
+          } catch (err: any) {
             should.exist(err);
             err!.message!.should.match(/cert is required/);
           }
@@ -659,7 +715,7 @@ describe("node-saml /", function () {
         it("must have a valid cert to construct a SAML object", function () {
           try {
             new SAML(badCertSamlConfig);
-          } catch (err) {
+          } catch (err: any) {
             should.exist(err);
             err!.message!.should.match(/cert is required/);
           }
@@ -690,7 +746,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           try {
             const samlObj = new SAML(noCertSamlConfig);
-          } catch (err) {
+          } catch (err: any) {
             should.exist(err);
             err!.message!.should.match(/cert is required/);
           }
@@ -860,7 +916,7 @@ describe("node-saml /", function () {
           try {
             await samlObj.validatePostResponseAsync(container);
             should.not.exist(true);
-          } catch (err) {
+          } catch (err: any) {
             should.exist(err);
             err!.should.eql(errorToReturn);
           }
@@ -993,11 +1049,9 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: () => "_12345678901234567890",
         };
         const samlObj = new SAML(samlConfig);
-        samlObj._generateUniqueID = function () {
-          return "12345678901234567890";
-        };
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         qry.SigAlg?.should.match("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
@@ -1021,11 +1075,9 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: () => "_12345678901234567890",
         };
         const samlObj = new SAML(samlConfig);
-        samlObj._generateUniqueID = function () {
-          return "12345678901234567890";
-        };
 
         const request =
           '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
@@ -1047,11 +1099,9 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "utf-8"),
+          generateUniqueId: () => "_12345678901234567890",
         };
         const samlObj = new SAML(samlConfig);
-        samlObj._generateUniqueID = function () {
-          return "12345678901234567890";
-        };
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         qry.SigAlg?.should.match("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
@@ -1075,11 +1125,9 @@ describe("node-saml /", function () {
             customQueryStringParam: "CustomQueryStringParamValue",
           },
           cert: FAKE_CERT,
+          generateUniqueId: () => "_12345678901234567890",
         };
         const samlObj = new SAML(samlConfig);
-        samlObj._generateUniqueID = function () {
-          return "12345678901234567890";
-        };
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         qry.SigAlg?.should.match("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
@@ -1467,7 +1515,7 @@ describe("node-saml /", function () {
         try {
           const { profile } = await samlObj.validatePostResponseAsync(container);
           should.not.exist(profile);
-        } catch (err) {
+        } catch (err: any) {
           err!.message!.should.eql("InResponseTo is missing from response");
         }
       });
@@ -2234,7 +2282,7 @@ describe("node-saml /", function () {
         const body = {
           SAMLRequest: "asdf",
         };
-        await assert.rejects(samlObj.validateRedirectAsync(body, null));
+        await assert.rejects(samlObj.validateRedirectAsync(body, ""));
       });
       it("errors if idpIssuer is set and wrong issuer", async function () {
         samlObj.options.idpIssuer = "foo";
