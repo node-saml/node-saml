@@ -391,18 +391,18 @@ class SAML {
       },
     } as LogoutRequestXML;
 
-      const samlLogoutRequestExtensions = this.options.samlLogoutRequestExtensions;
-      if (samlLogoutRequestExtensions != null) {
-          if (typeof samlLogoutRequestExtensions != "object") {
-              throw new TypeError("samlLogoutRequestExtensions should be Object");
-          }
-          request["samlp:LogoutRequest"]["samlp:Extensions"] = {
-              "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
-              ...samlLogoutRequestExtensions,
-          };
-      } else {
-          delete request["samlp:LogoutRequest"]["samlp:Extensions"];
+    const samlLogoutRequestExtensions = this.options.samlLogoutRequestExtensions;
+    if (samlLogoutRequestExtensions != null) {
+      if (typeof samlLogoutRequestExtensions != "object") {
+        throw new TypeError("samlLogoutRequestExtensions should be Object");
       }
+      request["samlp:LogoutRequest"]["samlp:Extensions"] = {
+        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+        ...samlLogoutRequestExtensions,
+      };
+    } else {
+      delete request["samlp:LogoutRequest"]["samlp:Extensions"];
+    }
 
     if (user.nameQualifier != null) {
       request["samlp:LogoutRequest"]["saml:NameID"]["@NameQualifier"] = user.nameQualifier;

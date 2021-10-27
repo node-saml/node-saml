@@ -5,7 +5,7 @@ import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { SamlConfig } from "../src/types.js";
+import { Profile, SamlConfig } from "../src/types.js";
 import { RacComparision } from "../src/types.js";
 import * as should from "should";
 import assert = require("assert");
@@ -141,16 +141,14 @@ describe("node-saml /", function () {
         samlLogoutRequestExtensions: "anyvalue",
       };
       const samlObj = new SAML(config);
-
-      await assert.rejects(
-        samlObj._generateLogoutRequest({
-          nameIDFormat: "foo",
-          nameID: "bar",
-        }),
-        {
-          message: "samlLogoutRequestExtensions should be Object",
-        }
-      );
+      const profile: Profile = {
+        issuer: "https://test,com",
+        nameIDFormat: "foo",
+        nameID: "bar",
+      };
+      await assert.rejects(samlObj._generateLogoutRequest(profile), {
+        message: "samlLogoutRequestExtensions should be Object",
+      });
     });
 
     it("_generateLogoutRequest should return extensions element when samlLogoutRequestExtensions is configured", function (done) {
@@ -197,11 +195,12 @@ describe("node-saml /", function () {
             },
           },
         });
-
-        const logoutRequestPromise = samlObj._generateLogoutRequest({
+        const profile: Profile = {
+          issuer: "https://test.com",
           nameIDFormat: "foo",
           nameID: "bar",
-        });
+        };
+        const logoutRequestPromise = samlObj._generateLogoutRequest(profile);
 
         logoutRequestPromise
           .then(function (logoutRequest) {
