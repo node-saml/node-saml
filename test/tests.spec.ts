@@ -2,10 +2,10 @@
 import { SAML } from "../src/saml";
 import url = require("url");
 import * as querystring from "querystring";
-import { parseString } from "xml2js";
+import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { SamlConfig } from "../src/types.js";
+import { Profile, SamlConfig } from "../src/types.js";
 import { RacComparision } from "../src/types.js";
 import * as should from "should";
 import assert = require("assert");
@@ -125,6 +125,95 @@ describe("node-saml /", function () {
                 done(err2);
               }
             });
+          })
+          .catch((err: Error) => {
+            done(err);
+          });
+      } catch (err3) {
+        done(err3);
+      }
+    });
+
+    it("_generateLogoutRequest should throw error when samlLogoutRequestExtensions is not a object", async function () {
+      const config: any = {
+        entryPoint: "https://wwwexampleIdp.com/saml",
+        cert: FAKE_CERT,
+        samlLogoutRequestExtensions: "anyvalue",
+      };
+      const samlObj = new SAML(config);
+      const profile: Profile = {
+        issuer: "https://test,com",
+        nameIDFormat: "foo",
+        nameID: "bar",
+      };
+      await assert.rejects(samlObj._generateLogoutRequest(profile), {
+        message: "samlLogoutRequestExtensions should be Object",
+      });
+    });
+
+    it("_generateLogoutRequest should return extensions element when samlLogoutRequestExtensions is configured", function (done) {
+      try {
+        const expectedRequest = {
+          "samlp:LogoutRequest": {
+            $: {
+              "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+              "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
+              //ID: '_85ba0a112df1ffb57805',
+              Version: "2.0",
+              //IssueInstant: '2014-05-29T03:32:23Z',
+              Destination: "foo",
+            },
+            "saml:Issuer": [
+              { _: "onelogin_saml", $: { "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion" } },
+            ],
+            "samlp:Extensions": [
+              {
+                $: {
+                  "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+                },
+                vetuma: [
+                  {
+                    $: { xmlns: "urn:vetuma:SAML:2.0:extensions" },
+                    LG: ["sv"],
+                  },
+                ],
+              },
+            ],
+            "saml:NameID": [{ _: "bar", $: { Format: "foo" } }],
+          },
+        };
+
+        const samlObj = new SAML({
+          entryPoint: "foo",
+          cert: FAKE_CERT,
+          samlLogoutRequestExtensions: {
+            vetuma: {
+              "@xmlns": "urn:vetuma:SAML:2.0:extensions",
+              LG: {
+                "#text": "sv",
+              },
+            },
+          },
+        });
+        const profile: Profile = {
+          issuer: "https://test.com",
+          nameIDFormat: "foo",
+          nameID: "bar",
+        };
+        const logoutRequestPromise = samlObj._generateLogoutRequest(profile);
+
+        logoutRequestPromise
+          .then(function (logoutRequest) {
+            parseStringPromise(logoutRequest)
+              .then(function (doc) {
+                delete doc["samlp:LogoutRequest"]["$"]["ID"];
+                delete doc["samlp:LogoutRequest"]["$"]["IssueInstant"];
+                doc.should.eql(expectedRequest);
+                done();
+              })
+              .catch((err: Error) => {
+                done(err);
+              });
           })
           .catch((err: Error) => {
             done(err);

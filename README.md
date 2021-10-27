@@ -102,6 +102,41 @@ const saml = new SAML(options);
 - `additionalLogoutParams`: dictionary of additional query params to add to 'logout' requests
 - `logoutCallbackUrl`: The value with which to populate the `Location` attribute in the `SingleLogoutService` elements in the generated service provider metadata.
 
+- **SAML Authn Request Extensions**
+- `samlAuthnRequestExtensions`: Optional, The SAML extension provides a more flexible structure for expressing which combination of Attributes are requested by service providers in comparison to the existing mechanisms, [More about extensions](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html). There are many possible values for the `samlAuthnRequestExtensions` element. It accepts fully customize [XMLBuilder](https://www.npmjs.com/package/xmlbuilder) type.
+
+```javascript
+// Example
+samlAuthnRequestExtensions: {
+  "md:RequestedAttribute": {
+    "@isRequired": "true",
+    "@Name": "Lastname",
+    "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata"
+  },
+  vetuma: {
+    "@xmlns": "urn:vetuma:SAML:2.0:extensions",
+    LG: {
+      "#text": "sv",
+    },
+  },
+},
+```
+
+- **SAML Logout Request Extensions**
+- `samlLogoutRequestExtensions`: Optional, The SAML extension provides a more flexible structure for expressing which combination of Attributes are requested by service providers in comparison to the existing mechanisms, [More about extensions](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html). There are many possible values for the `samlLogoutRequestExtensions` element. It accepts fully customize [XMLBuilder](https://www.npmjs.com/package/xmlbuilder) type.
+
+```javascript
+// Example
+samlLogoutRequestExtensions: {
+  vetuma: {
+    "@xmlns": "urn:vetuma:SAML:2.0:extensions",
+    LG: {
+      "#text": "sv",
+    },
+  },
+},
+```
+
 ### generateServiceProviderMetadata( decryptionCert, signingCert )
 
 As a convenience, the strategy object exposes a `generateServiceProviderMetadata` method which will generate a service provider metadata document suitable for supplying to an identity provider. This method will only work on strategies which are configured with a `callbackUrl` (since the relative path for the callback is not sufficient information to generate a complete metadata document).
