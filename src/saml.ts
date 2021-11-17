@@ -1410,7 +1410,7 @@ class SAML {
     };
 
     let metadataXml = buildXmlBuilderObject(metadata, true);
-    if (this.options.signMetadata && isValidSamlSigningOptions(this.options)) {
+    if (this.options.signMetadata === true && isValidSamlSigningOptions(this.options)) {
       metadataXml = signXmlMetadata(metadataXml, this.options);
     }
     return metadataXml;
