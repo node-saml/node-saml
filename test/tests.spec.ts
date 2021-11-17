@@ -463,7 +463,7 @@ describe("node-saml /", function () {
         metadata.split("\n").should.eql(expectedMetadata.split("\n"));
 
         const dom = parseDomFromString(metadata);
-        samlObj.validateSignature(metadata, dom.documentElement, [signingCert]);
+        samlObj.validateSignature(metadata, dom.documentElement, [signingCert]).should.be.true;
       });
     });
 
