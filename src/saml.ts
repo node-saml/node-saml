@@ -1365,7 +1365,7 @@ class SAML {
         "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
         "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
         "@entityID": this.options.issuer,
-        "@ID": this.options.issuer.replace(/\W/g, "_"),
+        "@ID": this.options.generateUniqueId(),
         SPSSODescriptor: {
           "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
         },
