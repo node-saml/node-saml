@@ -102,7 +102,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   // Additional SAML behaviors
   additionalParams: Record<string, string>;
   additionalAuthorizeParams: Record<string, string>;
-  identifierFormat?: string | null;
+  identifierFormat: string | null;
   acceptedClockSkewMs: number;
   attributeConsumingServiceIndex?: string;
   disableRequestedAuthnContext: boolean;
@@ -116,7 +116,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   idpIssuer?: string;
   audience?: string;
   scoping?: SamlScopingConfig;
-  wantAssertionsSigned?: boolean;
+  wantAssertionsSigned: boolean;
   maxAssertionAgeMs: number;
   generateUniqueId: () => string;
   signMetadata?: boolean;
@@ -130,6 +130,9 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   logoutUrl: string;
   additionalLogoutParams: Record<string, string>;
   logoutCallbackUrl?: string;
+
+  // signing options
+  signatureAlgorithm: SignatureAlgorithm;
 
   // extras
   disableRequestAcsUrl: boolean;
