@@ -2,24 +2,53 @@ import { removeCertPEMHeaderAndFooter } from "../crypto";
 import { ServiceMetadataXML } from "../types";
 import { buildXmlBuilderObject } from "../xml";
 
-export const generateServiceProviderMetadata = (params: {
+interface GenerateServiceProviderMetadataParams {
   issuer: string;
   callbackUrl: string;
   logoutCallbackUrl?: string;
   identifierFormat?: string | null;
   wantAssertionsSigned: boolean;
-  decryptionCert: string | null;
-  signingCerts?: string[] | null;
-}): string => {
+  decryptionCert?: string | null;
+  decryptionPvk?: string | Buffer;
+  signingCerts?: string | string[] | null;
+  privateKey?: string | Buffer;
+}
+
+export const generateServiceProviderMetadata = (
+  params: GenerateServiceProviderMetadataParams
+): string => {
   const {
     issuer,
     callbackUrl,
     logoutCallbackUrl,
     identifierFormat,
     wantAssertionsSigned,
-    decryptionCert,
-    signingCerts,
+    decryptionPvk,
+    privateKey,
   } = params;
+
+  let { signingCerts, decryptionCert } = params;
+
+  if (decryptionPvk != null) {
+    if (!decryptionCert) {
+      throw new Error(
+        "Missing decryptionCert while generating metadata for decrypting service provider"
+      );
+    }
+  } else {
+    decryptionCert = null;
+  }
+
+  if (privateKey != null) {
+    if (!signingCerts) {
+      throw new Error(
+        "Missing signingCert while generating metadata for signing service provider messages"
+      );
+    }
+    signingCerts = !Array.isArray(signingCerts) ? [signingCerts] : signingCerts;
+  } else {
+    signingCerts = null;
+  }
 
   const metadata: ServiceMetadataXML = {
     EntityDescriptor: {

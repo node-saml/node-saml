@@ -1185,41 +1185,13 @@ class SAML {
     decryptionCert: string | null,
     signingCerts?: string | string[] | null
   ): string {
-    if (this.options.decryptionPvk != null) {
-      if (!decryptionCert) {
-        throw new Error(
-          "Missing decryptionCert while generating metadata for decrypting service provider"
-        );
-      }
-    } else {
-      // ignore decryption cert if we don't have a decryption private key
-      // TODO we should probably fail here
-      decryptionCert = null;
-    }
-
-    if (this.options.privateKey != null) {
-      if (!signingCerts) {
-        throw new Error(
-          "Missing signingCert while generating metadata for signing service provider messages"
-        );
-      }
-      if (!Array.isArray(signingCerts)) {
-        signingCerts = [signingCerts];
-      }
-    } else {
-      // ignore signing cert if we don't have a signing private key
-      // TODO we should probably fail here
-      signingCerts = null;
-    }
+    const callbackUrl = this.getCallbackUrl(); // TODO it would probably be useful to have a host parameter here
 
     return generateServiceProviderMetadata({
-      issuer: this.options.issuer,
-      callbackUrl: this.getCallbackUrl(), // TODO it would probably be useful to have a host parameter here
-      logoutCallbackUrl: this.options.logoutCallbackUrl,
-      identifierFormat: this.options.identifierFormat,
-      wantAssertionsSigned: this.options.wantAssertionsSigned,
-      signingCerts,
+      ...this.options,
+      callbackUrl,
       decryptionCert,
+      signingCerts,
     });
   }
 
