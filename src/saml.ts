@@ -38,7 +38,7 @@ import {
 } from "./xml";
 import { certToPEM, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
-import { getAdditionalParams, requestToUrl } from "./saml/common";
+import { getAdditionalParams, requestToUrlAsync } from "./saml/common";
 import { generateServiceProviderMetadata } from "./saml/metadata";
 import { processValidlySignedPostRequest, processValidlySignedSamlLogout } from "./saml/logout";
 
@@ -392,7 +392,7 @@ class SAML {
       throw new Error("response or request should be provided");
     }
 
-    return await requestToUrl({
+    return await requestToUrlAsync({
       targetUrl,
       skipRequestCompression: this.options.skipRequestCompression,
       message,

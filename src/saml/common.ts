@@ -54,7 +54,7 @@ const signRequest = (
   samlMessage.Signature = signer.sign(keyToPEM(privateKey), "base64");
 };
 
-export const requestToUrl = async (params: {
+export const requestToUrlAsync = async (params: {
   targetUrl: string;
   skipRequestCompression: boolean;
   message: string;
