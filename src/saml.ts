@@ -40,7 +40,10 @@ import { certToPEM, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { getAdditionalParams, requestToUrlAsync } from "./saml/common";
 import { generateServiceProviderMetadata } from "./saml/metadata";
-import { processValidlySignedPostRequest, processValidlySignedSamlLogout } from "./saml/logout";
+import {
+  processValidlySignedPostRequestAsync,
+  processValidlySignedSamlLogoutAsync,
+} from "./saml/logout";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
@@ -806,7 +809,7 @@ class SAML {
       ? await this.verifyLogoutResponse(doc)
       : this.verifyLogoutRequest(doc);
     await this.hasValidSignatureForRedirect(container, originalQuery);
-    return await processValidlySignedSamlLogout(doc, dom, this.options.decryptionPvk ?? null);
+    return await processValidlySignedSamlLogoutAsync(doc, dom, this.options.decryptionPvk ?? null);
   }
 
   private async hasValidSignatureForRedirect(
@@ -1178,7 +1181,7 @@ class SAML {
     if (!this.validateSignature(xml, dom.documentElement, certs)) {
       throw new Error("Invalid signature on documentElement");
     }
-    return await processValidlySignedPostRequest(doc, dom, this.options.decryptionPvk ?? null);
+    return await processValidlySignedPostRequestAsync(doc, dom, this.options.decryptionPvk ?? null);
   }
 
   generateServiceProviderMetadata(

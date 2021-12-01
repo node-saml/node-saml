@@ -15,7 +15,10 @@ const promiseWithNameId = async (nameid: Node): Promise<NameID> => {
   };
 };
 
-const getNameId = async (doc: Node, decryptionPvk: string | Buffer | null): Promise<NameID> => {
+const getNameIdAsync = async (
+  doc: Node,
+  decryptionPvk: string | Buffer | null
+): Promise<NameID> => {
   const nameIds = xpath.selectElements(
     doc,
     "/*[local-name()='LogoutRequest']/*[local-name()='NameID']"
@@ -58,7 +61,7 @@ const getNameId = async (doc: Node, decryptionPvk: string | Buffer | null): Prom
   throw new Error("Missing SAML NameID");
 };
 
-export const processValidlySignedPostRequest = async (
+export const processValidlySignedPostRequestAsync = async (
   doc: XMLOutput,
   dom: Document,
   decryptionPvk: string | Buffer | null
@@ -77,7 +80,7 @@ export const processValidlySignedPostRequest = async (
     } else {
       throw new Error("Missing SAML issuer");
     }
-    const nameID = await getNameId(dom, decryptionPvk);
+    const nameID = await getNameIdAsync(dom, decryptionPvk);
     if (nameID && nameID.value) {
       profile.nameID = nameID.value;
       if (nameID.format) {
@@ -96,7 +99,7 @@ export const processValidlySignedPostRequest = async (
   }
 };
 
-export const processValidlySignedSamlLogout = async (
+export const processValidlySignedSamlLogoutAsync = async (
   doc: XMLOutput,
   dom: Document,
   decryptionPvk: string | Buffer | null
@@ -107,7 +110,7 @@ export const processValidlySignedSamlLogout = async (
   if (response) {
     return { profile: null, loggedOut: true };
   } else if (request) {
-    return await processValidlySignedPostRequest(doc, dom, decryptionPvk);
+    return await processValidlySignedPostRequestAsync(doc, dom, decryptionPvk);
   } else {
     throw new Error("Unknown SAML response message");
   }
