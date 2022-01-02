@@ -6,6 +6,7 @@ import * as xml2js from "xml2js";
 import * as xmlbuilder from "xmlbuilder";
 import { isValidSamlSigningOptions, SamlSigningOptions } from "./types";
 import * as algorithms from "./algorithms";
+import { removeCertPEMHeaderAndFooter } from "./crypto";
 
 type SelectedValue = string | number | boolean | Node;
 
@@ -128,6 +129,12 @@ export const signXml = (
   const sig = new xmlCrypto.SignedXml();
   if (options.signatureAlgorithm != null) {
     sig.signatureAlgorithm = algorithms.getSigningAlgorithm(options.signatureAlgorithm);
+  }
+  if(options.signingCert != null) {
+    let cert = removeCertPEMHeaderAndFooter(options.signingCert);
+    sig.keyInfoProvider = {
+      getKeyInfo: () => "<X509Data><X509Certificate>" + cert + "</X509Certificate></X509Data>"
+    };
   }
   sig.addReference(xpath, transforms, algorithms.getDigestAlgorithm(options.digestAlgorithm));
   sig.signingKey = options.privateKey;
