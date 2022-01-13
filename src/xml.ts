@@ -131,7 +131,8 @@ export const signXml = (
     sig.signatureAlgorithm = algorithms.getSigningAlgorithm(options.signatureAlgorithm);
   }
   if(options.signingCert != null) {
-    let cert = removeCertPEMHeaderAndFooter(options.signingCert);
+    let certArray = Array.isArray(options.signingCert) ? options.signingCert : [options.signingCert];
+    let cert = removeCertPEMHeaderAndFooter(certArray[0]);
     sig.keyInfoProvider = {
       getKeyInfo: () => "<X509Data><X509Certificate>" + cert + "</X509Certificate></X509Data>"
     };
