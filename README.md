@@ -43,6 +43,7 @@ const saml = new SAML(options);
 - `audience`: expected saml response Audience (if not provided, Audience won't be verified)
 - `cert`: the IDP's public signing certificate used to validate the signatures of the incoming SAML Responses, see [Security and signatures](#security-and-signatures)
 - `privateKey`: see [Security and signatures](#security-and-signatures).
+- `signingCert`: the service provider's public signing certificate used to embed in AuthnRequest in order for the IDP to validate the signatures of the incoming SAML Request, see [Security and signatures](#security-and-signatures)
 - `decryptionPvk`: optional private key that will be used to attempt to decrypt any encrypted assertions that are received
 - `signatureAlgorithm`: optionally set the signature algorithm for signing requests, valid values are 'sha1' (default), 'sha256', or 'sha512'
 - `digestAlgorithm`: optionally set the digest algorithm used to provide a digest for the signed data object, valid values are 'sha1' (default), 'sha256', or 'sha512'
@@ -217,6 +218,27 @@ The `cert` configuration key can also be a function that receives a callback as 
 
 ```javascript
     cert: function(callback) { callback(null,polledCertificates); }
+```
+
+Some identity providers require that the signing certificate be embedded in AuthnRequest in order for the IDP to verify the request as well as match the subject DN and confirm if the certificate was signed. This can be achieved by passing service provider's public signing certificate in PEM format via the `signingCert` configuration key. The `signingCert` should be a public certificate matching the privateKey.
+
+```
+-----BEGIN CERTIFICATE-----
+<X.509 certificate contents here delimited at 64 characters per row>
+-----END CERTIFICATE-----
+
+```
+
+Alternativelly a single line X.509 certificate without start/end lines where all rows are joined into single line can be passed:
+
+```javascript
+signingCert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
+```
+
+An array of certificates can be provided to support certificate rotation. When supplying an array of certificates, the first entry in the array should match the current privateKey and that will be embeddeed in AuthnRequest.
+
+```javascript
+signingCert: ["MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==", "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g="];
 ```
 
 ## Usage with Active Directory Federation Services
