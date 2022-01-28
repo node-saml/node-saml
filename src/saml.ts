@@ -202,6 +202,13 @@ class SAML {
     }
   }
 
+  private getValidationSetting(setting?: string | boolean | undefined): string {
+    if (setting === "never" || setting === "always" || setting === "onlyIfPresent") {
+      return setting;
+    }
+    return setting ? "always" : "never";
+  }
+
   private signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
     this.options.privateKey = assertRequired(this.options.privateKey, "privateKey is required");
 
@@ -234,7 +241,7 @@ class SAML {
     const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
-    if (this.options.validateInResponseTo) {
+    if (this.getValidationSetting(this.options.validateInResponseTo) !== "never") {
       await this.cacheProvider.saveAsync(id, instant);
     }
     const request: AuthorizeRequestXML = {
@@ -891,13 +898,15 @@ class SAML {
   }
 
   private async validateInResponseTo(inResponseTo: string | null): Promise<undefined> {
-    if (this.options.validateInResponseTo) {
+    if (this.getValidationSetting(this.options.validateInResponseTo) !== "never") {
       if (inResponseTo) {
         const result = await this.cacheProvider.getAsync(inResponseTo);
         if (!result) throw new Error("InResponseTo is not valid");
         return;
-      } else {
+      } else if (this.getValidationSetting(this.options.validateInResponseTo) === "always") {
         throw new Error("InResponseTo is missing from response");
+      } else {
+        return;
       }
     } else {
       return;
