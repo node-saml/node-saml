@@ -7,7 +7,7 @@ assignees: ""
 ---
 
 <!--
-Thanks for submitting a bug report or featureq request to help us improve.
+Thanks for submitting a bug report or feature request to help us improve.
 
 If you have a support question about how to use the module, no one is monitoring the issues
 to answer those. Consider posting on StackOverflow instead using the "node-saml" tag.
