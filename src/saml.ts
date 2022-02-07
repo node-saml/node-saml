@@ -26,6 +26,7 @@ import {
   XMLInput,
   XMLObject,
   XMLOutput,
+  ValidateInResponseTo,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertRequired, signXmlMetadata } from "./utility";
@@ -234,7 +235,7 @@ class SAML {
     const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
-    if (this.options.validateInResponseTo) {
+    if (![false, ValidateInResponseTo.never].includes(this.options.validateInResponseTo)) {
       await this.cacheProvider.saveAsync(id, instant);
     }
     const request: AuthorizeRequestXML = {
@@ -883,24 +884,22 @@ class SAML {
       }
     } catch (err) {
       debug("validatePostResponse resulted in an error: %s", err);
-      if (this.options.validateInResponseTo != null) {
+      if (![false, ValidateInResponseTo.never].includes(this.options.validateInResponseTo)) {
         await this.cacheProvider.removeAsync(inResponseTo!);
       }
       throw err;
     }
   }
 
-  private async validateInResponseTo(inResponseTo: string | null): Promise<undefined> {
-    if (this.options.validateInResponseTo) {
+  private async validateInResponseTo(inResponseTo: string | null): Promise<void> {
+    if (![false, ValidateInResponseTo.never].includes(this.options.validateInResponseTo)) {
       if (inResponseTo) {
         const result = await this.cacheProvider.getAsync(inResponseTo);
         if (!result) throw new Error("InResponseTo is not valid");
         return;
-      } else {
+      } else if ([true, ValidateInResponseTo.always].includes(this.options.validateInResponseTo)) {
         throw new Error("InResponseTo is missing from response");
       }
-    } else {
-      return;
     }
   }
 
@@ -1108,10 +1107,22 @@ class SAML {
 
       // Test to see that if we have a SubjectConfirmation InResponseTo that it matches
       // the 'InResponseTo' attribute set in the Response
-      if (this.options.validateInResponseTo) {
+      if (
+        [true, ValidateInResponseTo.always, ValidateInResponseTo.ifPresent].includes(
+          this.options.validateInResponseTo
+        )
+      ) {
         if (subjectConfirmation) {
           if (confirmData && confirmData.$) {
             const subjectInResponseTo = confirmData.$.InResponseTo;
+
+            if (
+              !inResponseTo &&
+              this.options.validateInResponseTo === ValidateInResponseTo.ifPresent
+            ) {
+              break getInResponseTo;
+            }
+
             if (inResponseTo && subjectInResponseTo && subjectInResponseTo != inResponseTo) {
               await this.cacheProvider.removeAsync(inResponseTo);
               throw new Error("InResponseTo is not valid");
