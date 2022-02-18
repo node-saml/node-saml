@@ -238,7 +238,10 @@ signingCert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
 An array of certificates can be provided to support certificate rotation. When supplying an array of certificates, the first entry in the array should match the current privateKey and that will be embeddeed in AuthnRequest.
 
 ```javascript
-signingCert: ["MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==", "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g="];
+signingCert: [
+  "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==",
+  "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g=",
+];
 ```
 
 ## Usage with Active Directory Federation Services
