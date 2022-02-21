@@ -130,13 +130,15 @@ export const signXml = (
   if (options.signatureAlgorithm != null) {
     sig.signatureAlgorithm = algorithms.getSigningAlgorithm(options.signatureAlgorithm);
   }
-  if(options.signingCert != null) {
-    const certArray = Array.isArray(options.signingCert) ? options.signingCert : [options.signingCert];
+  if (options.signingCert != null) {
+    const certArray = Array.isArray(options.signingCert)
+      ? options.signingCert
+      : [options.signingCert];
     const cert = removeCertPEMHeaderAndFooter(certArray[0]);
     sig.keyInfoProvider = {
       file: "",
       getKeyInfo: () => "<X509Data><X509Certificate>" + cert + "</X509Certificate></X509Data>",
-      getKey: () => Buffer.from(cert)
+      getKey: () => Buffer.from(cert),
     };
   }
   sig.addReference(xpath, transforms, algorithms.getDigestAlgorithm(options.digestAlgorithm));
