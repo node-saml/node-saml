@@ -186,7 +186,7 @@ Formats supported for `privateKey` field are,
 (both versions work)
 See example from tests of the first version of [well formatted private key](test/static/acme_tools_com.key).
 
-2. Alternativelly a single line private key without start/end lines where all rows are joined into single line:
+2. Alternatively a single line private key without start/end lines where all rows are joined into single line:
 
 See example from tests of [singleline private key](test/static/singleline_acme_tools_com.key).
 
