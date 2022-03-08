@@ -1071,37 +1071,42 @@ class SAML {
           }
         }
 
-        subjectConfirmation = subject[0].SubjectConfirmation
-          ? subject[0].SubjectConfirmation[0]
-          : null;
-        confirmData =
-          subjectConfirmation && subjectConfirmation.SubjectConfirmationData
-            ? subjectConfirmation.SubjectConfirmationData[0]
-            : null;
-        if (subject[0].SubjectConfirmation && subject[0].SubjectConfirmation.length > 1) {
-          msg = "Unable to process multiple SubjectConfirmations in SAML assertion";
-          throw new Error(msg);
-        }
-
-        if (subjectConfirmation) {
-          if (confirmData && confirmData.$) {
-            const subjectNotBefore = confirmData.$.NotBefore;
-            const subjectNotOnOrAfter = confirmData.$.NotOnOrAfter;
-            const maxTimeLimitMs = this.processMaxAgeAssertionTime(
-              this.options.maxAssertionAgeMs,
-              subjectNotOnOrAfter,
-              assertion.$.IssueInstant
-            );
-
-            const subjErr = this.checkTimestampsValidityError(
-              nowMs,
-              subjectNotBefore,
-              subjectNotOnOrAfter,
-              maxTimeLimitMs
-            );
-            if (subjErr) {
-              throw subjErr;
+        if (subject[0].SubjectConfirmation && subject[0].SubjectConfirmation?.length > 0) {
+          subjectConfirmation = subject[0].SubjectConfirmation?.find((subjectConfirmation: any) => {
+            let res = false;
+            if (subjectConfirmation) {
+              confirmData = subjectConfirmation && subjectConfirmation.SubjectConfirmationData
+                ? subjectConfirmation.SubjectConfirmationData[0]
+                : null;
+              if (confirmData && confirmData.$) {
+                const subjectNotBefore = confirmData.$.NotBefore;
+                const subjectNotOnOrAfter = confirmData.$.NotOnOrAfter;
+                const maxTimeLimitMs = this.processMaxAgeAssertionTime(
+                  this.options.maxAssertionAgeMs,
+                  subjectNotOnOrAfter,
+                  assertion.$.IssueInstant
+                );
+    
+                const subjErr = this.checkTimestampsValidityError(
+                  nowMs,
+                  subjectNotBefore,
+                  subjectNotOnOrAfter,
+                  maxTimeLimitMs
+                );
+                if (subjErr === null)
+                  res = true;
+              }
             }
+            return res;
+          });
+
+          if (subjectConfirmation) {
+            subjectConfirmation = subjectConfirmation[0];
+            confirmData = subjectConfirmation && subjectConfirmation.SubjectConfirmationData
+              ? subjectConfirmation.SubjectConfirmationData[0]
+              : null;            
+          } else {
+            throw "Unable to process any SubjectConfirmations in SAML assertion";
           }
         }
       }
