@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types";
 import assert = require("assert");
+import { expect } from "chai";
 
 const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
@@ -29,7 +30,7 @@ describe("Signatures", function () {
         message: shouldErrorWith || "SAML assertion expired: clocks skewed too much",
       });
       //== Assert times `validateSignature` was called
-      validateSignatureSpy.callCount.should.eql(amountOfSignatureChecks);
+      expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
     },
     testOneResponse = (
       pathToXml: string,
