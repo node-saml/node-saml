@@ -472,7 +472,7 @@ class SAML {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
     const requestOrResponse = assertRequired(
       request || response,
-      "one of request or response is required"
+      "either request or response is required"
     );
 
     let buffer: Buffer;
