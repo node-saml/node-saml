@@ -1,7 +1,7 @@
 import { SAML } from "../src/saml";
 import { FAKE_CERT } from "./types";
 import * as zlib from "zlib";
-import * as should from "should";
+import { expect } from "chai";
 import { parseStringPromise } from "xml2js";
 import { assertRequired } from "../src/utility";
 import { SamlConfig } from "../src/types";
@@ -88,7 +88,7 @@ describe("SAML request", function () {
     oSAML
       .getAuthorizeFormAsync("http://localhost/saml/consume")
       .then((formBody) => {
-        formBody.should.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
+        expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
         const samlRequestMatchValues = formBody.match(/<input.*name="SAMLRequest" value="([^"]*)"/);
         const encodedSamlRequest = assertRequired(samlRequestMatchValues?.[1]);
 
@@ -102,7 +102,7 @@ describe("SAML request", function () {
       .then((doc) => {
         delete doc["samlp:AuthnRequest"]["$"]["ID"];
         delete doc["samlp:AuthnRequest"]["$"]["IssueInstant"];
-        doc.should.eql(result);
+        expect(doc).to.equal(result);
       });
   });
 

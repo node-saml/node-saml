@@ -88,7 +88,7 @@ const saml = new SAML(options);
 ```
 
 - **InResponseTo Validation**
-- `validateInResponseTo`: 
+- `validateInResponseTo`:
   - if `true`, `"always"`, then InResponseTo will be validated from incoming SAML responses
   - if `false` or `"never"`, then InResponseTo won't be validated
   - if `"ifPresent"`, then InResponseTo will only be validated if present in the incoming SAML response

@@ -1,7 +1,7 @@
 "use strict";
 import * as fs from "fs";
 import * as url from "url";
-import * as should from "should";
+import { expect } from "chai";
 import assert = require("assert");
 import { SAML } from "../src/saml";
 import { AuthenticateOptions, AuthorizeOptions } from "../src/passport-saml-types";
@@ -42,31 +42,31 @@ describe("SAML.js", function () {
     describe("getAuthorizeUrl", function () {
       it("calls callback with right host", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        url.parse(target!).host!.should.equal("exampleidp.com");
+        expect(url.parse(target!).host!).to.equal("exampleidp.com");
       });
       it("calls callback with right protocol", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        url.parse(target!).protocol!.should.equal("https:");
+        expect(url.parse(target!).protocol!).to.equal("https:");
       });
       it("calls callback with right path", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        url.parse(target!).pathname!.should.equal("/path");
+        expect(url.parse(target!).pathname!).to.equal("/path");
       });
       it("calls callback with original query string", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        url.parse(target!, true).query["key"]!.should.equal("value");
+        expect(url.parse(target!, true).query["key"]!).to.equal("value");
       });
       it("calls callback with additional run-time params in query string", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, options);
-        Object.keys(url.parse(target!, true).query).should.have.length(3);
-        url.parse(target!, true).query["key"]!.should.equal("value");
-        url.parse(target!, true).query["SAMLRequest"]!.should.not.be.empty();
-        url.parse(target!, true).query["additionalKey"]!.should.equal("additionalValue");
+        expect(Object.keys(url.parse(target!, true).query)).to.have.lengthOf(3);
+        expect(url.parse(target!, true).query["key"]!).to.equal("value");
+        expect(url.parse(target!, true).query["SAMLRequest"]!).to.not.be.empty;
+        expect(url.parse(target!, true).query["additionalKey"]!).to.equal("additionalValue");
       });
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml request object", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        should(url.parse(target!, true).query).have.property("SAMLRequest");
+        expect(url.parse(target!, true).query).have.property("SAMLRequest");
       });
     });
 
@@ -74,43 +74,44 @@ describe("SAML.js", function () {
       it("calls callback with right host", async () => {
         req.user = assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        url.parse(target!).host!.should.equal("exampleidp.com");
+        expect(url.parse(target!).host!).to.equal("exampleidp.com");
       });
       it("calls callback with right protocol", async () => {
         req.user = assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        url.parse(target!).protocol!.should.equal("https:");
+        expect(url.parse(target!).protocol!).to.equal("https:");
+        expect(url.parse(target!).protocol!).to.equal("https:");
       });
       it("calls callback with right path", async () => {
         req.user = assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        url.parse(target!).pathname!.should.equal("/path");
+        expect(url.parse(target!).pathname!).to.equal("/path");
       });
       it("calls callback with original query string", async () => {
         req.user = assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        url.parse(target!, true).query["key"]!.should.equal("value");
+        expect(url.parse(target!, true).query["key"]!).to.equal("value");
       });
       it("calls callback with additional run-time params in query string", async () => {
         req.user = assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", options);
-        Object.keys(url.parse(target!, true).query).should.have.length(3);
-        url.parse(target!, true).query["key"]!.should.equal("value");
-        url.parse(target!, true).query["SAMLRequest"]!.should.not.be.empty();
-        url.parse(target!, true).query["additionalKey"]!.should.equal("additionalValue");
+        expect(Object.keys(url.parse(target!, true).query)).to.have.lengthOf(3);
+        expect(url.parse(target!, true).query["key"]!).to.equal("value");
+        expect(url.parse(target!, true).query["SAMLRequest"]!).to.not.be.empty;
+        expect(url.parse(target!, true).query["additionalKey"]!).to.equal("additionalValue");
       });
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml request object", async () => {
         req.user = assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        should(url.parse(target!, true).query).have.property("SAMLRequest");
+        expect(url.parse(target!, true).query).have.property("SAMLRequest");
       });
     });
 
     describe("getLogoutResponseUrl", function () {
       it("calls callback with right host", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
-          should.not.exist(err);
+          expect(err).to.not.exist;
           try {
             target = assertRequired(target);
             const parsed = url.parse(target);
@@ -123,7 +124,7 @@ describe("SAML.js", function () {
       });
       it("calls callback with right protocol", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
-          should.not.exist(err);
+          expect(err).to.not.exist;
           try {
             target = assertRequired(target);
             const parsed = url.parse(target);
@@ -136,7 +137,7 @@ describe("SAML.js", function () {
       });
       it("calls callback with right path", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
-          should.not.exist(err);
+          expect(err).to.not.exist;
           try {
             target = assertRequired(target);
             const parsed = url.parse(target);
@@ -149,7 +150,7 @@ describe("SAML.js", function () {
       });
       it("calls callback with original query string", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
-          should.not.exist(err);
+          expect(err).to.not.exist;
           try {
             target = assertRequired(target);
             const parsed = url.parse(target, true);
@@ -162,12 +163,12 @@ describe("SAML.js", function () {
       });
       it("calls callback with additional run-time params in query string", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", options, true, function (err, target) {
-          should.not.exist(err);
+          expect(err).to.not.exist;
           try {
             target = assertRequired(target);
             const parsed = url.parse(target, true);
             assert.strictEqual(parsed.query["key"], "value");
-            should.exist(parsed.query["SAMLResponse"]);
+            expect(parsed.query["SAMLResponse"]).to.exist;
             assert.strictEqual(parsed.query["additionalKey"], "additionalValue");
             done();
           } catch (err2) {
@@ -178,11 +179,11 @@ describe("SAML.js", function () {
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml response object", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
-          should.not.exist(err);
+          expect(err).to.not.exist;
           try {
             target = assertRequired(target);
             const parsed = url.parse(target, true);
-            should(parsed.query).have.property("SAMLResponse");
+            expect(parsed.query).have.property("SAMLResponse");
             done();
           } catch (err2) {
             done(err2);
