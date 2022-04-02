@@ -128,7 +128,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   signMetadata?: boolean;
 
   // InResponseTo Validation
-  validateInResponseTo: boolean | ValidateInResponseTo;
+  validateInResponseTo: ValidateInResponseTo;
   requestIdExpirationPeriodMs: number;
   cacheProvider: CacheProvider;
 

@@ -154,7 +154,7 @@ class SAML {
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],
-      validateInResponseTo: ctorOptions.validateInResponseTo ?? false,
+      validateInResponseTo: ctorOptions.validateInResponseTo ?? ValidateInResponseTo.never,
       cert: assertRequired(ctorOptions.cert, "cert is required"),
       requestIdExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs ?? 28800000, // 8 hours
       cacheProvider:
@@ -1461,7 +1461,6 @@ class SAML {
 
   private mustValidateInResponseTo(hasInResponseTo: boolean): boolean {
     return (
-      this.options.validateInResponseTo === true ||
       this.options.validateInResponseTo === ValidateInResponseTo.always ||
       (this.options.validateInResponseTo === ValidateInResponseTo.ifPresent && hasInResponseTo)
     );
