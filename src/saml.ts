@@ -229,7 +229,7 @@ class SAML {
     isPassive: boolean,
     isHttpPostBinding: boolean,
     host: string | undefined
-  ): Promise<string | undefined> {
+  ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const id = this.options.generateUniqueId();
@@ -582,15 +582,15 @@ class SAML {
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
     let buffer: Buffer;
     if (this.options.skipRequestCompression) {
-      buffer = Buffer.from(request!, "utf8");
+      buffer = Buffer.from(request, "utf8");
     } else {
-      buffer = await deflateRawAsync(request!);
+      buffer = await deflateRawAsync(request);
     }
 
     const operation = "authorize";
     const additionalParameters = this._getAdditionalParams(RelayState, operation);
     const samlMessage: querystring.ParsedUrlQueryInput = {
-      SAMLRequest: buffer!.toString("base64"),
+      SAMLRequest: buffer.toString("base64"),
     };
 
     Object.keys(additionalParameters).forEach((k) => {
