@@ -25,12 +25,13 @@ export const keyToPEM = (
 };
 
 export const certToPEM = (cert: string): string => {
-  cert = cert.match(/.{1,64}/g)!.join("\n");
+  const lines = cert.match(/.{1,64}/g);
+  let pem = assertRequired(lines, "cert is invalid").join("\n");
 
-  if (cert.indexOf("-BEGIN CERTIFICATE-") === -1) cert = "-----BEGIN CERTIFICATE-----\n" + cert;
-  if (cert.indexOf("-END CERTIFICATE-") === -1) cert = cert + "\n-----END CERTIFICATE-----\n";
+  if (pem.indexOf("-BEGIN CERTIFICATE-") === -1) pem = "-----BEGIN CERTIFICATE-----\n" + pem;
+  if (pem.indexOf("-END CERTIFICATE-") === -1) pem = pem + "\n-----END CERTIFICATE-----\n";
 
-  return cert;
+  return pem;
 };
 
 export const generateUniqueId = (): string => {

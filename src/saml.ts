@@ -229,7 +229,7 @@ class SAML {
     isPassive: boolean,
     isHttpPostBinding: boolean,
     host: string | undefined
-  ): Promise<string | undefined> {
+  ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const id = this.options.generateUniqueId();
@@ -369,7 +369,7 @@ class SAML {
     return stringRequest;
   }
 
-  async _generateLogoutRequest(user: Profile) {
+  async _generateLogoutRequest(user: Profile): Promise<string> {
     const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
@@ -470,12 +470,16 @@ class SAML {
     additionalParameters: querystring.ParsedUrlQuery
   ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
+    const requestOrResponse = assertRequired(
+      request || response,
+      "either request or response is required"
+    );
 
     let buffer: Buffer;
     if (this.options.skipRequestCompression) {
-      buffer = Buffer.from((request || response)!, "utf8");
+      buffer = Buffer.from(requestOrResponse, "utf8");
     } else {
-      buffer = await deflateRawAsync((request || response)!);
+      buffer = await deflateRawAsync(requestOrResponse);
     }
 
     const base64 = buffer.toString("base64");
@@ -582,15 +586,15 @@ class SAML {
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
     let buffer: Buffer;
     if (this.options.skipRequestCompression) {
-      buffer = Buffer.from(request!, "utf8");
+      buffer = Buffer.from(request, "utf8");
     } else {
-      buffer = await deflateRawAsync(request!);
+      buffer = await deflateRawAsync(request);
     }
 
     const operation = "authorize";
     const additionalParameters = this._getAdditionalParams(RelayState, operation);
     const samlMessage: querystring.ParsedUrlQueryInput = {
-      SAMLRequest: buffer!.toString("base64"),
+      SAMLRequest: buffer.toString("base64"),
     };
 
     Object.keys(additionalParameters).forEach((k) => {
