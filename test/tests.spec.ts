@@ -7,7 +7,7 @@ import * as fs from "fs";
 import * as sinon from "sinon";
 import { Profile, SamlConfig } from "../src/types.js";
 import { RacComparision } from "../src/types.js";
-import * as should from "should";
+import { expect } from "chai";
 import assert = require("assert");
 import { FAKE_CERT, TEST_CERT } from "./types";
 import { signXmlResponse } from "../src/utility";
@@ -23,7 +23,7 @@ const TEST_METADATA_ID_PLACEHOLDER = "d700077e-60ad-49c1-b93a-dd1753528708";
 describe("node-saml /", function () {
   describe("saml.js / ", function () {
     it("should throw an error if cert property is provided to saml constructor but is empty", function () {
-      should(function () {
+      expect(function () {
         const strategy = new SAML({ cert: undefined as any });
         typeof strategy.options.cert === "undefined";
       }).throw("cert is required");
@@ -62,7 +62,7 @@ describe("node-saml /", function () {
               try {
                 delete doc["samlp:LogoutRequest"]["$"]["ID"];
                 delete doc["samlp:LogoutRequest"]["$"]["IssueInstant"];
-                doc.should.eql(expectedRequest);
+                expect(doc).to.deep.equal(expectedRequest);
                 done();
               } catch (err2) {
                 done(err2);
@@ -121,7 +121,7 @@ describe("node-saml /", function () {
               try {
                 delete doc["samlp:LogoutRequest"]["$"]["ID"];
                 delete doc["samlp:LogoutRequest"]["$"]["IssueInstant"];
-                doc.should.eql(expectedRequest);
+                expect(doc).to.deep.equal(expectedRequest);
                 done();
               } catch (err2) {
                 done(err2);
@@ -210,7 +210,7 @@ describe("node-saml /", function () {
               .then(function (doc) {
                 delete doc["samlp:LogoutRequest"]["$"]["ID"];
                 delete doc["samlp:LogoutRequest"]["$"]["IssueInstant"];
-                doc.should.eql(expectedRequest);
+                expect(doc).to.deep.equal(expectedRequest);
                 done();
               })
               .catch((err: Error) => {
@@ -255,7 +255,7 @@ describe("node-saml /", function () {
         try {
           delete doc["samlp:LogoutResponse"]["$"]["ID"];
           delete doc["samlp:LogoutResponse"]["$"]["IssueInstant"];
-          doc.should.eql(expectedResponse);
+          expect(doc).to.deep.equal(expectedResponse);
           done();
         } catch (err2) {
           done(err2);
@@ -300,7 +300,7 @@ describe("node-saml /", function () {
         try {
           delete doc["samlp:LogoutResponse"]["$"]["ID"];
           delete doc["samlp:LogoutResponse"]["$"]["IssueInstant"];
-          doc.should.eql(expectedResponse);
+          expect(doc).to.deep.equal(expectedResponse);
           done();
         } catch (err2) {
           done(err2);
@@ -345,7 +345,7 @@ describe("node-saml /", function () {
               try {
                 delete doc["samlp:LogoutRequest"]["$"]["ID"];
                 delete doc["samlp:LogoutRequest"]["$"]["IssueInstant"];
-                doc.should.eql(expectedRequest);
+                expect(doc).to.deep.equal(expectedRequest);
                 done();
               } catch (err2) {
                 done(err2);
@@ -397,10 +397,10 @@ describe("node-saml /", function () {
             const id = doc["samlp:LogoutRequest"]["$"]["ID"];
             const issueInstant = doc["samlp:LogoutRequest"]["$"]["IssueInstant"];
 
-            id.should.be.an.instanceOf(String);
-            issueInstant.should.be.an.instanceOf(String);
-            cacheSaveSpy.called.should.eql(true);
-            cacheSaveSpy.calledWith(id, issueInstant).should.eql(true);
+            expect(id).to.be.a("string");
+            expect(issueInstant).to.be.a("string");
+            expect(cacheSaveSpy.called).to.be.true;
+            expect(cacheSaveSpy.calledWith(id, issueInstant)).to.be.true;
             done();
           } catch (err2) {
             done(err2);
@@ -433,7 +433,8 @@ describe("node-saml /", function () {
           .split("\n");
 
         // splits are to get a nice diff if they don't match for some reason
-        metadata.split("\n").should.eql(preparedMetadata);
+        //expect(metadata.split("\n")).to.equal(preparedMetadata);
+        expect(metadata.split("\n")).to.eql(preparedMetadata);
       }
 
       it("config with callbackUrl and decryptionPvk should pass", function () {
@@ -561,8 +562,8 @@ describe("node-saml /", function () {
           "utf-8"
         );
         const metadata = samlObj.generateServiceProviderMetadata(decryptionCert);
-        metadata.should.containEql("SingleLogoutService");
-        metadata.should.containEql(samlConfig.logoutCallbackUrl);
+        expect(metadata).to.contain("SingleLogoutService");
+        expect(metadata).to.contain(samlConfig.logoutCallbackUrl);
       });
 
       it("generateServiceProviderMetadata contains WantAssertionsSigned", function () {
@@ -581,7 +582,7 @@ describe("node-saml /", function () {
           "utf-8"
         );
         const metadata = samlObj.generateServiceProviderMetadata(decryptionCert);
-        metadata.should.containEql('WantAssertionsSigned="true"');
+        expect(metadata).to.contain('WantAssertionsSigned="true"');
       });
 
       it("generateServiceProviderMetadata contains AuthnRequestsSigned", function () {
@@ -598,7 +599,7 @@ describe("node-saml /", function () {
         const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
 
         const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
-        metadata.should.containEql('AuthnRequestsSigned="true"');
+        expect(metadata).to.contain('AuthnRequestsSigned="true"');
       });
 
       it("signMetadata creates a valid signature", function () {
@@ -620,7 +621,7 @@ describe("node-saml /", function () {
         const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
 
         const dom = parseDomFromString(metadata);
-        samlObj.validateSignature(metadata, dom.documentElement, [signingCert]).should.be.true;
+        expect(samlObj.validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
       });
     });
 
@@ -677,11 +678,11 @@ describe("node-saml /", function () {
 
         const samlObj = new SAML({ cert: signingCert });
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.issuer!.should.eql("https://evil-corp.com");
-        profile!.nameID!.should.eql("vincent.vega@evil-corp.com");
-        should(profile).have.property("evil-corp.egroupid").eql("vincent.vega@evil-corp.com");
+        expect(profile!.issuer!).to.equal("https://evil-corp.com");
+        expect(profile!.nameID!).to.equal("vincent.vega@evil-corp.com");
+        expect(profile).to.have.property("evil-corp.egroupid", "vincent.vega@evil-corp.com");
         // attributes without attributeValue child should be ignored
-        should(profile).not.have.property("evilcorp.roles");
+        expect(profile).to.not.have.property("evilcorp.roles");
       });
 
       it("removes InResponseTo value if response validation fails", async () => {
@@ -741,8 +742,8 @@ describe("node-saml /", function () {
           try {
             new SAML(noCertSamlConfig);
           } catch (err: any) {
-            should.exist(err);
-            err!.message!.should.match(/cert is required/);
+            expect(err).to.exist;
+            expect(err!.message!).to.match(/cert is required/);
           }
         });
 
@@ -750,8 +751,8 @@ describe("node-saml /", function () {
           try {
             new SAML(badCertSamlConfig);
           } catch (err: any) {
-            should.exist(err);
-            err!.message!.should.match(/cert is required/);
+            expect(err).to.exist;
+            expect(err!.message!).to.match(/cert is required/);
           }
         });
 
@@ -767,7 +768,7 @@ describe("node-saml /", function () {
           const samlObj = new SAML(samlConfig);
 
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          profile!.nameID!.should.startWith("ploer");
+          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
         });
         it("valid onelogin xml document should fail with no cert", function () {
           const xml =
@@ -781,8 +782,8 @@ describe("node-saml /", function () {
           try {
             const samlObj = new SAML(noCertSamlConfig);
           } catch (err: any) {
-            should.exist(err);
-            err!.message!.should.match(/cert is required/);
+            expect(err).to.exist;
+            expect(err!.message!).to.match(/cert is required/);
           }
         });
 
@@ -887,7 +888,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML(multiCertSamlConfig);
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          profile!.nameID!.should.startWith("ploer");
+          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
         });
 
         it("cert as a function should validate with the returned cert", async () => {
@@ -907,7 +908,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML(functionCertSamlConfig);
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          profile!.nameID!.should.startWith("ploer");
+          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
         });
 
         it("cert as a function should validate with one of the returned certs", async () => {
@@ -927,7 +928,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML(functionMultiCertSamlConfig);
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          profile!.nameID!.should.startWith("ploer");
+          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
         });
 
         it("cert as a function should return an error if the cert function returns an error", async () => {
@@ -949,10 +950,10 @@ describe("node-saml /", function () {
           const samlObj = new SAML(functionErrorCertSamlConfig);
           try {
             await samlObj.validatePostResponseAsync(container);
-            should.not.exist(true);
+            expect(true).to.not.exist;
           } catch (err: any) {
-            should.exist(err);
-            err!.should.eql(errorToReturn);
+            expect(err).to.exist;
+            expect(err!).to.equal(errorToReturn);
           }
         });
 
@@ -992,10 +993,10 @@ describe("node-saml /", function () {
           const { profile } = await samlObj.validatePostResponseAsync(container);
           const eptid = profile!["urn:oid:1.3.6.1.4.1.5923.1.1.1.10"] as any;
           const nameid = eptid["NameID"][0];
-          nameid._.should.eql(nameid_opaque_string);
-          nameid.$.NameQualifier.should.equal(nameQualifier);
-          nameid.$.SPNameQualifier.should.equal(spNameQualifier);
-          nameid.$.Format.should.equal(format);
+          expect(nameid._).to.equal(nameid_opaque_string);
+          expect(nameid.$.NameQualifier).to.equal(nameQualifier);
+          expect(nameid.$.SPNameQualifier).to.equal(spNameQualifier);
+          expect(nameid.$.Format).to.equal(format);
         });
 
         it("XML AttributeValue without signature should throw", async () => {
@@ -1054,7 +1055,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML({ cert: signingCert });
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          should(profile!["attributeName"]).be.undefined();
+          expect(profile!["attributeName"]).to.be.undefined;
         });
       });
     });
@@ -1088,11 +1089,11 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
-        qry.SigAlg?.should.match("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
-        qry.Signature?.should.match(
+        expect(qry.SigAlg).to.equal("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
+        expect(qry.Signature).to.equal(
           "hel9NaoLU0brY/VhrQsY+lTtuAbTsT/ul6nZ/eVlSMXQRaKn5LTbKadzxmPghX7s4xoHwdah+yZHK/0u4StYSj4b5MKcqbsJapVr2R7H90z8YfGfR2C/G0Gng721YV9Da6VBzKg8Was91zQotgsMpZ9pGX1kPKi6cgFwPwM4NEFugn8AYgXEriNvO5+Q23K/MdBT2bgwRTj2FQCWTuQcgwbyWHXoquHztZ0lbh8UhY5BfQRv7c6D9XPkQEMMQFQeME4PIEg3JnynwFZk5wwhkphMd5nXxau+zt7Nfp4fRm0G8WYnxV1etBnWimwSglZVaSHFYeQBRsC2wvKSiVS8JA=="
         );
-        qry.customQueryStringParam?.should.match("CustomQueryStringParamValue");
+        expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
 
       it("acme_tools request not signed if missing entry point", async () => {
@@ -1138,11 +1139,11 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
-        qry.SigAlg?.should.match("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
-        qry.Signature?.should.match(
+        expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
+        expect(qry.Signature).to.equal(
           "GrRJDEmwB74g4CjGS4gjDhzR9Mnpo7S1DJyhaLxVRA97tumydsrJNpqbKDAsepnoFcZeS+mWn3hZSE/blsyCUJn5+010MsgQ8KWmRgaFEYPOfbBa2KK1atXNN8zcSdNukpd/rI17fB1HDeCPG8t+rtaE/QviL7DpsF6hGXbWSTi8eSRSNmLKFIntvS81CNiZdub1NI8hSd/rU873u7RfWnv6ChPltCs41Znj49ke6UJaSrHX7kNlnbzqw5WLJp73d3/yT2Yew+xpGDKAGrjYtbQEY0zZ8chfKWyTobLV9vNF1DCFRDeZbLrCzL29elo/aZ8BuIEdTNv/IOZoOMZxRA=="
         );
-        qry.customQueryStringParam?.should.match("CustomQueryStringParamValue");
+        expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
       it("acme_tools request signed with sha1 when using privateKey", async () => {
         const samlConfig: SamlConfig = {
@@ -1164,11 +1165,11 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
-        qry.SigAlg?.should.match("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
-        qry.Signature?.should.match(
+        expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
+        expect(qry.Signature).to.equal(
           "MeFo+LjufxP5A+sCRwzR/YH/RV6W14aYSFjUdie62JxkI6hDcVhoSZQUJ3wtWMhL59gJj05tTFnXAZRqUQVsavyy41cmUZVeCsat0gaHBQOILXpp9deB0iSJt1EVQTOJkVx8uu2/WYu/bBiH7w2bpwuCf1gJhlqZb/ca3B6yjHSMjnnVfc2LbNPWHpE5464lrs79VjDXf9GQWfrBr95dh3P51IAb7C+77KDWQUl9WfZfyyuEgS83vyZ0UGOxT4AObJ6NOcLs8+iidDdWJJkBaKQev6U+AghCjLQUYOrflivLIIyqATKu2q9PbOse6Phmnxok50+broXSG23+e+742Q=="
         );
-        qry.customQueryStringParam?.should.match("CustomQueryStringParamValue");
+        expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
     });
 
@@ -1182,7 +1183,7 @@ describe("node-saml /", function () {
 
         (["logout", "authorize"] as const).forEach(function (operation) {
           const additionalParams = samlObj._getAdditionalParams("", operation);
-          additionalParams.should.be.empty;
+          expect(additionalParams).to.be.empty;
         });
       });
 
@@ -1196,8 +1197,8 @@ describe("node-saml /", function () {
         (["logout", "authorize"] as const).forEach(function (operation) {
           const additionalParams = samlObj._getAdditionalParams("test", operation);
 
-          Object.keys(additionalParams).should.have.length(1);
-          additionalParams.should.containEql({ RelayState: "test" });
+          expect(Object.keys(additionalParams)).to.have.lengthOf(1);
+          expect(additionalParams).to.include({ RelayState: "test" });
         });
       });
 
@@ -1214,7 +1215,7 @@ describe("node-saml /", function () {
             operation
           );
 
-          Object.keys(additionalParams).should.have.length(0);
+          expect(Object.keys(additionalParams)).to.have.lengthOf(0);
         });
       });
 
@@ -1230,8 +1231,8 @@ describe("node-saml /", function () {
 
         (["logout", "authorize"] as const).forEach(function (operation) {
           const additionalParams = samlObj._getAdditionalParams("", operation);
-          Object.keys(additionalParams).should.have.length(1);
-          additionalParams.should.containEql({ queryParam: "queryParamValue" });
+          expect(Object.keys(additionalParams)).to.have.lengthOf(1);
+          expect(additionalParams).to.include({ queryParam: "queryParamValue" });
         });
       });
 
@@ -1246,11 +1247,11 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
 
         const additionalAuthorizeParams = samlObj._getAdditionalParams("", "authorize");
-        Object.keys(additionalAuthorizeParams).should.have.length(1);
-        additionalAuthorizeParams.should.containEql({ queryParam: "queryParamValue" });
+        expect(Object.keys(additionalAuthorizeParams)).to.have.lengthOf(1);
+        expect(additionalAuthorizeParams).to.include({ queryParam: "queryParamValue" });
 
         const additionalLogoutParams = samlObj._getAdditionalParams("", "logout");
-        additionalLogoutParams.should.be.empty;
+        expect(additionalLogoutParams).to.be.empty;
       });
 
       it('should pass additional params with "logout" operations if set in additionalLogoutParams', function () {
@@ -1264,11 +1265,11 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
 
         const additionalAuthorizeParams = samlObj._getAdditionalParams("", "authorize");
-        additionalAuthorizeParams.should.be.empty;
+        expect(additionalAuthorizeParams).to.be.empty;
 
         const additionalLogoutParams = samlObj._getAdditionalParams("", "logout");
-        Object.keys(additionalLogoutParams).should.have.length(1);
-        additionalLogoutParams.should.containEql({ queryParam: "queryParamValue" });
+        expect(Object.keys(additionalLogoutParams)).to.have.lengthOf(1);
+        expect(additionalLogoutParams).to.include({ queryParam: "queryParamValue" });
       });
 
       it("should merge additionalLogoutParams and additionalAuthorizeParams with additionalParams", function () {
@@ -1288,15 +1289,15 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
 
         const additionalAuthorizeParams = samlObj._getAdditionalParams("", "authorize");
-        Object.keys(additionalAuthorizeParams).should.have.length(2);
-        additionalAuthorizeParams.should.containEql({
+        expect(Object.keys(additionalAuthorizeParams)).to.have.lengthOf(2);
+        expect(additionalAuthorizeParams).to.include({
           queryParam1: "queryParamValue",
           queryParam2: "queryParamValueAuthorize",
         });
 
         const additionalLogoutParams = samlObj._getAdditionalParams("", "logout");
-        Object.keys(additionalLogoutParams).should.have.length(2);
-        additionalLogoutParams.should.containEql({
+        expect(Object.keys(additionalLogoutParams)).to.have.lengthOf(2);
+        expect(additionalLogoutParams).to.include({
           queryParam1: "queryParamValue",
           queryParam2: "queryParamValueLogout",
         });
@@ -1328,8 +1329,8 @@ describe("node-saml /", function () {
           "authorize",
           options.additionalParams
         );
-        Object.keys(additionalAuthorizeParams).should.have.length(3);
-        additionalAuthorizeParams.should.containEql({
+        expect(Object.keys(additionalAuthorizeParams)).to.have.lengthOf(3);
+        expect(additionalAuthorizeParams).to.include({
           queryParam1: "queryParamValue",
           queryParam2: "queryParamValueAuthorize",
           queryParam3: "queryParamRuntimeValue",
@@ -1340,8 +1341,8 @@ describe("node-saml /", function () {
           "logout",
           options.additionalParams
         );
-        Object.keys(additionalLogoutParams).should.have.length(3);
-        additionalLogoutParams.should.containEql({
+        expect(Object.keys(additionalLogoutParams)).to.have.lengthOf(3);
+        expect(additionalLogoutParams).to.include({
           queryParam1: "queryParamValue",
           queryParam2: "queryParamValueLogout",
           queryParam3: "queryParamRuntimeValue",
@@ -1365,12 +1366,12 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
 
         const additionalAuthorizeParams = samlObj._getAdditionalParams("", "authorize");
-        Object.keys(additionalAuthorizeParams).should.have.length(1);
-        additionalAuthorizeParams.should.containEql({ queryParam: "queryParamValueAuthorize" });
+        expect(Object.keys(additionalAuthorizeParams)).to.have.lengthOf(1);
+        expect(additionalAuthorizeParams).to.include({ queryParam: "queryParamValueAuthorize" });
 
         const additionalLogoutParams = samlObj._getAdditionalParams("", "logout");
-        Object.keys(additionalLogoutParams).should.have.length(1);
-        additionalLogoutParams.should.containEql({ queryParam: "queryParamValueLogout" });
+        expect(Object.keys(additionalLogoutParams)).to.have.lengthOf(1);
+        expect(additionalLogoutParams).to.include({ queryParam: "queryParamValueLogout" });
       });
 
       it("should prioritize run-time params over all other params", function () {
@@ -1399,16 +1400,16 @@ describe("node-saml /", function () {
           "authorize",
           options.additionalParams
         );
-        Object.keys(additionalAuthorizeParams).should.have.length(1);
-        additionalAuthorizeParams.should.containEql({ queryParam: "queryParamRuntimeValue" });
+        expect(Object.keys(additionalAuthorizeParams)).to.have.lengthOf(1);
+        expect(additionalAuthorizeParams).to.include({ queryParam: "queryParamRuntimeValue" });
 
         const additionalLogoutParams = samlObj._getAdditionalParams(
           "",
           "logout",
           options.additionalParams
         );
-        Object.keys(additionalLogoutParams).should.have.length(1);
-        additionalLogoutParams.should.containEql({ queryParam: "queryParamRuntimeValue" });
+        expect(Object.keys(additionalLogoutParams)).to.have.lengthOf(1);
+        expect(additionalLogoutParams).to.include({ queryParam: "queryParamRuntimeValue" });
       });
 
       it("should check the value of the option `racComparison`", function () {
@@ -1425,8 +1426,7 @@ describe("node-saml /", function () {
         const samlObjBadComparisonType = new SAML({
           cert: FAKE_CERT,
         });
-        should.equal(
-          samlObjBadComparisonType.options.racComparison,
+        expect(samlObjBadComparisonType.options.racComparison).equal(
           "exact",
           "the default value of the option `racComparison` must be exact"
         );
@@ -1435,7 +1435,8 @@ describe("node-saml /", function () {
         let samlObjValidComparisonType: SAML;
         validComparisonTypes.forEach(function (racComparison) {
           samlObjValidComparisonType = new SAML({ racComparison, cert: FAKE_CERT });
-          should.equal(samlObjValidComparisonType.options.racComparison, racComparison);
+          expect(samlObjValidComparisonType.options.racComparison).to.equal(racComparison);
+          expect(samlObjValidComparisonType.options.racComparison).to.equal(racComparison);
         });
       });
     });
@@ -1473,9 +1474,9 @@ describe("node-saml /", function () {
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
         const { profile, loggedOut } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("ploer");
+        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
         const value = await samlObj.cacheProvider.getAsync(requestId);
-        should.not.exist(value);
+        expect(value).to.not.exist;
       });
 
       it("onelogin xml document without InResponseTo from request should fail", async () => {
@@ -1522,9 +1523,9 @@ describe("node-saml /", function () {
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("UIS/jochen-work");
+        expect(profile!.nameID!.startsWith("UIS/jochen-work")).to.be.true;
         const value = await samlObj.cacheProvider.getAsync(requestId);
-        should.not.exist(value);
+        expect(value).to.not.exist;
       });
 
       it("xml document with SubjectConfirmation and missing InResponseTo from request should not be valid", async () => {
@@ -1548,9 +1549,9 @@ describe("node-saml /", function () {
 
         try {
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          should.not.exist(profile);
+          expect(profile).to.not.exist;
         } catch (err: any) {
-          err!.message!.should.eql("InResponseTo is missing from response");
+          expect(err!.message!).to.equal("InResponseTo is missing from response");
         }
       });
 
@@ -1574,10 +1575,10 @@ describe("node-saml /", function () {
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("UIS/jochen-work");
+        expect(profile!.nameID!.startsWith("UIS/jochen-work")).to.be.true;
         const value = await samlObj.cacheProvider.getAsync(requestId);
-        should.exist(value);
-        value!.should.eql("2014-06-05T12:07:07.662Z");
+        expect(value).to.exist;
+        expect(value!).to.equal("2014-06-05T12:07:07.662Z");
       });
 
       it("xml document with multiple AttributeStatements should have all attributes present on profile", async () => {
@@ -1600,15 +1601,15 @@ describe("node-saml /", function () {
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("UIS/jochen-work");
-        (profile!["vz::identity"] as string).should.equal("UIS/jochen-work");
-        (profile!["vz::subjecttype"] as string).should.equal("UIS user");
-        (profile!["vz::account"] as string).should.equal("e9aba0c4-ece8-4b44-9526-d24418aa95dc");
-        (profile!["vz::org"] as string).should.equal("testorg");
-        (profile!["vz::name"] as string).should.equal("Test User");
-        (profile!["net::ip"] as string).should.equal("::1");
+        expect(profile!.nameID!.startsWith("UIS/jochen-work")).to.be.true;
+        expect(profile!["vz::identity"] as string).to.equal("UIS/jochen-work");
+        expect(profile!["vz::subjecttype"] as string).to.equal("UIS user");
+        expect(profile!["vz::account"] as string).to.equal("e9aba0c4-ece8-4b44-9526-d24418aa95dc");
+        expect(profile!["vz::org"] as string).to.equal("testorg");
+        expect(profile!["vz::name"] as string).to.equal("Test User");
+        expect(profile!["net::ip"] as string).to.equal("::1");
         const value = await samlObj.cacheProvider.getAsync(requestId);
-        should.not.exist(value);
+        expect(value).to.not.exist;
       });
 
       describe("InResponseTo server cache expiration tests /", () => {
@@ -1627,7 +1628,7 @@ describe("node-saml /", function () {
 
           await (() => new Promise((resolve) => setTimeout(resolve, 300)))();
           const value = await samlObj.cacheProvider.getAsync(requestId);
-          should.not.exist(value);
+          expect(value).to.not.exist;
         });
 
         it("should expire many cached request ids after the time", async () => {
@@ -1650,14 +1651,14 @@ describe("node-saml /", function () {
           await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
           const value1 = await samlObj.cacheProvider.getAsync(expiredRequestId1);
-          should.not.exist(value1);
+          expect(value1).to.not.exist;
           const value2 = await samlObj.cacheProvider.getAsync(expiredRequestId2);
-          should.not.exist(value2);
+          expect(value2).to.not.exist;
           const value3 = await samlObj.cacheProvider.getAsync(requestId);
-          should.exist(value3);
+          expect(value3).to.exist;
           await (() => new Promise((resolve) => setTimeout(resolve, 300)))();
           const value4 = await samlObj.cacheProvider.getAsync(requestId);
-          should.not.exist(value4);
+          expect(value4).to.not.exist;
         });
       });
     });
@@ -1693,7 +1694,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("ploer");
+        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
       });
 
       it("onelogin xml document with current time equal to NotBefore (plus default clock skew)  time should validate", async () => {
@@ -1712,7 +1713,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:08Z"));
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("ploer");
+        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
       });
 
       it("onelogin xml document with current time before NotBefore time should fail", async () => {
@@ -1816,7 +1817,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:20:09Z"));
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("ploer");
+        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
       });
 
       it("onelogin xml document with corrupted NotOnOrAfter time in Conditions should fail", async () => {
@@ -1905,7 +1906,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:16:08Z"));
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("ploer");
+        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
       });
 
       it("onelogin xml document with corrupted IssueInstant time should fail", async () => {
@@ -2062,7 +2063,7 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        profile!.nameID!.should.startWith("ploer");
+        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
       });
     });
   });
@@ -2104,7 +2105,7 @@ describe("node-saml /", function () {
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
-      profile!.should.eql({
+      expect(profile!).to.deep.equal({
         ID: "pfxd4d369e8-9ea1-780c-aff8-a1d11a9862a1",
         issuer: "http://sp.example.com/demo1/metadata.php",
         nameID: "ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7",
@@ -2119,7 +2120,7 @@ describe("node-saml /", function () {
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
-      profile!.should.eql({
+      expect(profile!).to.deep.equal({
         ID: "pfxd4d369e8-9ea1-780c-aff8-a1d11a9862a1",
         issuer: "http://sp.example.com/demo1/metadata.php",
         nameID: "ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7",
@@ -2139,7 +2140,7 @@ describe("node-saml /", function () {
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
-      profile!.should.eql({
+      expect(profile!).to.deep.equal({
         ID: "pfx087316a5-2dfb-cc05-2ba9-b46751936ff5",
         issuer: "http://sp.example.com/demo1/metadata.php",
         nameID: "ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7",
@@ -2172,7 +2173,7 @@ describe("node-saml /", function () {
         SAMLResponse: Buffer.from(signedXml).toString("base64"),
       });
 
-      should(profile!.issuer).not.be.equal("test");
+      expect(profile!.issuer).to.not.be.equal("test");
     });
   });
 
@@ -2286,7 +2287,7 @@ describe("node-saml /", function () {
           this.request,
           this.request.originalQuery
         );
-        profile!.should.eql({
+        expect(profile!).to.deep.equal({
           ID: "_8f0effde308adfb6ae7f1e29b414957fc320f5636f",
           issuer: "http://localhost:20000/saml2/idp/metadata.php",
           nameID: "stavros@workable.com",
@@ -2358,7 +2359,7 @@ describe("node-saml /", function () {
           this.request,
           this.request.originalQuery
         );
-        loggedOut!.should.eql(true);
+        expect(loggedOut!).to.be.true;
       });
 
       it("accepts cert without header and footer line", async function () {
@@ -2371,7 +2372,7 @@ describe("node-saml /", function () {
           this.request,
           this.request.originalQuery
         );
-        loggedOut!.should.eql(true);
+        expect(loggedOut!).to.be.true;
       });
     });
   });
