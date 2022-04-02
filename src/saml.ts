@@ -6,7 +6,6 @@ import { URL } from "url";
 import * as querystring from "querystring";
 import * as util from "util";
 import { InMemoryCacheProvider } from "./inmemory-cache-provider";
-import * as algorithms from "./algorithms";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { ParsedQs } from "qs";
 import {
@@ -22,7 +21,6 @@ import {
   SamlIDPEntryConfig,
   SamlOptions,
   SamlConfig,
-  ServiceMetadataXML,
   XMLInput,
   XMLObject,
   XMLOutput,
@@ -39,80 +37,17 @@ import {
   validateXmlSignatureForCert,
   xpath,
 } from "./xml";
-import { certToPEM, generateUniqueId, keyToPEM, removeCertPEMHeaderAndFooter } from "./crypto";
+import { certToPEM, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
-import { getAdditionalParams } from "./saml/common";
+import { getAdditionalParams, requestToUrlAsync } from "./saml/common";
+import { generateServiceProviderMetadata } from "./saml/metadata";
+import {
+  processValidlySignedPostRequestAsync,
+  processValidlySignedSamlLogoutAsync,
+} from "./saml/logout";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
-
-interface NameID {
-  value: string | null;
-  format: string | null;
-}
-
-async function processValidlySignedPostRequestAsync(
-  self: SAML,
-  doc: XMLOutput,
-  dom: Document
-): Promise<{ profile: Profile; loggedOut: boolean }> {
-  const request = doc.LogoutRequest;
-  if (request) {
-    const profile = {} as Profile;
-    if (request.$.ID) {
-      profile.ID = request.$.ID;
-    } else {
-      throw new Error("Missing SAML LogoutRequest ID");
-    }
-    const issuer = request.Issuer;
-    if (issuer && issuer[0]._) {
-      profile.issuer = issuer[0]._;
-    } else {
-      throw new Error("Missing SAML issuer");
-    }
-    const nameID = await self._getNameIdAsync(self, dom);
-    if (nameID.value) {
-      profile.nameID = nameID.value;
-      if (nameID.format) {
-        profile.nameIDFormat = nameID.format;
-      }
-    } else {
-      throw new Error("Missing SAML NameID");
-    }
-    const sessionIndex = request.SessionIndex;
-    if (sessionIndex) {
-      profile.sessionIndex = sessionIndex[0]._;
-    }
-    return { profile, loggedOut: true };
-  } else {
-    throw new Error("Unknown SAML request message");
-  }
-}
-
-async function processValidlySignedSamlLogoutAsync(
-  self: SAML,
-  doc: XMLOutput,
-  dom: Document
-): Promise<{ profile: Profile | null; loggedOut: boolean }> {
-  const response = doc.LogoutResponse;
-  const request = doc.LogoutRequest;
-
-  if (response) {
-    return { profile: null, loggedOut: true };
-  } else if (request) {
-    return await processValidlySignedPostRequestAsync(self, doc, dom);
-  } else {
-    throw new Error("Unknown SAML response message");
-  }
-}
-
-async function promiseWithNameID(nameid: Node): Promise<NameID> {
-  const format = xpath.selectAttributes(nameid, "@Format");
-  return {
-    value: nameid.textContent,
-    format: format && format[0] && format[0].nodeValue,
-  };
-}
 
 class SAML {
   // note that some methods in SAML are not yet marked as private as they are used in testing.
@@ -203,33 +138,11 @@ class SAML {
     }
   }
 
-  private signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
-    this.options.privateKey = assertRequired(this.options.privateKey, "privateKey is required");
-
-    const samlMessageToSign: querystring.ParsedUrlQueryInput = {};
-    samlMessage.SigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
-    const signer = algorithms.getSigner(this.options.signatureAlgorithm);
-    if (samlMessage.SAMLRequest) {
-      samlMessageToSign.SAMLRequest = samlMessage.SAMLRequest;
-    }
-    if (samlMessage.SAMLResponse) {
-      samlMessageToSign.SAMLResponse = samlMessage.SAMLResponse;
-    }
-    if (samlMessage.RelayState) {
-      samlMessageToSign.RelayState = samlMessage.RelayState;
-    }
-    if (samlMessage.SigAlg) {
-      samlMessageToSign.SigAlg = samlMessage.SigAlg;
-    }
-    signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(keyToPEM(this.options.privateKey), "base64");
-  }
-
   private async generateAuthorizeRequestAsync(
     isPassive: boolean,
     isHttpPostBinding: boolean,
     host: string | undefined
-  ): Promise<string | undefined> {
+  ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const id = this.options.generateUniqueId();
@@ -369,7 +282,7 @@ class SAML {
     return stringRequest;
   }
 
-  async _generateLogoutRequest(user: Profile) {
+  async _generateLogoutRequest(user: Profile): Promise<string> {
     const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
@@ -464,54 +377,34 @@ class SAML {
   }
 
   async _requestToUrlAsync(
-    request: string | null | undefined,
+    request: string | null,
     response: string | null,
     operation: string,
     additionalParameters: querystring.ParsedUrlQuery
   ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
-    let buffer: Buffer;
-    if (this.options.skipRequestCompression) {
-      buffer = Buffer.from((request || response)!, "utf8");
-    } else {
-      buffer = await deflateRawAsync((request || response)!);
+    const targetUrl =
+      operation === "logout" && this.options.logoutUrl
+        ? this.options.logoutUrl
+        : this.options.entryPoint;
+
+    const message = request || response;
+    const messageType = request ? "SAMLRequest" : "SAMLResponse";
+
+    if (!message) {
+      throw new Error("response or request should be provided");
     }
 
-    const base64 = buffer.toString("base64");
-    let target = new URL(this.options.entryPoint);
-
-    if (operation === "logout") {
-      if (this.options.logoutUrl) {
-        target = new URL(this.options.logoutUrl);
-      }
-    } else if (operation !== "authorize") {
-      throw new Error("Unknown operation: " + operation);
-    }
-
-    const samlMessage: querystring.ParsedUrlQuery = request
-      ? {
-          SAMLRequest: base64,
-        }
-      : {
-          SAMLResponse: base64,
-        };
-    Object.keys(additionalParameters).forEach((k) => {
-      samlMessage[k] = additionalParameters[k];
+    return await requestToUrlAsync({
+      targetUrl,
+      skipRequestCompression: this.options.skipRequestCompression,
+      message,
+      messageType,
+      additionalParameters,
+      privateKey: this.options.privateKey,
+      signatureAlgorithm: this.options.signatureAlgorithm,
     });
-    if (isValidSamlSigningOptions(this.options)) {
-      if (!this.options.entryPoint) {
-        throw new Error('"entryPoint" config parameter is required for signed messages');
-      }
-
-      // sets .SigAlg and .Signature
-      this.signRequest(samlMessage);
-    }
-    Object.keys(samlMessage).forEach((k) => {
-      target.searchParams.set(k, samlMessage[k] as string);
-    });
-
-    return target.toString();
   }
 
   _getAdditionalParams(
@@ -580,17 +473,14 @@ class SAML {
     };
 
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
-    let buffer: Buffer;
-    if (this.options.skipRequestCompression) {
-      buffer = Buffer.from(request!, "utf8");
-    } else {
-      buffer = await deflateRawAsync(request!);
-    }
+    const buffer = this.options.skipRequestCompression
+      ? Buffer.from(request, "utf8")
+      : await deflateRawAsync(request);
 
     const operation = "authorize";
     const additionalParameters = this._getAdditionalParams(RelayState, operation);
     const samlMessage: querystring.ParsedUrlQueryInput = {
-      SAMLRequest: buffer!.toString("base64"),
+      SAMLRequest: buffer.toString("base64"),
     };
 
     Object.keys(additionalParameters).forEach((k) => {
@@ -906,7 +796,7 @@ class SAML {
   async validateRedirectAsync(
     container: ParsedQs,
     originalQuery: string
-  ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
+  ): Promise<{ profile: Profile | null; loggedOut: true }> {
     const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
 
     const data = Buffer.from(container[samlMessageType] as string, "base64");
@@ -918,7 +808,7 @@ class SAML {
       ? await this.verifyLogoutResponse(doc)
       : this.verifyLogoutRequest(doc);
     await this.hasValidSignatureForRedirect(container, originalQuery);
-    return await processValidlySignedSamlLogoutAsync(this, doc, dom);
+    return await processValidlySignedSamlLogoutAsync(doc, dom, this.options.decryptionPvk ?? null);
   }
 
   private async hasValidSignatureForRedirect(
@@ -1283,7 +1173,7 @@ class SAML {
 
   async validatePostRequestAsync(
     container: Record<string, string>
-  ): Promise<{ profile: Profile; loggedOut: boolean }> {
+  ): Promise<{ profile: Profile; loggedOut: true }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
     const dom = parseDomFromString(xml);
     const doc = await parseXml2JsFromString(xml);
@@ -1291,147 +1181,21 @@ class SAML {
     if (!this.validateSignature(xml, dom.documentElement, certs)) {
       throw new Error("Invalid signature on documentElement");
     }
-    return await processValidlySignedPostRequestAsync(this, doc, dom);
-  }
-
-  async _getNameIdAsync(self: SAML, doc: Node): Promise<NameID> {
-    const nameIds = xpath.selectElements(
-      doc,
-      "/*[local-name()='LogoutRequest']/*[local-name()='NameID']"
-    );
-    const encryptedIds = xpath.selectElements(
-      doc,
-      "/*[local-name()='LogoutRequest']/*[local-name()='EncryptedID']"
-    );
-
-    if (nameIds.length + encryptedIds.length > 1) {
-      throw new Error("Invalid LogoutRequest");
-    }
-    if (nameIds.length === 1) {
-      return promiseWithNameID(nameIds[0]);
-    }
-    if (encryptedIds.length === 1) {
-      self.options.decryptionPvk = assertRequired(
-        self.options.decryptionPvk,
-        "No decryption key found getting name ID for encrypted SAML response"
-      );
-
-      const encryptedDatas = xpath.selectElements(
-        encryptedIds[0],
-        "./*[local-name()='EncryptedData']"
-      );
-
-      if (encryptedDatas.length !== 1) {
-        throw new Error("Invalid LogoutRequest");
-      }
-      const encryptedDataXml = encryptedDatas[0].toString();
-
-      const decryptedXml = await decryptXml(encryptedDataXml, self.options.decryptionPvk);
-      const decryptedDoc = parseDomFromString(decryptedXml);
-      const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
-      if (decryptedIds.length !== 1) {
-        throw new Error("Invalid EncryptedAssertion content");
-      }
-      return await promiseWithNameID(decryptedIds[0]);
-    }
-    throw new Error("Missing SAML NameID");
+    return await processValidlySignedPostRequestAsync(doc, dom, this.options.decryptionPvk ?? null);
   }
 
   generateServiceProviderMetadata(
     decryptionCert: string | null,
-    signingCert?: string | string[] | null
+    signingCerts?: string | string[] | null
   ): string {
-    const metadata: ServiceMetadataXML = {
-      EntityDescriptor: {
-        "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
-        "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
-        "@entityID": this.options.issuer,
-        "@ID": this.options.generateUniqueId(),
-        SPSSODescriptor: {
-          "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
-        },
-      },
-    };
+    const callbackUrl = this.getCallbackUrl(); // TODO it would probably be useful to have a host parameter here
 
-    if (this.options.decryptionPvk != null || this.options.privateKey != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = [];
-      if (isValidSamlSigningOptions(this.options)) {
-        signingCert = assertRequired(
-          signingCert,
-          "Missing signingCert while generating metadata for signing service provider messages"
-        );
-
-        metadata.EntityDescriptor.SPSSODescriptor["@AuthnRequestsSigned"] = true;
-
-        const certArray = Array.isArray(signingCert) ? signingCert : [signingCert];
-        const signingKeyDescriptors = certArray.map((cert) => ({
-          "@use": "signing",
-          "ds:KeyInfo": {
-            "ds:X509Data": {
-              "ds:X509Certificate": {
-                "#text": removeCertPEMHeaderAndFooter(cert),
-              },
-            },
-          },
-        }));
-        metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push(signingKeyDescriptors);
-      }
-
-      if (this.options.decryptionPvk != null) {
-        decryptionCert = assertRequired(
-          decryptionCert,
-          "Missing decryptionCert while generating metadata for decrypting service provider"
-        );
-
-        decryptionCert = removeCertPEMHeaderAndFooter(decryptionCert);
-
-        metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
-          "@use": "encryption",
-          "ds:KeyInfo": {
-            "ds:X509Data": {
-              "ds:X509Certificate": {
-                "#text": decryptionCert,
-              },
-            },
-          },
-          EncryptionMethod: [
-            // this should be the set that the xmlenc library supports
-            { "@Algorithm": "http://www.w3.org/2009/xmlenc11#aes256-gcm" },
-            { "@Algorithm": "http://www.w3.org/2009/xmlenc11#aes128-gcm" },
-            { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#aes256-cbc" },
-            { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#aes128-cbc" },
-          ],
-        });
-      }
-    }
-
-    if (this.options.logoutCallbackUrl != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.SingleLogoutService = {
-        "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-        "@Location": this.options.logoutCallbackUrl,
-      };
-    }
-
-    if (this.options.identifierFormat != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.NameIDFormat = this.options.identifierFormat;
-    }
-
-    if (this.options.wantAssertionsSigned) {
-      metadata.EntityDescriptor.SPSSODescriptor["@WantAssertionsSigned"] = true;
-    }
-
-    metadata.EntityDescriptor.SPSSODescriptor.AssertionConsumerService = {
-      "@index": "1",
-      "@isDefault": "true",
-      "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-      "@Location": this.getCallbackUrl(),
-    };
-
-    let metadataXml = buildXmlBuilderObject(metadata, true);
-    if (this.options.signMetadata === true && isValidSamlSigningOptions(this.options)) {
-      metadataXml = signXmlMetadata(metadataXml, this.options);
-    }
-    return metadataXml;
+    return generateServiceProviderMetadata({
+      ...this.options,
+      callbackUrl,
+      decryptionCert,
+      signingCerts,
+    });
   }
 
   /**
