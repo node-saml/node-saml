@@ -89,8 +89,8 @@ const saml = new SAML(options);
 
 - **InResponseTo Validation**
 - `validateInResponseTo`:
-  - if `true`, `"always"`, then InResponseTo will be validated from incoming SAML responses
-  - if `false` or `"never"`, then InResponseTo won't be validated
+  - if `"always"`, then InResponseTo will be validated from incoming SAML responses
+  - if `"never"`, then InResponseTo won't be validated
   - if `"ifPresent"`, then InResponseTo will only be validated if present in the incoming SAML response
 - `requestIdExpirationPeriodMs`: Defines the expiration time when a Request ID generated for a SAML request will not be valid if seen in a SAML response in the `InResponseTo` field. Default is 8 hours.
 - `cacheProvider`: Defines the implementation for a cache provider used to store request Ids generated in SAML requests as part of `InResponseTo` validation. Default is a built-in in-memory cache provider. For details see the 'Cache Provider' section.
@@ -252,7 +252,7 @@ in the SAML response.
 
 ## Subject confirmation validation
 
-When configured (turn `validateInResponseTo` to `true` in the Passport-SAML config), the `InResponseTo` attribute will be validated.
+When configured (turn `validateInResponseTo` to `always` in the Passport-SAML config), the `InResponseTo` attribute will be validated.
 Validation will succeed if Passport-SAML previously generated a SAML request with an id that matches the value of `InResponseTo`.
 
 Also note that `InResponseTo` is validated as an attribute of the top level `Response` element in the SAML response, as well
