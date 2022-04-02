@@ -85,6 +85,12 @@ interface SamlScopingConfig {
   requesterId?: string[] | string;
 }
 
+export enum ValidateInResponseTo {
+  never = "never",
+  ifPresent = "ifPresent",
+  always = "always",
+}
+
 /**
  * The options required to use a SAML strategy
  * These may be provided by means of defaults specified in the constructor
@@ -122,7 +128,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   signMetadata?: boolean;
 
   // InResponseTo Validation
-  validateInResponseTo: boolean;
+  validateInResponseTo: ValidateInResponseTo;
   requestIdExpirationPeriodMs: number;
   cacheProvider: CacheProvider;
 

@@ -7,7 +7,7 @@ assignees: ""
 ---
 
 <!--
-Thanks for submitting a bug report or featureq request to help us improve.
+Thanks for submitting a bug report or feature request to help us improve.
 
 If you have a support question about how to use the module, no one is monitoring the issues
 to answer those. Consider posting on StackOverflow instead using the "node-saml" tag.
@@ -32,7 +32,7 @@ and updated documentation.
 
 **To Reproduce**
 
-Steps to reproduce the behavior. Ideally, expressesd through an automated test.
+Steps to reproduce the behavior. Ideally, expressed through an automated test.
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
