@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import * as should from "should";
+import { expect } from "chai";
 import assert = require("assert");
 import { certToPEM, generateUniqueId, keyToPEM } from "../src/crypto";
 import { TEST_CERT } from "./types";
@@ -12,12 +12,12 @@ describe("crypto.ts", function () {
 
     it("should format singleline keys properly", function () {
       const result = keyToPEM(singleline);
-      result.should.equal(regular);
+      expect(result).to.equal(regular);
     });
 
     it("should pass all other multiline keys", function () {
       const result = keyToPEM(regular);
-      result.should.equal(regular);
+      expect(result).to.equal(regular);
     });
 
     it("should fail with falsy", function () {
@@ -26,14 +26,14 @@ describe("crypto.ts", function () {
 
     it("should do nothing to non strings", function () {
       const result = keyToPEM(1 as any);
-      should.equal(result, 1);
+      expect(result).to.equal(1);
     });
   });
 
   describe("generateUniqueID", function () {
     it("should generate 21 char IDs", function () {
       for (let i = 0; i < 200; i++) {
-        generateUniqueId().length.should.eql(21);
+        expect(generateUniqueId().length).to.equal(21);
       }
     });
   });

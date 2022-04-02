@@ -2,8 +2,8 @@
 import * as xmlenc from "xml-encryption";
 import * as fs from "fs";
 import * as util from "util";
-import * as should from "should";
 import assert = require("assert");
+import { expect } from "chai";
 
 export const encrytpXml = util.promisify(xmlenc.encrypt);
 export const decryptXml = util.promisify(xmlenc.decrypt);
@@ -30,7 +30,7 @@ describe("xml /", async function () {
     const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
     const decryptedPayload = await decryptXml(encryptedPayload, decryptOptions);
 
-    should(originalPayload).equal(decryptedPayload);
+    expect(originalPayload).to.equal(decryptedPayload);
   });
 
   it("should decrypt aes256-cbc/rsa-oaep-mgf1p", async function () {
@@ -50,7 +50,7 @@ describe("xml /", async function () {
     const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
     const decryptedPayload = await decryptXml(encryptedPayload, decryptOptions);
 
-    should(originalPayload).equal(decryptedPayload);
+    expect(originalPayload).to.equal(decryptedPayload);
   });
 
   it("should decrypt aes128-gcm/rsa-oaep-mgf1p", async function () {
@@ -70,7 +70,7 @@ describe("xml /", async function () {
     const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
     const decryptedPayload = await decryptXml(encryptedPayload, decryptOptions);
 
-    should(originalPayload).equal(decryptedPayload);
+    expect(originalPayload).to.equal(decryptedPayload);
   });
 
   it("should decrypt aes256-gcm/rsa-oaep-mgf1p", async function () {
@@ -90,7 +90,7 @@ describe("xml /", async function () {
     const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
     const decryptedPayload = await decryptXml(encryptedPayload, decryptOptions);
 
-    should(originalPayload).equal(decryptedPayload);
+    expect(originalPayload).to.equal(decryptedPayload);
   });
 
   it("should not decrypt tripledes-cbc/rsa-oaep-mgf1p", async function () {
@@ -111,7 +111,7 @@ describe("xml /", async function () {
     const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
     const decryptedPayload = await assert.rejects(decryptXml(encryptedPayload, decryptOptions));
 
-    should(decryptedPayload).be.undefined();
+    expect(decryptedPayload).to.be.undefined;
   });
 
   it("should not decrypt aes256-gcm/rsa-1_5", async function () {
@@ -132,6 +132,6 @@ describe("xml /", async function () {
     const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
     const decryptedPayload = await assert.rejects(decryptXml(encryptedPayload, decryptOptions));
 
-    should(decryptedPayload).be.undefined();
+    expect(decryptedPayload).to.be.undefined;
   });
 });
