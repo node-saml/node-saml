@@ -361,26 +361,6 @@ describe("node-saml /", function () {
     });
 
     it("_generateLogoutRequest saves id and instant to cache", function (done) {
-      const expectedRequest = {
-        "samlp:LogoutRequest": {
-          $: {
-            "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
-            "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
-            //ID: '_85ba0a112df1ffb57805',
-            Version: "2.0",
-            //IssueInstant: '2014-05-29T03:32:23Z',
-            Destination: "foo",
-          },
-          "saml:Issuer": [
-            { _: "onelogin_saml", $: { "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion" } },
-          ],
-          "saml:NameID": [{ _: "bar", $: { Format: "foo" } }],
-          "saml2p:SessionIndex": [
-            { _: "session-id", $: { "xmlns:saml2p": "urn:oasis:names:tc:SAML:2.0:protocol" } },
-          ],
-        },
-      };
-
       const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT });
       const cacheSaveSpy = sinon.spy(samlObj.cacheProvider, "saveAsync");
       const logoutRequestPromise = samlObj._generateLogoutRequest({
@@ -401,6 +381,7 @@ describe("node-saml /", function () {
             expect(issueInstant).to.be.a("string");
             expect(cacheSaveSpy.called).to.be.true;
             expect(cacheSaveSpy.calledWith(id, issueInstant)).to.be.true;
+
             done();
           } catch (err2) {
             done(err2);
