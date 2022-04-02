@@ -368,7 +368,7 @@ class SAML {
     return stringRequest;
   }
 
-  async _generateLogoutRequest(user: Profile) {
+  async _generateLogoutRequest(user: Profile): Promise<string> {
     const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
