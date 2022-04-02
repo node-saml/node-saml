@@ -749,18 +749,20 @@ describe("node-saml /", function () {
         it("must have a cert to construct a SAML object", function () {
           try {
             new SAML(noCertSamlConfig);
-          } catch (err) {
+          } catch (err: unknown) {
             expect(err).to.exist;
-            expect(err.message).to.match(/cert is required/);
+            expect(err).to.be.instanceOf(Error);
+            expect((err as Error).message).to.match(/cert is required/);
           }
         });
 
         it("must have a valid cert to construct a SAML object", function () {
           try {
             new SAML(badCertSamlConfig);
-          } catch (err) {
+          } catch (err: unknown) {
             expect(err).to.exist;
-            expect(err.message).to.match(/cert is required/);
+            expect(err).to.be.instanceOf(Error);
+            expect((err as Error).message).to.match(/cert is required/);
           }
         });
 
@@ -791,7 +793,7 @@ describe("node-saml /", function () {
             const samlObj = new SAML(noCertSamlConfig);
           } catch (err) {
             expect(err).to.exist;
-            expect(err.message).to.match(/cert is required/);
+            expect((err as Error).message).to.match(/cert is required/);
           }
         });
 
@@ -1565,8 +1567,9 @@ describe("node-saml /", function () {
         try {
           const { profile } = await samlObj.validatePostResponseAsync(container);
           expect(profile).to.not.exist;
-        } catch (err) {
-          expect(err.message).to.eq("InResponseTo is missing from response");
+        } catch (err: unknown) {
+          expect(err).to.be.instanceOf(Error);
+          expect((err as Error).message).to.eq("InResponseTo is missing from response");
         }
       });
 
