@@ -678,8 +678,8 @@ describe("node-saml /", function () {
 
         const samlObj = new SAML({ cert: signingCert });
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        expect(profile!.issuer!).to.equal("https://evil-corp.com");
-        expect(profile!.nameID!).to.equal("vincent.vega@evil-corp.com");
+        expect(profile.issuer).to.equal("https://evil-corp.com");
+        expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
         expect(profile).to.have.property("evil-corp.egroupid", "vincent.vega@evil-corp.com");
         // attributes without attributeValue child should be ignored
         expect(profile).to.not.have.property("evilcorp.roles");
@@ -776,7 +776,7 @@ describe("node-saml /", function () {
           const samlObj = new SAML(samlConfig);
 
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+          expect(profile.nameID.startsWith("ploer")).to.be.true;
         });
 
         it("SAML creation should fail without cert", function () {
@@ -889,7 +889,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML(multiCertSamlConfig);
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+          expect(profile.nameID.startsWith("ploer")).to.be.true;
         });
 
         it("cert as a function should validate with the returned cert", async () => {
@@ -909,7 +909,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML(functionCertSamlConfig);
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+          expect(profile.nameID.startsWith("ploer")).to.be.true;
         });
 
         it("cert as a function should validate with one of the returned certs", async () => {
@@ -929,7 +929,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML(functionMultiCertSamlConfig);
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+          expect(profile.nameID.startsWith("ploer")).to.be.true;
         });
 
         it("cert as a function should return an error if the cert function returns an error", async () => {
@@ -992,7 +992,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML({ cert: signingCert });
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          const eptid = profile!["urn:oid:1.3.6.1.4.1.5923.1.1.1.10"] as any;
+          const eptid = profile["urn:oid:1.3.6.1.4.1.5923.1.1.1.10"] as any;
           const nameid = eptid["NameID"][0];
           expect(nameid._).to.equal(nameid_opaque_string);
           expect(nameid.$.NameQualifier).to.equal(nameQualifier);
@@ -1056,7 +1056,7 @@ describe("node-saml /", function () {
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML({ cert: signingCert });
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          expect(profile!["attributeName"]).to.be.undefined;
+          expect(profile["attributeName"]).to.be.undefined;
         });
       });
     });
@@ -1504,7 +1504,7 @@ describe("node-saml /", function () {
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
               const { profile } = await samlObj.validatePostResponseAsync(container);
-              expect(profile!.nameID!.startsWith("UIS/jochen-work")).to.be.true;
+              expect(profile.nameID.startsWith("UIS/jochen-work")).to.be.true;
               const value = await samlObj.cacheProvider.getAsync(requestId);
               expect(value).to.not.exist;
             });
@@ -1611,7 +1611,7 @@ describe("node-saml /", function () {
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
               const { profile } = await samlObj.validatePostResponseAsync(container);
-              expect(profile!.nameID!.startsWith("UIS/jochen-work")).to.be.true;
+              expect(profile.nameID.startsWith("UIS/jochen-work")).to.be.true;
               const value = await samlObj.cacheProvider.getAsync(requestId);
               expect(value).to.exist;
               expect(value).to.eql("2014-06-05T12:07:07.662Z");
@@ -1640,7 +1640,7 @@ describe("node-saml /", function () {
 
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+        expect(profile.nameID.startsWith("ploer")).to.be.true;
         const value = await samlObj.cacheProvider.getAsync(requestId);
         expect(value).not.to.exist;
       });
@@ -1665,13 +1665,13 @@ describe("node-saml /", function () {
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        expect(profile!.nameID!.startsWith("UIS/jochen-work")).to.be.true;
-        expect(profile!["vz::identity"] as string).to.equal("UIS/jochen-work");
-        expect(profile!["vz::subjecttype"] as string).to.equal("UIS user");
-        expect(profile!["vz::account"] as string).to.equal("e9aba0c4-ece8-4b44-9526-d24418aa95dc");
-        expect(profile!["vz::org"] as string).to.equal("testorg");
-        expect(profile!["vz::name"] as string).to.equal("Test User");
-        expect(profile!["net::ip"] as string).to.equal("::1");
+        expect(profile.nameID.startsWith("UIS/jochen-work")).to.be.true;
+        expect(profile["vz::identity"] as string).to.equal("UIS/jochen-work");
+        expect(profile["vz::subjecttype"] as string).to.equal("UIS user");
+        expect(profile["vz::account"] as string).to.equal("e9aba0c4-ece8-4b44-9526-d24418aa95dc");
+        expect(profile["vz::org"] as string).to.equal("testorg");
+        expect(profile["vz::name"] as string).to.equal("Test User");
+        expect(profile["net::ip"] as string).to.equal("::1");
         const value = await samlObj.cacheProvider.getAsync(requestId);
         expect(value).to.not.exist;
       });
@@ -1758,7 +1758,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+        expect(profile.nameID.startsWith("ploer")).to.be.true;
       });
 
       it("onelogin xml document with current time equal to NotBefore (plus default clock skew)  time should validate", async () => {
@@ -1777,7 +1777,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:08Z"));
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+        expect(profile.nameID.startsWith("ploer")).to.be.true;
       });
 
       it("onelogin xml document with current time before NotBefore time should fail", async () => {
@@ -1881,7 +1881,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:20:09Z"));
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+        expect(profile.nameID.startsWith("ploer")).to.be.true;
       });
 
       it("onelogin xml document with corrupted NotOnOrAfter time in Conditions should fail", async () => {
@@ -1970,7 +1970,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:16:08Z"));
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+        expect(profile.nameID.startsWith("ploer")).to.be.true;
       });
 
       it("onelogin xml document with corrupted IssueInstant time should fail", async () => {
@@ -2127,7 +2127,7 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
-        expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+        expect(profile.nameID.startsWith("ploer")).to.be.true;
       });
     });
   });
@@ -2169,7 +2169,7 @@ describe("node-saml /", function () {
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
-      expect(profile!).to.deep.equal({
+      expect(profile).to.deep.equal({
         ID: "pfxd4d369e8-9ea1-780c-aff8-a1d11a9862a1",
         issuer: "http://sp.example.com/demo1/metadata.php",
         nameID: "ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7",
@@ -2184,7 +2184,7 @@ describe("node-saml /", function () {
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
-      expect(profile!).to.deep.equal({
+      expect(profile).to.deep.equal({
         ID: "pfxd4d369e8-9ea1-780c-aff8-a1d11a9862a1",
         issuer: "http://sp.example.com/demo1/metadata.php",
         nameID: "ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7",
@@ -2204,7 +2204,7 @@ describe("node-saml /", function () {
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
-      expect(profile!).to.deep.equal({
+      expect(profile).to.deep.equal({
         ID: "pfx087316a5-2dfb-cc05-2ba9-b46751936ff5",
         issuer: "http://sp.example.com/demo1/metadata.php",
         nameID: "ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7",
@@ -2237,7 +2237,7 @@ describe("node-saml /", function () {
         SAMLResponse: Buffer.from(signedXml).toString("base64"),
       });
 
-      expect(profile!.issuer).to.not.be.equal("test");
+      expect(profile.issuer).to.not.be.equal("test");
     });
   });
 
@@ -2351,7 +2351,7 @@ describe("node-saml /", function () {
           this.request,
           this.request.originalQuery
         );
-        expect(profile!).to.deep.equal({
+        expect(profile).to.deep.equal({
           ID: "_8f0effde308adfb6ae7f1e29b414957fc320f5636f",
           issuer: "http://localhost:20000/saml2/idp/metadata.php",
           nameID: "stavros@workable.com",
