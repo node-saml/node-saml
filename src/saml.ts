@@ -470,12 +470,16 @@ class SAML {
     additionalParameters: querystring.ParsedUrlQuery
   ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
+    const requestOrResponse = assertRequired(
+      request || response,
+      "one of request and response is required"
+    );
 
     let buffer: Buffer;
     if (this.options.skipRequestCompression) {
-      buffer = Buffer.from((request || response)!, "utf8");
+      buffer = Buffer.from(requestOrResponse, "utf8");
     } else {
-      buffer = await deflateRawAsync((request || response)!);
+      buffer = await deflateRawAsync(requestOrResponse);
     }
 
     const base64 = buffer.toString("base64");
