@@ -2132,8 +2132,8 @@ describe("node-saml /", function () {
     });
   });
   describe("validatePostRequest()", function () {
-    const signingKey: any = fs.readFileSync(__dirname + "/static/key.pem", "ascii");
-    const signingCert: any = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
+    const signingKey = fs.readFileSync(__dirname + "/static/key.pem", "ascii");
+    const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
     let samlObj: SAML;
 
     beforeEach(function () {
