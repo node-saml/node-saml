@@ -800,7 +800,7 @@ describe("node-saml /", function () {
           try {
             const samlObj = new SAML({
               ...noAudienceSamlConfig,
-              issuer: "https://app.onelogin.com/saml/metadata/371755",
+              issuer: "SP issuer value which doesn't match values at audience fields i.e. IdP did not add this SP's entityId to audience list",
             });
             const { profile } = await samlObj.validatePostResponseAsync(container);
             expect(profile).to.not.exist;
