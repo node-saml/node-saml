@@ -146,6 +146,7 @@ class SAML {
       path: ctorOptions.path ?? "/saml/consume",
       host: ctorOptions.host ?? "localhost",
       issuer: ctorOptions.issuer ?? "onelogin_saml",
+      audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
       identifierFormat:
         ctorOptions.identifierFormat === undefined
           ? "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
@@ -1162,7 +1163,7 @@ class SAML {
       if (conErr) throw conErr;
     }
 
-    if (this.options.audience != null) {
+    if (this.options.audience !== false) {
       const audienceErr = this.checkAudienceValidityError(
         this.options.audience,
         conditions.AudienceRestriction
