@@ -26,6 +26,7 @@ import {
   XMLInput,
   XMLObject,
   XMLOutput,
+  ValidateInResponseTo,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertRequired, signXmlMetadata } from "./utility";
@@ -153,7 +154,7 @@ class SAML {
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],
-      validateInResponseTo: ctorOptions.validateInResponseTo ?? false,
+      validateInResponseTo: ctorOptions.validateInResponseTo ?? ValidateInResponseTo.never,
       cert: assertRequired(ctorOptions.cert, "cert is required"),
       requestIdExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs ?? 28800000, // 8 hours
       cacheProvider:
@@ -228,13 +229,13 @@ class SAML {
     isPassive: boolean,
     isHttpPostBinding: boolean,
     host: string | undefined
-  ): Promise<string | undefined> {
+  ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
-    if (this.options.validateInResponseTo) {
+    if (this.mustValidateInResponseTo(true)) {
       await this.cacheProvider.saveAsync(id, instant);
     }
     const request: AuthorizeRequestXML = {
@@ -368,7 +369,7 @@ class SAML {
     return stringRequest;
   }
 
-  async _generateLogoutRequest(user: Profile) {
+  async _generateLogoutRequest(user: Profile): Promise<string> {
     const id = this.options.generateUniqueId();
     const instant = generateInstant();
 
@@ -469,12 +470,16 @@ class SAML {
     additionalParameters: querystring.ParsedUrlQuery
   ): Promise<string> {
     this.options.entryPoint = assertRequired(this.options.entryPoint, "entryPoint is required");
+    const requestOrResponse = assertRequired(
+      request || response,
+      "either request or response is required"
+    );
 
     let buffer: Buffer;
     if (this.options.skipRequestCompression) {
-      buffer = Buffer.from((request || response)!, "utf8");
+      buffer = Buffer.from(requestOrResponse, "utf8");
     } else {
-      buffer = await deflateRawAsync((request || response)!);
+      buffer = await deflateRawAsync(requestOrResponse);
     }
 
     const base64 = buffer.toString("base64");
@@ -581,15 +586,15 @@ class SAML {
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
     let buffer: Buffer;
     if (this.options.skipRequestCompression) {
-      buffer = Buffer.from(request!, "utf8");
+      buffer = Buffer.from(request, "utf8");
     } else {
-      buffer = await deflateRawAsync(request!);
+      buffer = await deflateRawAsync(request);
     }
 
     const operation = "authorize";
     const additionalParameters = this._getAdditionalParams(RelayState, operation);
     const samlMessage: querystring.ParsedUrlQueryInput = {
-      SAMLRequest: buffer!.toString("base64"),
+      SAMLRequest: buffer.toString("base64"),
     };
 
     Object.keys(additionalParameters).forEach((k) => {
@@ -883,15 +888,15 @@ class SAML {
       }
     } catch (err) {
       debug("validatePostResponse resulted in an error: %s", err);
-      if (this.options.validateInResponseTo != null) {
+      if (this.mustValidateInResponseTo(Boolean(inResponseTo!))) {
         await this.cacheProvider.removeAsync(inResponseTo!);
       }
       throw err;
     }
   }
 
-  private async validateInResponseTo(inResponseTo: string | null): Promise<undefined> {
-    if (this.options.validateInResponseTo) {
+  private async validateInResponseTo(inResponseTo: string | null): Promise<void> {
+    if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
       if (inResponseTo) {
         const result = await this.cacheProvider.getAsync(inResponseTo);
         if (!result) throw new Error("InResponseTo is not valid");
@@ -899,8 +904,6 @@ class SAML {
       } else {
         throw new Error("InResponseTo is missing from response");
       }
-    } else {
-      return;
     }
   }
 
@@ -1108,10 +1111,11 @@ class SAML {
 
       // Test to see that if we have a SubjectConfirmation InResponseTo that it matches
       // the 'InResponseTo' attribute set in the Response
-      if (this.options.validateInResponseTo) {
+      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
         if (subjectConfirmation) {
           if (confirmData && confirmData.$) {
             const subjectInResponseTo = confirmData.$.InResponseTo;
+
             if (inResponseTo && subjectInResponseTo && subjectInResponseTo != inResponseTo) {
               await this.cacheProvider.removeAsync(inResponseTo);
               throw new Error("InResponseTo is not valid");
@@ -1457,6 +1461,13 @@ class SAML {
 
     const maxAssertionTimeMs = issueInstantMs + maxAssertionAgeMs;
     return maxAssertionTimeMs < notOnOrAfterMs ? maxAssertionTimeMs : notOnOrAfterMs;
+  }
+
+  private mustValidateInResponseTo(hasInResponseTo: boolean): boolean {
+    return (
+      this.options.validateInResponseTo === ValidateInResponseTo.always ||
+      (this.options.validateInResponseTo === ValidateInResponseTo.ifPresent && hasInResponseTo)
+    );
   }
 }
 

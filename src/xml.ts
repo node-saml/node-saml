@@ -57,12 +57,6 @@ const normalizeNewlines = (xml: string): string => {
   return xml.replace(/\r\n?/g, "\n");
 };
 
-const normalizeXml = (xml: string): string => {
-  // we can use this utility to parse and re-stringify XML
-  // `DOMParser` will take care of normalization tasks, like replacing XML-encoded carriage returns with actual carriage returns
-  return parseDomFromString(xml).toString();
-};
-
 /**
  * This function checks that the |signature| is signed with a given |cert|.
  */
@@ -98,8 +92,6 @@ export const validateXmlSignatureForCert = (
   if (totalReferencedNodes.length > 1) {
     return false;
   }
-  // normalize XML to replace XML-encoded carriage returns with actual carriage returns
-  fullXml = normalizeXml(fullXml);
   fullXml = normalizeNewlines(fullXml);
   return sig.checkSignature(fullXml);
 };
