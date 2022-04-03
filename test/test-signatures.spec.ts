@@ -47,8 +47,8 @@ describe("Signatures", function () {
           options
         );
     };
-    
-    describe("Signatures on saml:Response - Only 1 saml:Assertion", () => {
+
+  describe("Signatures on saml:Response - Only 1 saml:Assertion", () => {
     //== VALID
     it(
       "R1A - both signed => valid",
@@ -313,7 +313,11 @@ describe("Signatures", function () {
   describe("Signatures on saml:Response - Only 1 saml:Assertion with 2 SubjectConfirmation", () => {
     it(
       "R1A - signed with 2 SubjectConfirmation",
-      testOneResponse("/valid/response.root-signed.message-signed-double-subjectconfirmation.xml", false, 1)
+      testOneResponse(
+        "/valid/response.root-signed.message-signed-double-subjectconfirmation.xml",
+        false,
+        1
+      )
     );
   });
 });
