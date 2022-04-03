@@ -1461,7 +1461,7 @@ describe("node-saml /", function () {
               // Mock the SAML request being passed through Passport-SAML
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
-              const { profile, loggedOut } = await samlObj.validatePostResponseAsync(container);
+              const { profile } = await samlObj.validatePostResponseAsync(container);
 
               expect(profile!.nameID!.startsWith("ploer")).to.be.true;
               const value = await samlObj.cacheProvider.getAsync(requestId);
@@ -1570,7 +1570,7 @@ describe("node-saml /", function () {
               const samlObj = new SAML(samlConfig);
 
               fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
-              const { profile, loggedOut } = await samlObj.validatePostResponseAsync(container);
+              const { profile } = await samlObj.validatePostResponseAsync(container);
               expect(profile!.nameID!.startsWith("ploer")).to.be.true;
               const value = await samlObj.cacheProvider.getAsync(requestId);
               expect(value).to.not.exist;
@@ -2408,7 +2408,7 @@ describe("node-saml /", function () {
           this.request,
           this.request.originalQuery
         );
-        expect(loggedOut!).to.be.true;
+        expect(loggedOut).to.be.true;
       });
 
       it("accepts cert without header and footer line", async function () {
@@ -2421,7 +2421,7 @@ describe("node-saml /", function () {
           this.request,
           this.request.originalQuery
         );
-        expect(loggedOut!).to.be.true;
+        expect(loggedOut).to.be.true;
       });
     });
   });
