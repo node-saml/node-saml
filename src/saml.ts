@@ -1075,7 +1075,7 @@ class SAML {
         }
 
         if (subject[0].SubjectConfirmation && subject[0].SubjectConfirmation?.length > 0) {
-          subjectConfirmation = subject[0].SubjectConfirmation?.find((subjectConfirmation: any) => {
+          subjectConfirmation = subject[0].SubjectConfirmation?.find((subjectConfirmation: XMLOutput) => {
             let res = false;
             if (subjectConfirmation) {
               confirmData =
