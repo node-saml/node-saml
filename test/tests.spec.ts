@@ -761,7 +761,7 @@ describe("node-saml /", function () {
           const { profile } = await samlObj.validatePostResponseAsync(container);
           expect(profile!.nameID!.startsWith("ploer")).to.be.true;
         });
-        
+
         it("valid onelogin xml document with multiple subject confirmations should validate", async () => {
           const xml =
             '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +

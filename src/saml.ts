@@ -1078,9 +1078,10 @@ class SAML {
           subjectConfirmation = subject[0].SubjectConfirmation?.find((subjectConfirmation: any) => {
             let res = false;
             if (subjectConfirmation) {
-              confirmData = subjectConfirmation && subjectConfirmation.SubjectConfirmationData
-                ? subjectConfirmation.SubjectConfirmationData[0]
-                : null;
+              confirmData =
+                subjectConfirmation && subjectConfirmation.SubjectConfirmationData
+                  ? subjectConfirmation.SubjectConfirmationData[0]
+                  : null;
               if (confirmData && confirmData.$) {
                 const subjectNotBefore = confirmData.$.NotBefore;
                 const subjectNotOnOrAfter = confirmData.$.NotOnOrAfter;
@@ -1089,15 +1090,14 @@ class SAML {
                   subjectNotOnOrAfter,
                   assertion.$.IssueInstant
                 );
-    
+
                 const subjErr = this.checkTimestampsValidityError(
                   nowMs,
                   subjectNotBefore,
                   subjectNotOnOrAfter,
                   maxTimeLimitMs
                 );
-                if (subjErr === null)
-                  res = true;
+                if (subjErr === null) res = true;
               }
             }
             return res;
@@ -1105,9 +1105,10 @@ class SAML {
 
           if (subjectConfirmation) {
             subjectConfirmation = subjectConfirmation[0];
-            confirmData = subjectConfirmation && subjectConfirmation.SubjectConfirmationData
-              ? subjectConfirmation.SubjectConfirmationData[0]
-              : null;            
+            confirmData =
+              subjectConfirmation && subjectConfirmation.SubjectConfirmationData
+                ? subjectConfirmation.SubjectConfirmationData[0]
+                : null;
           } else {
             throw "Unable to process any SubjectConfirmations in SAML assertion";
           }
