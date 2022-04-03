@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { signSamlPost, signAuthnRequestPost } from "../src/saml-post-signing";
 import { SamlSigningOptions } from "../src/types";
 import { parseXml2JsFromString } from "../src/xml";
+import { expect } from "chai";
 
 const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
 
@@ -11,7 +12,7 @@ describe("SAML POST Signing", function () {
       '<SAMLRequest><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></SAMLRequest>';
     const result = signSamlPost(xml, "/SAMLRequest", { privateKey: signingKey });
     const doc = await parseXml2JsFromString(result);
-    doc.should.be.deepEqual({
+    expect(doc).to.deep.equal({
       SAMLRequest: {
         $: { Id: "_0" },
         Issuer: [
@@ -68,7 +69,7 @@ describe("SAML POST Signing", function () {
       '<SAMLRequest><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer><SomeOtherElement /></SAMLRequest>';
     const result = signSamlPost(xml, "/SAMLRequest", { privateKey: signingKey });
     const doc = await parseXml2JsFromString(result);
-    doc.should.be.deepEqual({
+    expect(doc).to.deep.equal({
       SAMLRequest: {
         $: { Id: "_0" },
         Issuer: [
@@ -131,7 +132,7 @@ describe("SAML POST Signing", function () {
     };
     const result = signSamlPost(xml, "/SAMLRequest", options);
     const doc = await parseXml2JsFromString(result);
-    doc.should.be.deepEqual({
+    expect(doc).to.deep.equal({
       SAMLRequest: {
         $: { Id: "_0" },
         Issuer: [
@@ -193,7 +194,7 @@ describe("SAML POST Signing", function () {
     };
     const result = signSamlPost(xml, "/SAMLRequest", options);
     const doc = await parseXml2JsFromString(result);
-    doc.should.be.deepEqual({
+    expect(doc).to.deep.equal({
       SAMLRequest: {
         $: { Id: "_0" },
         Issuer: [
@@ -250,7 +251,7 @@ describe("SAML POST Signing", function () {
       '<AuthnRequest xmlns="urn:oasis:names:tc:SAML:2.0:protocol"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></AuthnRequest>';
     const result = signAuthnRequestPost(xml, { privateKey: signingKey });
     const doc = await parseXml2JsFromString(result);
-    doc.should.be.deepEqual({
+    expect(doc).to.deep.equal({
       AuthnRequest: {
         $: { xmlns: "urn:oasis:names:tc:SAML:2.0:protocol", Id: "_0" },
         Issuer: [

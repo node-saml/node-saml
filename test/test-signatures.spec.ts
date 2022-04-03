@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types";
 import assert = require("assert");
+import { expect } from "chai";
 
 const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
@@ -29,7 +30,7 @@ describe("Signatures", function () {
         message: shouldErrorWith || "SAML assertion expired: clocks skewed too much",
       });
       //== Assert times `validateSignature` was called
-      validateSignatureSpy.callCount.should.eql(amountOfSignatureChecks);
+      expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
     },
     testOneResponse = (
       pathToXml: string,
@@ -298,24 +299,14 @@ describe("Signatures", function () {
   });
 
   describe("Signature on saml:Response with XML-encoded carriage returns", () => {
-    const samlResponseXml = fs
-      .readFileSync(
-        __dirname + "/static/signatures/valid/response.root-unsigned.assertion-signed.xml"
-      )
-      .toString();
-    const makeBody = (str: string) => ({ SAMLResponse: Buffer.from(str).toString("base64") });
+    it(
+      "Attribute with with &#13;",
+      testOneResponse("/valid/response.root-signed.assertion-unsigned-13.xml", false, 1)
+    );
 
-    const insertChars = (str: string, where: string, chars: string) =>
-      str.replace(new RegExp(`(<ds:${where}>)(.{10})(.{10})`), `$1$2${chars}$3`);
-
-    it("SignatureValue with &#13;", async () => {
-      const body = makeBody(insertChars(samlResponseXml, "SignatureValue", "&#13;"));
-      await testOneResponseBody(body, false, 2);
-    });
-
-    it("SignatureValue with &#xd;", async () => {
-      const body = makeBody(insertChars(samlResponseXml, "SignatureValue", "&#xd;"));
-      await testOneResponseBody(body, false, 2);
-    });
+    it(
+      "Attribute with with &#xd;",
+      testOneResponse("/valid/response.root-signed.assertion-unsigned-xd.xml", false, 1)
+    );
   });
 });
