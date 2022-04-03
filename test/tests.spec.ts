@@ -800,7 +800,8 @@ describe("node-saml /", function () {
           try {
             const samlObj = new SAML({
               ...noAudienceSamlConfig,
-              issuer: "SP issuer value which doesn't match values at audience fields i.e. IdP did not add this SP's entityId to audience list",
+              issuer:
+                "SP issuer value which doesn't match values at audience fields i.e. IdP did not add this SP's entityId to audience list",
             });
             const { profile } = await samlObj.validatePostResponseAsync(container);
             expect(profile).to.not.exist;
