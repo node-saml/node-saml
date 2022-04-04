@@ -765,15 +765,19 @@ describe("node-saml /", function () {
 
         it("valid xml document with multiple subject confirmations should validate", async () => {
           fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
-          const base64xml = fs.readFileSync(__dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml" , "base64")
+          const base64xml = fs.readFileSync(
+            __dirname +
+              "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
+            "base64"
+          );
           const container = { SAMLResponse: base64xml };
-          const signingCert = fs.readFileSync(__dirname  + "/static/cert.pem", "utf-8");
-          const privateKey = fs.readFileSync(__dirname  + "/static/key.pem", "utf-8");
+          const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+          const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
 
-          const samlObj = new SAML({cert: signingCert, privateKey: privateKey});
+          const samlObj = new SAML({ cert: signingCert, privateKey: privateKey });
 
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          expect(profile!.nameID!).to.equal('vincent.vega@evil-corp.com');
+          expect(profile!.nameID!).to.equal("vincent.vega@evil-corp.com");
         });
 
         it("SAML creation should fail without cert", function () {
