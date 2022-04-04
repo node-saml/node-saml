@@ -25,6 +25,7 @@ describe("SAML request", function () {
           },
         },
       },
+      issuer: "onesaml_login",
     };
 
     const result = {
@@ -111,6 +112,7 @@ describe("SAML request", function () {
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       samlAuthnRequestExtensions: "anyvalue",
+      issuer: "onesaml_login",
     };
 
     const oSAML = new SAML(config);

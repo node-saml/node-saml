@@ -145,7 +145,7 @@ class SAML {
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
       path: ctorOptions.path ?? "/saml/consume",
       host: ctorOptions.host ?? "localhost",
-      issuer: ctorOptions.issuer ?? "onelogin_saml",
+      issuer: assertRequired(ctorOptions.issuer, "issuer is required"),
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
       identifierFormat:
         ctorOptions.identifierFormat === undefined
