@@ -12,6 +12,7 @@ import assert = require("assert");
 import { FAKE_CERT, TEST_CERT } from "./types";
 import { signXmlResponse } from "../src/utility";
 import { parseDomFromString, xpath } from "../src/xml";
+import { Console } from "console";
 
 export const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -762,19 +763,17 @@ describe("node-saml /", function () {
           expect(profile!.nameID!.startsWith("ploer")).to.be.true;
         });
 
-        it("valid onelogin xml document with multiple subject confirmations should validate", async () => {
-          const xml =
-            '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
-            '<saml:Assertion xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="2.0" ID="pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa" IssueInstant="2014-05-28T00:16:08Z"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>DCnPTQYBb1hKspbe6fg1U3q8xn4=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>e0+aFomA0+JAY0f9tKqzIuqIVSSw7LiFUsneEDKPBWdiTz1sMdgr/2y1e9+rjaS2mRmCi/vSQLY3zTYz0hp6nJNU19+TWoXo9kHQyWT4KkeQL4Xs/gZ/AoKC20iHVKtpPps0IQ0Ml/qRoouSitt6Sf/WDz2LV/pWcH2hx5tv3xSw36hK2NQc7qw7r1mEXnvcjXReYo8rrVf7XHGGxNoRIEICUIi110uvsWemSXf0Z0dyb0FVYOWuSsQMDlzNpheADBifFO4UTfSEhFZvn8kVCGZUIwrbOhZ2d/+YEtgyuTg+qtslgfy4dwd4TvEcfuRzQTazeefprSFyiQckAXOjcw==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>' +
-            TEST_CERT +
-            '</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">ploer@subspacesw.com</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:19:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:19:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
-            "</samlp:Response>";
-          const base64xml = Buffer.from(xml).toString("base64");
+        it("valid xml document with multiple subject confirmations should validate", async () => {
+          fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+          const base64xml = fs.readFileSync(__dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml" , "base64")
           const container = { SAMLResponse: base64xml };
-          const samlObj = new SAML(samlConfig);
+          const signingCert = fs.readFileSync(__dirname  + "/static/cert.pem", "utf-8");
+          const privateKey = fs.readFileSync(__dirname  + "/static/key.pem", "utf-8");
+
+          const samlObj = new SAML({cert: signingCert, privateKey: privateKey});
 
           const { profile } = await samlObj.validatePostResponseAsync(container);
-          expect(profile!.nameID!.startsWith("ploer")).to.be.true;
+          expect(profile!.nameID!).to.equal('vincent.vega@evil-corp.com');
         });
 
         it("SAML creation should fail without cert", function () {
