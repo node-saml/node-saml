@@ -1112,7 +1112,7 @@ class SAML {
                 ? subjectConfirmation.SubjectConfirmationData[0]
                 : null;
           } else {
-            throw "Unable to process any SubjectConfirmations in SAML assertion";
+            subjectConfirmation = subject[0].SubjectConfirmation[0];
           }
         }
       }
