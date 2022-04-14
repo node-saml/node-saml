@@ -120,7 +120,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   providerName?: string;
   passive: boolean;
   idpIssuer?: string;
-  audience?: string;
+  audience: string | false;
   scoping?: SamlScopingConfig;
   wantAssertionsSigned?: boolean;
   maxAssertionAgeMs: number;
