@@ -2,7 +2,7 @@ import { SAML } from "../src";
 import * as fs from "fs";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types";
-import assert = require("assert");
+import * as assert from "assert";
 import { expect } from "chai";
 
 const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
