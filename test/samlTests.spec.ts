@@ -18,6 +18,7 @@ describe("SAML.js", function () {
         entryPoint: "https://exampleidp.com/path?key=value",
         logoutUrl: "https://exampleidp.com/path?key=value",
         cert: FAKE_CERT,
+        issuer: "onesaml_login",
       });
       req = {
         protocol: "https",
