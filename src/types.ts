@@ -24,7 +24,7 @@ export interface CacheItem {
 export interface CacheProvider {
   saveAsync(key: string, value: string): Promise<CacheItem | null>;
   getAsync(key: string): Promise<string | null>;
-  removeAsync(key: string): Promise<string | null>;
+  removeAsync(key: string | null): Promise<string | null>;
 }
 
 export type XMLValue = string | number | boolean | null | XMLObject | XMLValue[];
