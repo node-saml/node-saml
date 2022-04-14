@@ -3,6 +3,7 @@ import { expect } from "chai";
 import assert = require("assert");
 import { certToPEM, generateUniqueId, keyToPEM } from "../src/crypto";
 import { TEST_CERT } from "./types";
+import { assertRequired } from "../src/utility";
 
 describe("crypto.ts", function () {
   describe("keyToPEM", function () {
@@ -46,8 +47,12 @@ describe("crypto.ts", function () {
         acceptedClockSkewMs: -1,
       };
       const certificate = certToPEM(samlConfig.cert);
+      const certificateBegin = certificate.match(/BEGIN/g);
+      const certificateEnd = certificate.match(/END/g);
+      assertRequired(certificateBegin, "certificate does not have a BEGIN block");
+      assertRequired(certificateEnd, "certificate does not have an END block");
 
-      if (!(certificate.match(/BEGIN/g)!.length == 1 && certificate.match(/END/g)!.length == 1)) {
+      if (!(certificateBegin.length == 1 && certificateEnd.length == 1)) {
         throw Error("Certificate should have only 1 BEGIN and 1 END block");
       }
     });

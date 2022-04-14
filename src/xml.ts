@@ -6,6 +6,7 @@ import * as xml2js from "xml2js";
 import * as xmlbuilder from "xmlbuilder";
 import { isValidSamlSigningOptions, SamlSigningOptions } from "./types";
 import * as algorithms from "./algorithms";
+import { assertRequired } from "./utility";
 
 type SelectedValue = string | number | boolean | Node;
 
@@ -76,7 +77,8 @@ export const validateXmlSignatureForCert = (
   // We expect each signature to contain exactly one reference to the top level of the xml we
   //   are validating, so if we see anything else, reject.
   if (sig.references.length != 1) return false;
-  const refUri = sig.references[0].uri!;
+  const refUri = sig.references[0].uri;
+  assertRequired(refUri, "signature reference uri not found");
   const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
   // If we can't find the reference at the top level, reject
   const idAttribute = currentNode.getAttribute("ID") ? "ID" : "Id";

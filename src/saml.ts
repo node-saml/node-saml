@@ -744,7 +744,10 @@ class SAML {
   async validatePostResponseAsync(
     container: Record<string, string>
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
-    let xml: string, doc: Document, inResponseTo: string | null;
+    let xml: string;
+    let doc: Document;
+    let inResponseTo: string | null = null;
+
     try {
       xml = Buffer.from(container.SAMLResponse, "base64").toString("utf8");
       doc = parseDomFromString(xml);
@@ -791,10 +794,11 @@ class SAML {
         ) {
           throw new Error("Invalid signature");
         }
+
         return await this.processValidlySignedAssertionAsync(
           assertions[0].toString(),
           xml,
-          inResponseTo!
+          inResponseTo
         );
       }
 
@@ -821,7 +825,7 @@ class SAML {
         return await this.processValidlySignedAssertionAsync(
           decryptedAssertions[0].toString(),
           xml,
-          inResponseTo!
+          inResponseTo
         );
       }
 
@@ -887,8 +891,8 @@ class SAML {
       }
     } catch (err) {
       debug("validatePostResponse resulted in an error: %s", err);
-      if (this.mustValidateInResponseTo(Boolean(inResponseTo!))) {
-        await this.cacheProvider.removeAsync(inResponseTo!);
+      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+        await this.cacheProvider.removeAsync(inResponseTo);
       }
       throw err;
     }
@@ -1034,7 +1038,7 @@ class SAML {
   private async processValidlySignedAssertionAsync(
     xml: string,
     samlResponseXml: string,
-    inResponseTo: string
+    inResponseTo: string | null
   ) {
     let msg;
     const nowMs = new Date().getTime();
@@ -1048,7 +1052,7 @@ class SAML {
         profile.issuer = issuer[0]._;
       }
 
-      if (inResponseTo) {
+      if (inResponseTo != null) {
         profile.inResponseTo = inResponseTo;
       }
 
