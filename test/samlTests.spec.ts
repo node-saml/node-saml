@@ -1,8 +1,7 @@
 "use strict";
-import * as fs from "fs";
 import * as url from "url";
 import { expect } from "chai";
-import assert = require("assert");
+import * as assert from "assert";
 import { SAML } from "../src/saml";
 import { AuthenticateOptions, AuthorizeOptions } from "../src/passport-saml-types";
 import { assertRequired } from "../src/utility";

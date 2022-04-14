@@ -1,6 +1,6 @@
 "use strict";
 import { SAML } from "../src/saml";
-import url = require("url");
+import * as url from "url";
 import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
@@ -8,7 +8,7 @@ import * as sinon from "sinon";
 import { Profile, SamlConfig, ValidateInResponseTo } from "../src/types";
 import { RacComparision } from "../src/types.js";
 import { expect } from "chai";
-import assert = require("assert");
+import * as assert from "assert";
 import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
 import { parseDomFromString, xpath } from "../src/xml";
