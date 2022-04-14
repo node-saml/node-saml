@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { expect } from "chai";
-import assert = require("assert");
+import * as assert from "assert";
 import { certToPEM, generateUniqueId, keyToPEM } from "../src/crypto";
 import { TEST_CERT } from "./types";
 import { assertRequired } from "../src/utility";
