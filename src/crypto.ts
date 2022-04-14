@@ -4,7 +4,7 @@ import { assertRequired } from "./utility";
 export const keyToPEM = (
   key: string | Buffer
 ): typeof key extends string | Buffer ? string | Buffer : Error => {
-  key = assertRequired(key, "key is required");
+  assertRequired(key, "key is required");
 
   if (typeof key !== "string") return key;
   if (key.split(/\r?\n/).length !== 1) return key;
@@ -26,7 +26,8 @@ export const keyToPEM = (
 
 export const certToPEM = (cert: string): string => {
   const lines = cert.match(/.{1,64}/g);
-  let pem = assertRequired(lines, "cert is invalid").join("\n");
+  assertRequired(lines, "cert is invalid");
+  let pem = lines.join("\n");
 
   if (pem.indexOf("-BEGIN CERTIFICATE-") === -1) pem = "-----BEGIN CERTIFICATE-----\n" + pem;
   if (pem.indexOf("-END CERTIFICATE-") === -1) pem = pem + "\n-----END CERTIFICATE-----\n";
