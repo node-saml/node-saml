@@ -91,7 +91,8 @@ describe("SAML request", function () {
       .then((formBody) => {
         expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
         const samlRequestMatchValues = formBody.match(/<input.*name="SAMLRequest" value="([^"]*)"/);
-        const encodedSamlRequest = assertRequired(samlRequestMatchValues?.[1]);
+        assertRequired(samlRequestMatchValues?.[1]);
+        const encodedSamlRequest = samlRequestMatchValues?.[1];
 
         let buffer = Buffer.from(encodedSamlRequest, "base64");
         if (!config.skipRequestCompression) {
