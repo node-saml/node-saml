@@ -1200,7 +1200,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
         expect(qry.Signature).to.equal(
-          "hel9NaoLU0brY/VhrQsY+lTtuAbTsT/ul6nZ/eVlSMXQRaKn5LTbKadzxmPghX7s4xoHwdah+yZHK/0u4StYSj4b5MKcqbsJapVr2R7H90z8YfGfR2C/G0Gng721YV9Da6VBzKg8Was91zQotgsMpZ9pGX1kPKi6cgFwPwM4NEFugn8AYgXEriNvO5+Q23K/MdBT2bgwRTj2FQCWTuQcgwbyWHXoquHztZ0lbh8UhY5BfQRv7c6D9XPkQEMMQFQeME4PIEg3JnynwFZk5wwhkphMd5nXxau+zt7Nfp4fRm0G8WYnxV1etBnWimwSglZVaSHFYeQBRsC2wvKSiVS8JA=="
+          "D161m5GVbOfRHk85GvhmQ48OoFZ6n8mJuddzCe0g1Zlh9cb3b4oMMk5RCsoaOBsA3ndRnCWF3YQb78rO/MRQ+HIxIt0JDrhBoyT7GXPIUvbM/B4cJEgbfFAYouKQIy1sPunlLaTNkRL4tArKK7r4W2WF6R0hydcN8aln8/+TlTUfIengvVuXGLdtW0wSt+1HK1PiwrhLtqFHxxq2XL0X6jBqMEYYjByLfZme3Sk6x6uPIW7zhJn6OXzXlLuH9ILxusexu7GaLpw7C5EUQW43R6vlTGw+bBmx+tC0fqaMLOUWHX/uISAAeWYCAGYA8cbRuqIWh/vnVifxF0CP2sf5Vg=="
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1250,7 +1250,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
-          "GrRJDEmwB74g4CjGS4gjDhzR9Mnpo7S1DJyhaLxVRA97tumydsrJNpqbKDAsepnoFcZeS+mWn3hZSE/blsyCUJn5+010MsgQ8KWmRgaFEYPOfbBa2KK1atXNN8zcSdNukpd/rI17fB1HDeCPG8t+rtaE/QviL7DpsF6hGXbWSTi8eSRSNmLKFIntvS81CNiZdub1NI8hSd/rU873u7RfWnv6ChPltCs41Znj49ke6UJaSrHX7kNlnbzqw5WLJp73d3/yT2Yew+xpGDKAGrjYtbQEY0zZ8chfKWyTobLV9vNF1DCFRDeZbLrCzL29elo/aZ8BuIEdTNv/IOZoOMZxRA=="
+          "br4UPzZ/Oy/hvG7zMGZ041Lba5WDl/JqwDDf40yxxnYXWLdDY77RD5aE8+YK6BY7BbSkvQSNXFbBXPAITcRhyNCT+3JDfwXLDgOf3xvJOzkWHRO3DUi5IOJ9IdKT/Ted+HC0J9L/4W+VA0n+5v6Lrw83UDib57ICytLvW5jamFQE8pO/Z8fQzOpSbzTwf+Q8u5KYkXeg1+H2u6OJYBFVDYOWxOTuuujW8JccqlCleX9tXDJvx/I0tOkwwnIioh1X2xVHGPy1k1wndpf1eUZtjZ4uUMcwRyxt7YuAnV433DohO3WOm2sNehwOy2AO1DUlbFi6/zbqkRK3TrmD9Q+ZUQ=="
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1276,7 +1276,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
-          "MeFo+LjufxP5A+sCRwzR/YH/RV6W14aYSFjUdie62JxkI6hDcVhoSZQUJ3wtWMhL59gJj05tTFnXAZRqUQVsavyy41cmUZVeCsat0gaHBQOILXpp9deB0iSJt1EVQTOJkVx8uu2/WYu/bBiH7w2bpwuCf1gJhlqZb/ca3B6yjHSMjnnVfc2LbNPWHpE5464lrs79VjDXf9GQWfrBr95dh3P51IAb7C+77KDWQUl9WfZfyyuEgS83vyZ0UGOxT4AObJ6NOcLs8+iidDdWJJkBaKQev6U+AghCjLQUYOrflivLIIyqATKu2q9PbOse6Phmnxok50+broXSG23+e+742Q=="
+          "FL5f9hUYxXaCvr/HJOIKXvDlmWIQilsfcmETqwp8bXCnjEBS44uvEY+FhkYgrFOfaMXkAY+kd8rZ7CkP4SWnPxzhmHqdbBIyAdPpIOOHq7/VTqQXrprijtRBHTxrtOtxi3yOjskRz6ad8igokr9Ut3nlorvelZwtskJP/YsAE3v1CrL/bX3EGbepE3Bq5ehdHaNHxP+dwwhMJ6s5jxKLt5YU+vXohonM8fTBEPzbnQ1+0LK9GL3c6JfqNjjBvdWRXdyReRu+gCHisnrI68vBgCwy4VC9E4tg9JNLggtFkxNbhM8Bgu7eWlyhVLdWKKc1vwaDUOrYOimx6CfTXrAQvg=="
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });

@@ -109,6 +109,8 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   additionalParams: Record<string, string>;
   additionalAuthorizeParams: Record<string, string>;
   identifierFormat?: string | null;
+  allowCreate?: boolean;
+  spNameQualifier?: string | null;
   acceptedClockSkewMs: number;
   attributeConsumingServiceIndex?: string;
   disableRequestedAuthnContext: boolean;

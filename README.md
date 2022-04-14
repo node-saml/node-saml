@@ -51,6 +51,8 @@ const saml = new SAML(options);
 - `additionalParams`: dictionary of additional query params to add to all requests; if an object with this key is passed to `authenticate`, the dictionary of additional query params will be appended to those present on the returned URL, overriding any specified by initialization options' additional parameters (`additionalParams`, `additionalAuthorizeParams`, and `additionalLogoutParams`)
 - `additionalAuthorizeParams`: dictionary of additional query params to add to 'authorize' requests
 - `identifierFormat`: optional name identifier format to request from identity provider (default: `urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`)
+- `allowCreate`: grants permission to the identity provider to create a new subject identifier (default: `true`)
+- `spNameQualifier`: optionally specifies that the assertion subject's identifier be returned (or created) in the namespace of another service provider, or in the namespace of an affiliation of service providers
 - `wantAssertionsSigned`: if truthy, add `WantAssertionsSigned="true"` to the metadata, to specify that the IdP should always sign the assertions.
 - `acceptedClockSkewMs`: Time in milliseconds of skew that is acceptable between client and server when checking `OnBefore` and `NotOnOrAfter` assertion condition validity timestamps. Setting to `-1` will disable checking these conditions entirely. Default is `0`.
 - `maxAssertionAgeMs`: Amount of time after which the framework should consider an assertion expired. If the limit imposed by this variable is stricter than the limit imposed by `NotOnOrAfter`, this limit will be used when determining if an assertion is expired.
@@ -60,6 +62,7 @@ const saml = new SAML(options);
 - `racComparison`: Requested Authentication Context comparison type. Possible values are 'exact','minimum','maximum','better'. Default is 'exact'.
 
 - `forceAuthn`: if set to true, the initial SAML request from the service provider specifies that the IdP should force re-authentication of the user, even if they possess a valid session.
+- `passive`: if set to true, specifies that the IdP must not visibly take control of the user interface and interact with the user.
 - `providerName`: optional human-readable name of the requester for use by the presenter's user agent or the identity provider
 - `skipRequestCompression`: if set to true, the SAML request from the service provider won't be compressed.
 - `authnRequestBinding`: if set to `HTTP-POST`, will request authentication from IDP via HTTP POST binding, otherwise defaults to HTTP Redirect
