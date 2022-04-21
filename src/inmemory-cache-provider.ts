@@ -21,8 +21,8 @@ export class InMemoryCacheProvider implements CacheProvider {
   private cacheKeys: Record<string, CacheItem>;
   private options: CacheProviderOptions;
   private lastPrune = 0;
-  private prune;
-  private removeKeyIfExpired;
+  private prune: () => void;
+  private removeKeyIfExpired: (key: keyof typeof this.cacheKeys, nowMs: number) => Promise<void>;
 
   constructor(options: Partial<CacheProviderOptions>) {
     this.cacheKeys = {};
