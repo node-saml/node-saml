@@ -2,7 +2,7 @@ import { SAML } from "../src";
 import * as fs from "fs";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types";
-import assert = require("assert");
+import * as assert from "assert";
 import { expect } from "chai";
 
 const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
@@ -18,7 +18,7 @@ describe("Signatures", function () {
       samlResponseBody: Record<string, string>,
       shouldErrorWith: string | false | undefined,
       amountOfSignatureChecks = 1,
-      options: Partial<SamlConfig> = {}
+      options: Partial<SamlConfig> = { issuer: "onesaml_login" }
     ) => {
       //== Instantiate new instance before every test
       const samlObj = new SAML({ cert, ...options });
@@ -88,6 +88,7 @@ describe("Signatures", function () {
       "R1A - root signed - wantAssertionsSigned=true => error",
       testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", INVALID_SIGNATURE, 2, {
         wantAssertionsSigned: true,
+        issuer: "onesaml_login",
       })
     );
     it(
@@ -99,6 +100,7 @@ describe("Signatures", function () {
         {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           wantAssertionsSigned: true,
+          issuer: "onesaml_login",
         }
       )
     );
@@ -110,6 +112,7 @@ describe("Signatures", function () {
         2,
         {
           wantAssertionsSigned: true,
+          issuer: "onesaml_login",
         }
       )
     );
@@ -122,6 +125,7 @@ describe("Signatures", function () {
         {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           wantAssertionsSigned: true,
+          issuer: "onesaml_login",
         }
       )
     );
