@@ -1,8 +1,10 @@
 import * as fs from "fs";
 import { expect } from "chai";
-import assert = require("assert");
+import * as assert from "assert";
 import { certToPEM, generateUniqueId, keyToPEM } from "../src/crypto";
 import { TEST_CERT } from "./types";
+import { assertRequired } from "../src/utility";
+import { SamlConfig } from "../src/types";
 
 describe("crypto.ts", function () {
   describe("keyToPEM", function () {
@@ -40,14 +42,18 @@ describe("crypto.ts", function () {
 
   describe("certToPEM", function () {
     it("should generate valid certificate", function () {
-      const samlConfig = {
+      const samlConfig: SamlConfig = {
         entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
         cert: "-----BEGIN CERTIFICATE-----" + TEST_CERT + "-----END CERTIFICATE-----",
         acceptedClockSkewMs: -1,
       };
-      const certificate = certToPEM(samlConfig.cert);
+      const certificate = certToPEM(samlConfig.cert.toString());
+      const certificateBegin = certificate.match(/BEGIN/g);
+      const certificateEnd = certificate.match(/END/g);
+      assertRequired(certificateBegin, "certificate does not have a BEGIN block");
+      assertRequired(certificateEnd, "certificate does not have an END block");
 
-      if (!(certificate.match(/BEGIN/g)!.length == 1 && certificate.match(/END/g)!.length == 1)) {
+      if (!(certificateBegin.length == 1 && certificateEnd.length == 1)) {
         throw Error("Certificate should have only 1 BEGIN and 1 END block");
       }
     });
