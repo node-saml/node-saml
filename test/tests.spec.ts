@@ -613,7 +613,6 @@ describe("node-saml /", function () {
 
       afterEach(() => {
         if (fakeClock) {
-          // If fakeClock is retored in a test, it will cause intermittant problems for other tests
           fakeClock.restore();
         }
       });
@@ -1171,9 +1170,11 @@ describe("node-saml /", function () {
 
     describe("getAuthorizeUrl request signature checks /", function () {
       let fakeClock: sinon.SinonFakeTimers;
+
       beforeEach(function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
       });
+
       afterEach(function () {
         fakeClock.restore();
       });
@@ -1822,6 +1823,7 @@ describe("node-saml /", function () {
       describe("InResponseTo server cache expiration tests /", () => {
         it("should expire a cached request id after the time", async () => {
           const requestId = "_dfab47d5d46374cd4b71";
+          fakeClock = sinon.useFakeTimers();
 
           const samlConfig: SamlConfig = {
             validateInResponseTo: ValidateInResponseTo.always,
@@ -1834,7 +1836,7 @@ describe("node-saml /", function () {
           // Mock the SAML request being passed through Passport-SAML
           await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
-          await (() => new Promise((resolve) => setTimeout(resolve, 300)))();
+          await fakeClock.tickAsync(300);
           const value = await samlObj.cacheProvider.getAsync(requestId);
           expect(value).to.not.exist;
         });
@@ -1843,6 +1845,7 @@ describe("node-saml /", function () {
           const expiredRequestId1 = "_dfab47d5d46374cd4b71";
           const expiredRequestId2 = "_dfab47d5d46374cd4b72";
           const requestId = "_dfab47d5d46374cd4b73";
+          fakeClock = sinon.useFakeTimers();
 
           const samlConfig: SamlConfig = {
             validateInResponseTo: ValidateInResponseTo.always,
@@ -1855,7 +1858,7 @@ describe("node-saml /", function () {
           await samlObj.cacheProvider.saveAsync(expiredRequestId1, new Date().toISOString());
           await samlObj.cacheProvider.saveAsync(expiredRequestId2, new Date().toISOString());
 
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await fakeClock.tickAsync(300);
           // Add one more that shouldn't expire
           await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
@@ -1865,7 +1868,7 @@ describe("node-saml /", function () {
           expect(value2).to.not.exist;
           const value3 = await samlObj.cacheProvider.getAsync(requestId);
           expect(value3).to.exist;
-          await (() => new Promise((resolve) => setTimeout(resolve, 300)))();
+          await fakeClock.tickAsync(300);
           const value4 = await samlObj.cacheProvider.getAsync(requestId);
           expect(value4).to.not.exist;
         });
