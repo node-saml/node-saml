@@ -1823,6 +1823,7 @@ describe("node-saml /", function () {
       describe("InResponseTo server cache expiration tests /", () => {
         it("should expire a cached request id after the time", async () => {
           const requestId = "_dfab47d5d46374cd4b71";
+          fakeClock = sinon.useFakeTimers();
 
           const samlConfig: SamlConfig = {
             validateInResponseTo: ValidateInResponseTo.always,
