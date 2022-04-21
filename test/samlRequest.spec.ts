@@ -25,6 +25,7 @@ describe("SAML request", function () {
           },
         },
       },
+      issuer: "onesaml_login",
     };
 
     const result = {
@@ -90,7 +91,8 @@ describe("SAML request", function () {
       .then((formBody) => {
         expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
         const samlRequestMatchValues = formBody.match(/<input.*name="SAMLRequest" value="([^"]*)"/);
-        const encodedSamlRequest = assertRequired(samlRequestMatchValues?.[1]);
+        assertRequired(samlRequestMatchValues?.[1]);
+        const encodedSamlRequest = samlRequestMatchValues?.[1];
 
         let buffer = Buffer.from(encodedSamlRequest, "base64");
         if (!config.skipRequestCompression) {
@@ -111,6 +113,7 @@ describe("SAML request", function () {
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       samlAuthnRequestExtensions: "anyvalue",
+      issuer: "onesaml_login",
     };
 
     const oSAML = new SAML(config);

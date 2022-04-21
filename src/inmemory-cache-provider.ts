@@ -106,8 +106,8 @@ export class InMemoryCacheProvider implements CacheProvider {
   /**
    * Removes an item from the cache if it exists
    */
-  async removeAsync(key: string): Promise<string | null> {
-    if (this.cacheKeys[key]) {
+  async removeAsync(key: string | null): Promise<string | null> {
+    if (key != null && this.cacheKeys[key]) {
       delete this.cacheKeys[key];
       return key;
     } else {

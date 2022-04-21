@@ -24,7 +24,7 @@ export interface CacheItem {
 export interface CacheProvider {
   saveAsync(key: string, value: string): Promise<CacheItem | null>;
   getAsync(key: string): Promise<string | null>;
-  removeAsync(key: string): Promise<string | null>;
+  removeAsync(key: string | null): Promise<string | null>;
 }
 
 export type XMLValue = string | number | boolean | null | XMLObject | XMLValue[];
@@ -120,7 +120,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   providerName?: string;
   passive: boolean;
   idpIssuer?: string;
-  audience?: string;
+  audience: string | false;
   scoping?: SamlScopingConfig;
   wantAssertionsSigned?: boolean;
   maxAssertionAgeMs: number;
