@@ -6,3 +6,5 @@ yarn-error.log
 .DS_Store 
 .eslintcache
 .dir-locals.el
+.nyc_output/
+coverage/
