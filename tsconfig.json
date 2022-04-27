@@ -71,6 +71,7 @@
     "lib",
     "multiSamlStrategy.js",
     "multiSamlStrategy.d.ts",
-    "test"
+    "test",
+    "coverage"
   ]
 }
