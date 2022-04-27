@@ -1128,12 +1128,12 @@ class SAML {
       // the 'InResponseTo' attribute set in the Response
       if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
         if (subjectConfirmation) {
-          if (confirmData && confirmData.$) {
+          if (confirmData?.$) {
             const subjectInResponseTo = confirmData.$.InResponseTo;
 
             if (inResponseTo && subjectInResponseTo && subjectInResponseTo != inResponseTo) {
               await this.cacheProvider.removeAsync(inResponseTo);
-              throw new Error("InResponseTo is not valid");
+              throw new Error("InResponseTo does not match subjectInResponseTo");
             } else if (subjectInResponseTo) {
               let foundValidInResponseTo = false;
               const result = await this.cacheProvider.getAsync(subjectInResponseTo);
@@ -1144,7 +1144,7 @@ class SAML {
               }
               await this.cacheProvider.removeAsync(inResponseTo);
               if (!foundValidInResponseTo) {
-                throw new Error("InResponseTo is not valid");
+                throw new Error("SubjectInResponseTo is not valid");
               }
               break getInResponseTo;
             }
