@@ -1083,10 +1083,9 @@ class SAML {
             (_subjectConfirmation: XMLOutput) => {
               let res = false;
               if (_subjectConfirmation) {
-                const _confirmData =
-                  _subjectConfirmation && _subjectConfirmation.SubjectConfirmationData
-                    ? _subjectConfirmation.SubjectConfirmationData[0]
-                    : null;
+                const _confirmData = _subjectConfirmation.SubjectConfirmationData
+                  ? _subjectConfirmation.SubjectConfirmationData[0]
+                  : null;
                 if (_confirmData?.$) {
                   const subjectNotBefore = _confirmData.$.NotBefore;
                   const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
@@ -1110,10 +1109,9 @@ class SAML {
           );
 
           if (subjectConfirmation) {
-            confirmData =
-              subjectConfirmation && subjectConfirmation.SubjectConfirmationData
-                ? subjectConfirmation.SubjectConfirmationData[0]
-                : null;
+            confirmData = subjectConfirmation.SubjectConfirmationData
+              ? subjectConfirmation.SubjectConfirmationData[0]
+              : null;
           }
         }
       }

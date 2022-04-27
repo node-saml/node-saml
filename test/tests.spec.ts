@@ -691,6 +691,29 @@ describe("node-saml /", function () {
         expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
       });
 
+      it("valid xml document with multiple SubjectConfirmation should validate, first is expired so it should take the second one", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname +
+            "/static/response.root-signed.message-signed-double-subjectconfirmation_2.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+        });
+
+        const { profile } = await samlObj.validatePostResponseAsync(container);
+        assertRequired(profile, "profile must exist");
+        expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
+      });
+
       [ValidateInResponseTo.always, ValidateInResponseTo.ifPresent].forEach(
         (validateInResponseTo) => {
           describe(`with validateInResponseTo set to ${validateInResponseTo}`, () => {
