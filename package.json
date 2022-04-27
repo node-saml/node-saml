@@ -66,7 +66,6 @@
     "@types/node": "^14.18.12",
     "@types/passport": "^1.0.7",
     "@types/qs": "^6.9.7",
-    "@types/request": "^2.48.8",
     "@types/sinon": "^10.0.11",
     "@types/xml-crypto": "^1.4.2",
     "@types/xml-encryption": "^1.2.1",
@@ -86,7 +85,6 @@
     "prettier": "^2.6.2",
     "prettier-plugin-packagejson": "^2.2.17",
     "release-it": "^14.14.0",
-    "request": "^2.83.0",
     "sinon": "^13.0.2",
     "ts-node": "^10.7.0",
     "typescript": "^4.6.3"
