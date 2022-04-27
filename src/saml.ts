@@ -1064,7 +1064,8 @@ class SAML {
       }
 
       const subject = assertion.Subject;
-      let subjectConfirmation, confirmData;
+      let subjectConfirmation: XMLOutput | null = null;
+      let confirmData: XMLOutput | null = null;
       if (subject) {
         const nameID = subject[0].NameID;
         if (nameID && nameID[0]._) {
@@ -1079,16 +1080,16 @@ class SAML {
 
         if (subject[0].SubjectConfirmation?.length > 0) {
           subjectConfirmation = subject[0].SubjectConfirmation?.find(
-            (subjectConfirmation: XMLOutput) => {
+            (_subjectConfirmation: XMLOutput) => {
               let res = false;
-              if (subjectConfirmation) {
-                confirmData =
-                  subjectConfirmation && subjectConfirmation.SubjectConfirmationData
-                    ? subjectConfirmation.SubjectConfirmationData[0]
+              if (_subjectConfirmation) {
+                const _confirmData =
+                  _subjectConfirmation && _subjectConfirmation.SubjectConfirmationData
+                    ? _subjectConfirmation.SubjectConfirmationData[0]
                     : null;
-                if (confirmData && confirmData.$) {
-                  const subjectNotBefore = confirmData.$.NotBefore;
-                  const subjectNotOnOrAfter = confirmData.$.NotOnOrAfter;
+                if (_confirmData?.$) {
+                  const subjectNotBefore = _confirmData.$.NotBefore;
+                  const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
                   const maxTimeLimitMs = this.processMaxAgeAssertionTime(
                     this.options.maxAssertionAgeMs,
                     subjectNotOnOrAfter,
@@ -1109,7 +1110,6 @@ class SAML {
           );
 
           if (subjectConfirmation) {
-            subjectConfirmation = subjectConfirmation[0];
             confirmData =
               subjectConfirmation && subjectConfirmation.SubjectConfirmationData
                 ? subjectConfirmation.SubjectConfirmationData[0]
