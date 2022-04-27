@@ -1077,7 +1077,7 @@ class SAML {
           }
         }
 
-        if (subject[0].SubjectConfirmation && subject[0].SubjectConfirmation?.length > 0) {
+        if (subject[0].SubjectConfirmation?.length > 0) {
           subjectConfirmation = subject[0].SubjectConfirmation?.find(
             (subjectConfirmation: XMLOutput) => {
               let res = false;
@@ -1114,8 +1114,6 @@ class SAML {
               subjectConfirmation && subjectConfirmation.SubjectConfirmationData
                 ? subjectConfirmation.SubjectConfirmationData[0]
                 : null;
-          } else {
-            subjectConfirmation = subject[0].SubjectConfirmation[0];
           }
         }
       }
