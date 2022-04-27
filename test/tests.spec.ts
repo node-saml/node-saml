@@ -620,7 +620,7 @@ describe("node-saml /", function () {
       it("response with junk content should explain the XML or base64 is not valid", async () => {
         const samlObj = new SAML({ cert: TEST_CERT, issuer: "onesaml_login" });
         await assert.rejects(samlObj.validatePostResponseAsync({ SAMLResponse: "BOOM" }), {
-          message: /SAMLResponse is not valid base64-encoded XML/,
+          message: "SAMLResponse is not valid base64-encoded XML",
         });
       });
       it("response with error status message should generate appropriate error", async () => {
@@ -694,11 +694,11 @@ describe("node-saml /", function () {
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
               await assert.rejects(samlObj.validatePostResponseAsync(container), {
-                message: /Invalid signature/,
+                message: "Invalid signature",
               });
 
               await assert.rejects(samlObj.validatePostResponseAsync(container), {
-                message: /InResponseTo is not valid/,
+                message: "InResponseTo is not valid",
               });
 
               assert.strictEqual(await samlObj.cacheProvider.getAsync(requestId), null);
@@ -2308,7 +2308,7 @@ describe("node-saml /", function () {
         SAMLRequest: "asdf",
       };
       await assert.rejects(samlObj.validatePostRequestAsync(body), {
-        message: /Non-whitespace before first tag/,
+        message: /^Non-whitespace before first tag.\n/,
       });
     });
     it("errors if bad signature", async () => {
@@ -2469,7 +2469,7 @@ describe("node-saml /", function () {
       });
     } else {
       await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-        message: /no start line/,
+        message: "error:0909006C:PEM routines:get_name:no start line",
       });
     }
   });
