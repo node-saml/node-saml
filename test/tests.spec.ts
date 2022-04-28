@@ -613,7 +613,6 @@ describe("node-saml /", function () {
 
       afterEach(() => {
         if (fakeClock) {
-          // If fakeClock is retored in a test, it will cause intermittant problems for other tests
           fakeClock.restore();
         }
       });
@@ -621,7 +620,7 @@ describe("node-saml /", function () {
       it("response with junk content should explain the XML or base64 is not valid", async () => {
         const samlObj = new SAML({ cert: TEST_CERT, issuer: "onesaml_login" });
         await assert.rejects(samlObj.validatePostResponseAsync({ SAMLResponse: "BOOM" }), {
-          message: /SAMLResponse is not valid base64-encoded XML/,
+          message: "SAMLResponse is not valid base64-encoded XML",
         });
       });
       it("response with error status message should generate appropriate error", async () => {
@@ -695,11 +694,11 @@ describe("node-saml /", function () {
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
               await assert.rejects(samlObj.validatePostResponseAsync(container), {
-                message: /Invalid signature/,
+                message: "Invalid signature",
               });
 
               await assert.rejects(samlObj.validatePostResponseAsync(container), {
-                message: /InResponseTo is not valid/,
+                message: "InResponseTo is not valid",
               });
 
               assert.strictEqual(await samlObj.cacheProvider.getAsync(requestId), null);
@@ -1171,9 +1170,11 @@ describe("node-saml /", function () {
 
     describe("getAuthorizeUrl request signature checks /", function () {
       let fakeClock: sinon.SinonFakeTimers;
+
       beforeEach(function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
       });
+
       afterEach(function () {
         fakeClock.restore();
       });
@@ -1822,6 +1823,7 @@ describe("node-saml /", function () {
       describe("InResponseTo server cache expiration tests /", () => {
         it("should expire a cached request id after the time", async () => {
           const requestId = "_dfab47d5d46374cd4b71";
+          fakeClock = sinon.useFakeTimers();
 
           const samlConfig: SamlConfig = {
             validateInResponseTo: ValidateInResponseTo.always,
@@ -1834,7 +1836,7 @@ describe("node-saml /", function () {
           // Mock the SAML request being passed through Passport-SAML
           await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
-          await (() => new Promise((resolve) => setTimeout(resolve, 300)))();
+          await fakeClock.tickAsync(300);
           const value = await samlObj.cacheProvider.getAsync(requestId);
           expect(value).to.not.exist;
         });
@@ -1843,6 +1845,7 @@ describe("node-saml /", function () {
           const expiredRequestId1 = "_dfab47d5d46374cd4b71";
           const expiredRequestId2 = "_dfab47d5d46374cd4b72";
           const requestId = "_dfab47d5d46374cd4b73";
+          fakeClock = sinon.useFakeTimers();
 
           const samlConfig: SamlConfig = {
             validateInResponseTo: ValidateInResponseTo.always,
@@ -1855,7 +1858,7 @@ describe("node-saml /", function () {
           await samlObj.cacheProvider.saveAsync(expiredRequestId1, new Date().toISOString());
           await samlObj.cacheProvider.saveAsync(expiredRequestId2, new Date().toISOString());
 
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await fakeClock.tickAsync(300);
           // Add one more that shouldn't expire
           await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
@@ -1865,7 +1868,7 @@ describe("node-saml /", function () {
           expect(value2).to.not.exist;
           const value3 = await samlObj.cacheProvider.getAsync(requestId);
           expect(value3).to.exist;
-          await (() => new Promise((resolve) => setTimeout(resolve, 300)))();
+          await fakeClock.tickAsync(300);
           const value4 = await samlObj.cacheProvider.getAsync(requestId);
           expect(value4).to.not.exist;
         });
@@ -2305,7 +2308,7 @@ describe("node-saml /", function () {
         SAMLRequest: "asdf",
       };
       await assert.rejects(samlObj.validatePostRequestAsync(body), {
-        message: /Non-whitespace before first tag/,
+        message: /^Non-whitespace before first tag.\n/,
       });
     });
     it("errors if bad signature", async () => {
@@ -2413,9 +2416,16 @@ describe("node-saml /", function () {
         "base64"
       ),
     };
-    await assert.rejects(samlObj.validatePostRequestAsync(body), {
-      message: "error:04099079:rsa routines:RSA_padding_check_PKCS1_OAEP_mgf1:oaep decoding error",
-    });
+    if (process.versions.node.split(".")[0] === "18") {
+      await assert.rejects(samlObj.validatePostRequestAsync(body), {
+        message: "error:02000079:rsa routines::oaep decoding error",
+      });
+    } else {
+      await assert.rejects(samlObj.validatePostRequestAsync(body), {
+        message:
+          "error:04099079:rsa routines:RSA_padding_check_PKCS1_OAEP_mgf1:oaep decoding error",
+      });
+    }
   });
 
   it("errors if bad privateKey to requestToURL", async () => {
@@ -2453,9 +2463,15 @@ describe("node-saml /", function () {
     });
     const request =
       '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
-    await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-      message: /no start line/,
-    });
+    if (process.versions.node.split(".")[0] === "18") {
+      await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
+        message: "Failed to read private key",
+      });
+    } else {
+      await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
+        message: "error:0909006C:PEM routines:get_name:no start line",
+      });
+    }
   });
 
   describe("validateRedirect()", function () {
