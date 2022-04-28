@@ -282,11 +282,8 @@ class SAML {
 
     const nameIDPolicy: XMLInput = {
       "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+      "@AllowCreate": this.options.allowCreate,
     };
-
-    if (this.options.allowCreate != null) {
-      nameIDPolicy["@AllowCreate"] = this.options.allowCreate;
-    }
 
     if (this.options.identifierFormat != null) {
       nameIDPolicy["@Format"] = this.options.identifierFormat;
