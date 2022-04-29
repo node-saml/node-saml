@@ -1079,39 +1079,35 @@ class SAML {
         }
 
         if (subject[0].SubjectConfirmation?.length > 0) {
-          subjectConfirmation = subject[0].SubjectConfirmation?.find(
+          subjectConfirmation = subject[0].SubjectConfirmation.find(
             (_subjectConfirmation: XMLOutput) => {
-              let res = false;
-              if (_subjectConfirmation) {
-                const _confirmData = _subjectConfirmation.SubjectConfirmationData
-                  ? _subjectConfirmation.SubjectConfirmationData[0]
-                  : null;
-                if (_confirmData?.$) {
-                  const subjectNotBefore = _confirmData.$.NotBefore;
-                  const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
-                  const maxTimeLimitMs = this.processMaxAgeAssertionTime(
-                    this.options.maxAssertionAgeMs,
-                    subjectNotOnOrAfter,
-                    assertion.$.IssueInstant
-                  );
+              const _confirmData = _subjectConfirmation.SubjectConfirmationData
+                ? _subjectConfirmation.SubjectConfirmationData[0]
+                : null;
+              if (_confirmData?.$) {
+                const subjectNotBefore = _confirmData.$.NotBefore;
+                const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
+                const maxTimeLimitMs = this.processMaxAgeAssertionTime(
+                  this.options.maxAssertionAgeMs,
+                  subjectNotOnOrAfter,
+                  assertion.$.IssueInstant
+                );
 
-                  const subjErr = this.checkTimestampsValidityError(
-                    nowMs,
-                    subjectNotBefore,
-                    subjectNotOnOrAfter,
-                    maxTimeLimitMs
-                  );
-                  if (subjErr === null) res = true;
-                }
+                const subjErr = this.checkTimestampsValidityError(
+                  nowMs,
+                  subjectNotBefore,
+                  subjectNotOnOrAfter,
+                  maxTimeLimitMs
+                );
+                if (subjErr === null) return true;
               }
-              return res;
+
+              return false;
             }
           );
 
           if (subjectConfirmation) {
-            confirmData = subjectConfirmation.SubjectConfirmationData
-              ? subjectConfirmation.SubjectConfirmationData[0]
-              : null;
+            confirmData = subjectConfirmation.SubjectConfirmationData[0];
           }
         }
       }
