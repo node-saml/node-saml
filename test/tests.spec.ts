@@ -670,7 +670,7 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with multiple SubjectConfirmation should validate", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-24T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64"
@@ -684,8 +684,12 @@ describe("node-saml /", function () {
           privateKey: privateKey,
           issuer: "onesaml_login",
           audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
         });
 
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` is invalid, so if this passes, we are using the first one
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
         expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
@@ -695,7 +699,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname +
-            "/static/response.root-signed.message-signed-double-subjectconfirmation_2.xml",
+            "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64"
         );
         const container = { SAMLResponse: base64xml };
