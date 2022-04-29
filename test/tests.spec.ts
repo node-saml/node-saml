@@ -5,7 +5,7 @@ import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { Profile, SamlConfig, ValidateInResponseTo } from "../src/types";
+import { Profile, SamlConfig, ValidateInResponseTo, XMLOutput } from "../src/types";
 import { RacComparision } from "../src/types.js";
 import { expect } from "chai";
 import * as assert from "assert";
@@ -24,7 +24,10 @@ describe("node-saml /", function () {
   describe("saml.js / ", function () {
     it("should throw an error if cert property is provided to saml constructor but is empty", function () {
       expect(function () {
-        const strategy = new SAML({ cert: undefined as any, issuer: "onelogin_saml" });
+        const strategy = new SAML({
+          cert: undefined as unknown as string,
+          issuer: "onelogin_saml",
+        });
         typeof strategy.options.cert === "undefined";
       }).throw("cert is required");
     });
@@ -137,10 +140,10 @@ describe("node-saml /", function () {
     });
 
     it("_generateLogoutRequest should throw error when samlLogoutRequestExtensions is not a object", async function () {
-      const config: any = {
+      const config: SamlConfig = {
         entryPoint: "https://wwwexampleIdp.com/saml",
         cert: FAKE_CERT,
-        samlLogoutRequestExtensions: "anyvalue",
+        samlLogoutRequestExtensions: "anyvalue" as unknown as Record<string, unknown>,
         issuer: "onelogin_saml",
       };
       const samlObj = new SAML(config);
@@ -789,7 +792,7 @@ describe("node-saml /", function () {
             const samlObj = new SAML({ ...noAudienceSamlConfig });
             const { profile } = await samlObj.validatePostResponseAsync(container);
             expect(profile).to.not.exist;
-          } catch (err: any) {
+          } catch (err) {
             expect(err).to.exist;
             expect(err).to.be.instanceOf(Error);
             expect((err as Error).message).to.match(/SAML assertion audience mismatch/);
@@ -813,7 +816,7 @@ describe("node-saml /", function () {
             });
             const { profile } = await samlObj.validatePostResponseAsync(container);
             expect(profile).to.not.exist;
-          } catch (err: any) {
+          } catch (err) {
             expect(err).to.exist;
             expect(err).to.be.instanceOf(Error);
             expect((err as Error).message).to.match(/SAML assertion audience mismatch/);
@@ -1098,7 +1101,7 @@ describe("node-saml /", function () {
           const samlObj = new SAML({ cert: signingCert, audience: false, issuer: "onesaml_login" });
           const { profile } = await samlObj.validatePostResponseAsync(container);
           assertRequired(profile, "profile must exist");
-          const eptid = profile["urn:oid:1.3.6.1.4.1.5923.1.1.1.10"] as any;
+          const eptid = profile["urn:oid:1.3.6.1.4.1.5923.1.1.1.10"] as XMLOutput;
           const nameid = eptid["NameID"][0];
           expect(nameid._).to.equal(nameid_opaque_string);
           expect(nameid.$.NameQualifier).to.equal(nameQualifier);
