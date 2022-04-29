@@ -40,8 +40,8 @@ export const generateUniqueId = (): string => {
 };
 
 export const removeCertPEMHeaderAndFooter = (certificate: string): string => {
-  certificate = certificate.replace(/-+?BEGIN CERTIFICATE-+?\r?\n?/, "");
-  certificate = certificate.replace(/-+?END CERTIFICATE-+?\r?\n?/, "");
+  certificate = certificate.replace(/-+BEGIN CERTIFICATE-+[^-]\r?\n?/, "");
+  certificate = certificate.replace(/-+END CERTIFICATE-+[^-]\r?\n?/, "");
   certificate = certificate.replace(/\r\n/g, "\n");
   return certificate;
 };
