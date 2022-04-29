@@ -1078,37 +1078,35 @@ class SAML {
           }
         }
 
-        if (subject[0].SubjectConfirmation?.length > 0) {
-          subjectConfirmation = subject[0].SubjectConfirmation.find(
-            (_subjectConfirmation: XMLOutput) => {
-              const _confirmData = _subjectConfirmation.SubjectConfirmationData
-                ? _subjectConfirmation.SubjectConfirmationData[0]
-                : null;
-              if (_confirmData?.$) {
-                const subjectNotBefore = _confirmData.$.NotBefore;
-                const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
-                const maxTimeLimitMs = this.processMaxAgeAssertionTime(
-                  this.options.maxAssertionAgeMs,
-                  subjectNotOnOrAfter,
-                  assertion.$.IssueInstant
-                );
+        subjectConfirmation = subject[0].SubjectConfirmation?.find(
+          (_subjectConfirmation: XMLOutput) => {
+            const _confirmData = _subjectConfirmation.SubjectConfirmationData
+              ? _subjectConfirmation.SubjectConfirmationData[0]
+              : null;
+            if (_confirmData?.$) {
+              const subjectNotBefore = _confirmData.$.NotBefore;
+              const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
+              const maxTimeLimitMs = this.processMaxAgeAssertionTime(
+                this.options.maxAssertionAgeMs,
+                subjectNotOnOrAfter,
+                assertion.$.IssueInstant
+              );
 
-                const subjErr = this.checkTimestampsValidityError(
-                  nowMs,
-                  subjectNotBefore,
-                  subjectNotOnOrAfter,
-                  maxTimeLimitMs
-                );
-                if (subjErr === null) return true;
-              }
-
-              return false;
+              const subjErr = this.checkTimestampsValidityError(
+                nowMs,
+                subjectNotBefore,
+                subjectNotOnOrAfter,
+                maxTimeLimitMs
+              );
+              if (subjErr === null) return true;
             }
-          );
 
-          if (subjectConfirmation) {
-            confirmData = subjectConfirmation.SubjectConfirmationData[0];
+            return false;
           }
+        );
+
+        if (subjectConfirmation) {
+          confirmData = subjectConfirmation.SubjectConfirmationData[0];
         }
       }
 
