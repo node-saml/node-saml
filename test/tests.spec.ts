@@ -721,6 +721,32 @@ describe("node-saml /", function () {
         });
       });
 
+      it("valid xml document with no SubjectConfirmation should not validate", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-no-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` purposefully has the wrong InResponseTo so we can check for it
+        assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message: "InResponseTo does not match subjectInResponseTo",
+        });
+      });
+
       [ValidateInResponseTo.always, ValidateInResponseTo.ifPresent].forEach(
         (validateInResponseTo) => {
           describe(`with validateInResponseTo set to ${validateInResponseTo}`, () => {
