@@ -9,8 +9,6 @@
  *
  * The caller should provide their own implementation for a cache provider as defined
  * in the config options.
- * @param options
- * @constructor
  */
 
 import { CacheItem, CacheProvider } from "./types";
@@ -22,43 +20,63 @@ interface CacheProviderOptions {
 export class InMemoryCacheProvider implements CacheProvider {
   private cacheKeys: Record<string, CacheItem>;
   private options: CacheProviderOptions;
+  private lastPrune = 0;
+  private prune: () => void;
+  private removeKeyIfExpired: (key: keyof typeof this.cacheKeys, nowMs: number) => Promise<void>;
 
   constructor(options: Partial<CacheProviderOptions>) {
     this.cacheKeys = {};
 
     this.options = {
       ...options,
-      keyExpirationPeriodMs: options?.keyExpirationPeriodMs ?? 28800000, // 8 hours,
+      keyExpirationPeriodMs: options.keyExpirationPeriodMs ?? 28800000, // 8 hours,
     };
 
-    // Expire old cache keys
-    const expirationTimer = setInterval(() => {
+    // Remove expired cache keys
+    this.prune = () => {
       const nowMs = new Date().getTime();
-      const keys = Object.keys(this.cacheKeys);
-      keys.forEach((key) => {
-        if (
-          nowMs >=
-          new Date(this.cacheKeys[key].createdAt).getTime() + this.options.keyExpirationPeriodMs
-        ) {
-          this.removeAsync(key);
-        }
-      });
-    }, this.options.keyExpirationPeriodMs);
 
-    // we only want this to run if the process is still open; it shouldn't hold the process open (issue #68)
-    expirationTimer.unref();
+      // Don't call this function more than is needed in high-load environments
+      if (nowMs > this.lastPrune + this.options.keyExpirationPeriodMs) {
+        const keys = Object.keys(this.cacheKeys);
+        const keysToRemove: (keyof typeof this.cacheKeys)[] = [];
+        keys.forEach((key) => {
+          if (nowMs >= this.cacheKeys[key].createdAt + this.options.keyExpirationPeriodMs) {
+            keysToRemove.push(key);
+          }
+        });
+
+        // No need to await this because we don't care when it gets done
+        keysToRemove.forEach((key) => this.removeAsync(key));
+        this.lastPrune = nowMs;
+      }
+    };
+
+    this.removeKeyIfExpired = async (key: keyof typeof this.cacheKeys, nowMs: number) => {
+      if (
+        this.cacheKeys[key] &&
+        nowMs >= this.cacheKeys[key].createdAt + this.options.keyExpirationPeriodMs
+      ) {
+        await this.removeAsync(key);
+      }
+    };
   }
 
   /**
    * Store an item in the cache, using the specified key and value.
    * Internally will keep track of the time the item was added to the cache
-   * @param id
-   * @param value
    */
   async saveAsync(key: string, value: string): Promise<CacheItem | null> {
+    // Remove all expired keys at a later time
+    this.prune();
+
+    // Remove the key if it is expired
+    const nowMs = new Date().getTime();
+    await this.removeKeyIfExpired(key, nowMs);
+
     if (!this.cacheKeys[key]) {
       this.cacheKeys[key] = {
-        createdAt: new Date().getTime(),
+        createdAt: nowMs,
         value: value,
       };
       return this.cacheKeys[key];
@@ -69,10 +87,15 @@ export class InMemoryCacheProvider implements CacheProvider {
 
   /**
    * Returns the value of the specified key in the cache
-   * @param id
-   * @returns {boolean}
    */
   async getAsync(key: string): Promise<string | null> {
+    // Remove all expired keys at a later time
+    this.prune();
+
+    // Remove the key if it is expired
+    const nowMs = new Date().getTime();
+    await this.removeKeyIfExpired(key, nowMs);
+
     if (this.cacheKeys[key]) {
       return this.cacheKeys[key].value;
     } else {
@@ -82,7 +105,6 @@ export class InMemoryCacheProvider implements CacheProvider {
 
   /**
    * Removes an item from the cache if it exists
-   * @param key
    */
   async removeAsync(key: string | null): Promise<string | null> {
     if (key != null && this.cacheKeys[key]) {

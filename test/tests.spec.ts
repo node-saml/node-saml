@@ -1819,60 +1819,6 @@ describe("node-saml /", function () {
         const value = await samlObj.cacheProvider.getAsync(requestId);
         expect(value).to.not.exist;
       });
-
-      describe("InResponseTo server cache expiration tests /", () => {
-        it("should expire a cached request id after the time", async () => {
-          const requestId = "_dfab47d5d46374cd4b71";
-          fakeClock = sinon.useFakeTimers();
-
-          const samlConfig: SamlConfig = {
-            validateInResponseTo: ValidateInResponseTo.always,
-            requestIdExpirationPeriodMs: 100,
-            cert: FAKE_CERT,
-            issuer: "onesaml_login",
-          };
-          const samlObj = new SAML(samlConfig);
-
-          // Mock the SAML request being passed through Passport-SAML
-          await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
-
-          await fakeClock.tickAsync(300);
-          const value = await samlObj.cacheProvider.getAsync(requestId);
-          expect(value).to.not.exist;
-        });
-
-        it("should expire many cached request ids after the time", async () => {
-          const expiredRequestId1 = "_dfab47d5d46374cd4b71";
-          const expiredRequestId2 = "_dfab47d5d46374cd4b72";
-          const requestId = "_dfab47d5d46374cd4b73";
-          fakeClock = sinon.useFakeTimers();
-
-          const samlConfig: SamlConfig = {
-            validateInResponseTo: ValidateInResponseTo.always,
-            requestIdExpirationPeriodMs: 100,
-            cert: FAKE_CERT,
-            issuer: "onesaml_login",
-          };
-          const samlObj = new SAML(samlConfig);
-
-          await samlObj.cacheProvider.saveAsync(expiredRequestId1, new Date().toISOString());
-          await samlObj.cacheProvider.saveAsync(expiredRequestId2, new Date().toISOString());
-
-          await fakeClock.tickAsync(300);
-          // Add one more that shouldn't expire
-          await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
-
-          const value1 = await samlObj.cacheProvider.getAsync(expiredRequestId1);
-          expect(value1).to.not.exist;
-          const value2 = await samlObj.cacheProvider.getAsync(expiredRequestId2);
-          expect(value2).to.not.exist;
-          const value3 = await samlObj.cacheProvider.getAsync(requestId);
-          expect(value3).to.exist;
-          await fakeClock.tickAsync(300);
-          const value4 = await samlObj.cacheProvider.getAsync(requestId);
-          expect(value4).to.not.exist;
-        });
-      });
     });
 
     describe("assertion condition checks /", function () {
