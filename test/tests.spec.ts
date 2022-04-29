@@ -698,8 +698,7 @@ describe("node-saml /", function () {
       it("valid xml document with multiple SubjectConfirmation should validate, first is expired so it should take the second one", async () => {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
-          __dirname +
-            "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
+          __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64"
         );
         const container = { SAMLResponse: base64xml };
