@@ -40,8 +40,9 @@ export const generateUniqueId = (): string => {
 };
 
 export const removeCertPEMHeaderAndFooter = (certificate: string): string => {
-  certificate = certificate.replace(/-+BEGIN CERTIFICATE-+[^-]\r?\n?/, "");
-  certificate = certificate.replace(/-+END CERTIFICATE-+[^-]\r?\n?/, "");
+  // These headers and footers are standard: https://www.ssl.com/guide/pem-der-crt-and-cer-x-509-encodings-and-conversions/#ftoc-heading-1
+  certificate = certificate.replace(/-----BEGIN CERTIFICATE-----\r?\n?/, "");
+  certificate = certificate.replace(/-----END CERTIFICATE-----\r?\n?/, "");
   certificate = certificate.replace(/\r\n/g, "\n");
   return certificate;
 };
