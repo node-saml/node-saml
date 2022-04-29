@@ -1080,9 +1080,7 @@ class SAML {
 
         subjectConfirmation = subject[0].SubjectConfirmation?.find(
           (_subjectConfirmation: XMLOutput) => {
-            const _confirmData = _subjectConfirmation.SubjectConfirmationData
-              ? _subjectConfirmation.SubjectConfirmationData[0]
-              : null;
+            const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
             if (_confirmData?.$) {
               const subjectNotBefore = _confirmData.$.NotBefore;
               const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
