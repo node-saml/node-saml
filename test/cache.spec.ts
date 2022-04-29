@@ -17,21 +17,47 @@ describe("Cache tests /", () => {
 
   it("should expire a cached request id after the time", async () => {
     const requestId = "_dfab47d5d46374cd4b71";
-
+    const requestIdExpirationPeriodMs = 100;
     const samlConfig: SamlConfig = {
       validateInResponseTo: ValidateInResponseTo.always,
-      requestIdExpirationPeriodMs: 100,
+      requestIdExpirationPeriodMs,
       cert: FAKE_CERT,
       issuer: "onesaml_login",
     };
     const samlObj = new SAML(samlConfig);
 
-    // Mock the SAML request being passed through Passport-SAML
     await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
 
     await fakeClock.tickAsync(300);
     const value = await samlObj.cacheProvider.getAsync(requestId);
     expect(value).to.not.exist;
+  });
+
+  it("should not return an expired item", async () => {
+    const requestId1 = "_dfab47d5d46374cd4b71";
+    const requestId2 = "_dfab47d5d46374cd4b72";
+    const requestId3 = "_dfab47d5d46374cd4b73";
+    const requestIdExpirationPeriodMs = 100;
+    const samlConfig: SamlConfig = {
+      validateInResponseTo: ValidateInResponseTo.always,
+      requestIdExpirationPeriodMs,
+      cert: FAKE_CERT,
+      issuer: "onesaml_login",
+    };
+    const samlObj = new SAML(samlConfig);
+
+    await samlObj.cacheProvider.saveAsync(requestId1, new Date().toISOString());
+    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2);
+    await samlObj.cacheProvider.saveAsync(requestId2, new Date().toISOString());
+    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2);
+    await samlObj.cacheProvider.saveAsync(requestId3, new Date().toISOString());
+    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2);
+    const value1 = await samlObj.cacheProvider.getAsync(requestId1);
+    expect(value1).to.not.exist;
+    const value2 = await samlObj.cacheProvider.getAsync(requestId2);
+    expect(value2).to.not.exist;
+    const value3 = await samlObj.cacheProvider.getAsync(requestId3);
+    expect(value3).to.exist;
   });
 
   it("should expire many cached request ids after the time", async () => {
