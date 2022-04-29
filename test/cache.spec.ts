@@ -47,11 +47,11 @@ describe("Cache tests /", () => {
     const samlObj = new SAML(samlConfig);
 
     await samlObj.cacheProvider.saveAsync(requestId1, new Date().toISOString());
-    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2);
+    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2 + 1);
     await samlObj.cacheProvider.saveAsync(requestId2, new Date().toISOString());
-    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2);
+    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2 + 1);
     await samlObj.cacheProvider.saveAsync(requestId3, new Date().toISOString());
-    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2);
+    await fakeClock.tickAsync(requestIdExpirationPeriodMs / 2 + 1);
     const value1 = await samlObj.cacheProvider.getAsync(requestId1);
     expect(value1).to.not.exist;
     const value2 = await samlObj.cacheProvider.getAsync(requestId2);
