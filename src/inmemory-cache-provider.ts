@@ -29,7 +29,7 @@ export class InMemoryCacheProvider implements CacheProvider {
 
     this.options = {
       ...options,
-      keyExpirationPeriodMs: options?.keyExpirationPeriodMs ?? 28800000, // 8 hours,
+      keyExpirationPeriodMs: options.keyExpirationPeriodMs ?? 28800000, // 8 hours,
     };
 
     // Remove expired cache keys
