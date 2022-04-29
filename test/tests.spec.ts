@@ -707,11 +707,15 @@ describe("node-saml /", function () {
           privateKey: privateKey,
           issuer: "onesaml_login",
           audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
         });
 
-        const { profile } = await samlObj.validatePostResponseAsync(container);
-        assertRequired(profile, "profile must exist");
-        expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` purposefully has the wrong InResponseTo so we can check for it
+        assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message: "InResponseTo does not match subjectInResponseTo",
+        });
       });
 
       [ValidateInResponseTo.always, ValidateInResponseTo.ifPresent].forEach(
