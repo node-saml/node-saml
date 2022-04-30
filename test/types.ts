@@ -8,21 +8,21 @@ export const TEST_CERT =
 
 export const FAKE_CERT = "fake cert";
 export interface CapturedCheck {
-  samlRequest?: any;
-  result?: any;
+  samlRequest?: unknown;
+  result?: unknown;
   name: string;
   expectedStatusCode: number;
-  samlResponse?: any;
+  samlResponse?: unknown;
   config: SamlConfig;
   expectedNameIDStartsWith?: string;
   mockDate: string;
 }
 
 export interface SamlCheck {
-  samlRequest?: any;
-  result?: any;
+  samlRequest?: unknown;
+  result?: unknown;
   name: string;
-  samlResponse?: any;
+  samlResponse?: unknown;
   config: SamlConfig;
   expectedNameIDStartsWith?: string;
 }

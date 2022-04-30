@@ -313,10 +313,10 @@ describe("SAML request", function () {
   });
 
   it("should throw error when samlAuthnRequestExtensions is not a object", async function () {
-    const config: any = {
+    const config: SamlConfig = {
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
-      samlAuthnRequestExtensions: "anyvalue",
+      samlAuthnRequestExtensions: "anyvalue" as unknown as Record<string, unknown>,
       issuer: "onesaml_login",
     };
 
