@@ -154,6 +154,8 @@ class SAML {
         ctorOptions.identifierFormat === undefined
           ? "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
           : ctorOptions.identifierFormat,
+      allowCreate: ctorOptions.allowCreate ?? true,
+      spNameQualifier: ctorOptions.spNameQualifier,
       wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? false,
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
@@ -278,13 +280,20 @@ class SAML {
       };
     }
 
+    const nameIDPolicy: XMLInput = {
+      "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+      "@AllowCreate": this.options.allowCreate,
+    };
+
     if (this.options.identifierFormat != null) {
-      request["samlp:AuthnRequest"]["samlp:NameIDPolicy"] = {
-        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
-        "@Format": this.options.identifierFormat,
-        "@AllowCreate": "true",
-      };
+      nameIDPolicy["@Format"] = this.options.identifierFormat;
     }
+
+    if (this.options.spNameQualifier != null) {
+      nameIDPolicy["@SPNameQualifier"] = this.options.spNameQualifier;
+    }
+
+    request["samlp:AuthnRequest"]["samlp:NameIDPolicy"] = nameIDPolicy;
 
     if (!this.options.disableRequestedAuthnContext) {
       const authnContextClassRefs: XMLInput[] = [];
