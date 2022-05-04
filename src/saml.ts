@@ -22,7 +22,6 @@ import {
   SamlIDPEntryConfig,
   SamlOptions,
   SamlConfig,
-  ServiceMetadataXML,
   XMLInput,
   XMLObject,
   XMLOutput,
@@ -30,7 +29,7 @@ import {
   XMLValue,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
-import { assertRequired, signXmlMetadata } from "./utility";
+import { assertRequired } from "./utility";
 import {
   buildXml2JsObject,
   buildXmlBuilderObject,
@@ -40,9 +39,10 @@ import {
   validateXmlSignatureForCert,
   xpath,
 } from "./xml";
-import { certToPEM, generateUniqueId, keyToPEM, removeCertPEMHeaderAndFooter } from "./crypto";
+import { certToPEM, generateUniqueId, keyToPEM } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { getAdditionalParams } from "./saml/common";
+import { generateServiceProviderMetadata } from "./saml/metadata";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
@@ -1352,99 +1352,16 @@ class SAML {
 
   generateServiceProviderMetadata(
     decryptionCert: string | null,
-    signingCert?: string | string[] | null
+    signingCerts?: string | string[] | null
   ): string {
-    const metadata: ServiceMetadataXML = {
-      EntityDescriptor: {
-        "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
-        "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
-        "@entityID": this.options.issuer,
-        "@ID": this.options.generateUniqueId(),
-        SPSSODescriptor: {
-          "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
-        },
-      },
-    };
+    const callbackUrl = this.getCallbackUrl(); // TODO it would probably be useful to have a host parameter here
 
-    if (this.options.decryptionPvk != null || this.options.privateKey != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = [];
-      if (isValidSamlSigningOptions(this.options)) {
-        assertRequired(
-          signingCert,
-          "Missing signingCert while generating metadata for signing service provider messages"
-        );
-
-        metadata.EntityDescriptor.SPSSODescriptor["@AuthnRequestsSigned"] = true;
-
-        const certArray = Array.isArray(signingCert) ? signingCert : [signingCert];
-        const signingKeyDescriptors = certArray.map((cert) => ({
-          "@use": "signing",
-          "ds:KeyInfo": {
-            "ds:X509Data": {
-              "ds:X509Certificate": {
-                "#text": removeCertPEMHeaderAndFooter(cert),
-              },
-            },
-          },
-        }));
-        metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push(signingKeyDescriptors);
-      }
-
-      if (this.options.decryptionPvk != null) {
-        assertRequired(
-          decryptionCert,
-          "Missing decryptionCert while generating metadata for decrypting service provider"
-        );
-
-        decryptionCert = removeCertPEMHeaderAndFooter(decryptionCert);
-
-        metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
-          "@use": "encryption",
-          "ds:KeyInfo": {
-            "ds:X509Data": {
-              "ds:X509Certificate": {
-                "#text": decryptionCert,
-              },
-            },
-          },
-          EncryptionMethod: [
-            // this should be the set that the xmlenc library supports
-            { "@Algorithm": "http://www.w3.org/2009/xmlenc11#aes256-gcm" },
-            { "@Algorithm": "http://www.w3.org/2009/xmlenc11#aes128-gcm" },
-            { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#aes256-cbc" },
-            { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#aes128-cbc" },
-          ],
-        });
-      }
-    }
-
-    if (this.options.logoutCallbackUrl != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.SingleLogoutService = {
-        "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-        "@Location": this.options.logoutCallbackUrl,
-      };
-    }
-
-    if (this.options.identifierFormat != null) {
-      metadata.EntityDescriptor.SPSSODescriptor.NameIDFormat = this.options.identifierFormat;
-    }
-
-    if (this.options.wantAssertionsSigned) {
-      metadata.EntityDescriptor.SPSSODescriptor["@WantAssertionsSigned"] = true;
-    }
-
-    metadata.EntityDescriptor.SPSSODescriptor.AssertionConsumerService = {
-      "@index": "1",
-      "@isDefault": "true",
-      "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-      "@Location": this.getCallbackUrl(),
-    };
-
-    let metadataXml = buildXmlBuilderObject(metadata, true);
-    if (this.options.signMetadata === true && isValidSamlSigningOptions(this.options)) {
-      metadataXml = signXmlMetadata(metadataXml, this.options);
-    }
-    return metadataXml;
+    return generateServiceProviderMetadata({
+      ...this.options,
+      callbackUrl,
+      decryptionCert,
+      signingCerts,
+    });
   }
 
   /**
