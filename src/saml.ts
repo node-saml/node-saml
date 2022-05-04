@@ -1074,7 +1074,8 @@ class SAML {
       }
 
       const subject = assertion.Subject;
-      let subjectConfirmation, confirmData;
+      let subjectConfirmation: XMLOutput | null = null;
+      let confirmData: XMLOutput | null = null;
       if (subject) {
         const nameID = subject[0].NameID;
         if (nameID && nameID[0]._) {
@@ -1087,38 +1088,33 @@ class SAML {
           }
         }
 
-        subjectConfirmation = subject[0].SubjectConfirmation
-          ? subject[0].SubjectConfirmation[0]
-          : null;
-        confirmData =
-          subjectConfirmation && subjectConfirmation.SubjectConfirmationData
-            ? subjectConfirmation.SubjectConfirmationData[0]
-            : null;
-        if (subject[0].SubjectConfirmation && subject[0].SubjectConfirmation.length > 1) {
-          msg = "Unable to process multiple SubjectConfirmations in SAML assertion";
-          throw new Error(msg);
-        }
+        subjectConfirmation = subject[0].SubjectConfirmation?.find(
+          (_subjectConfirmation: XMLOutput) => {
+            const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
+            if (_confirmData?.$) {
+              const subjectNotBefore = _confirmData.$.NotBefore;
+              const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
+              const maxTimeLimitMs = this.processMaxAgeAssertionTime(
+                this.options.maxAssertionAgeMs,
+                subjectNotOnOrAfter,
+                assertion.$.IssueInstant
+              );
+
+              const subjErr = this.checkTimestampsValidityError(
+                nowMs,
+                subjectNotBefore,
+                subjectNotOnOrAfter,
+                maxTimeLimitMs
+              );
+              if (subjErr === null) return true;
+            }
+
+            return false;
+          }
+        );
 
         if (subjectConfirmation) {
-          if (confirmData && confirmData.$) {
-            const subjectNotBefore = confirmData.$.NotBefore;
-            const subjectNotOnOrAfter = confirmData.$.NotOnOrAfter;
-            const maxTimeLimitMs = this.processMaxAgeAssertionTime(
-              this.options.maxAssertionAgeMs,
-              subjectNotOnOrAfter,
-              assertion.$.IssueInstant
-            );
-
-            const subjErr = this.checkTimestampsValidityError(
-              nowMs,
-              subjectNotBefore,
-              subjectNotOnOrAfter,
-              maxTimeLimitMs
-            );
-            if (subjErr) {
-              throw subjErr;
-            }
-          }
+          confirmData = subjectConfirmation.SubjectConfirmationData[0];
         }
       }
 
