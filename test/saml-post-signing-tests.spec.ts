@@ -309,7 +309,7 @@ describe("SAML POST Signing", function () {
     const signingCert = fs.readFileSync(__dirname + "/static/cert.pem").toString();
     const result = signAuthnRequestPost(xml, { privateKey: signingKey, signingCert });
     const doc = await parseXml2JsFromString(result);
-    doc.should.be.deepEqual({
+    expect(doc).to.deep.equal({
       AuthnRequest: {
         $: { xmlns: "urn:oasis:names:tc:SAML:2.0:protocol", Id: "_0" },
         Issuer: [

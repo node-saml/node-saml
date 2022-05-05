@@ -2,7 +2,7 @@ export type SignatureAlgorithm = "sha1" | "sha256" | "sha512";
 
 export interface SamlSigningOptions {
   privateKey: string | Buffer;
-  signingCert?: string | string[] | null;
+  signingCert?: string;
   signatureAlgorithm?: SignatureAlgorithm;
   xmlSignatureTransforms?: string[];
   digestAlgorithm?: string;

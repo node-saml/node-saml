@@ -630,14 +630,14 @@ describe("node-saml /", function () {
 
         const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
         const dom = parseDomFromString(metadata);
-        samlObj.validateSignature(metadata, dom.documentElement, [signingCert]).should.be.true;
+        expect(samlObj.validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
 
         const signatureCerts = xpath.selectElements(
           dom.documentElement,
           "/*[local-name()='EntityDescriptor']/*[local-name()='Signature']/*[local-name()='KeyInfo']/*[local-name()='X509Data']/*[local-name()='X509Certificate']"
         );
-        signatureCerts.length.should.be.equal(1);
-        should.equal(signatureCerts[0]?.textContent, removeCertPEMHeaderAndFooter(signingCert));
+        expect(signatureCerts.length).to.equal(1);
+        expect(signatureCerts[0]?.textContent).to.equal(removeCertPEMHeaderAndFooter(signingCert));
       });
     });
 
