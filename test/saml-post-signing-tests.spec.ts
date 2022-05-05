@@ -302,4 +302,75 @@ describe("SAML POST Signing", function () {
       },
     });
   });
+
+  it("should sign an AuthnRequest and include Signature KeyInfo", async function () {
+    const xml =
+      '<AuthnRequest xmlns="urn:oasis:names:tc:SAML:2.0:protocol"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></AuthnRequest>';
+    const signingCert = fs.readFileSync(__dirname + "/static/cert.pem").toString();
+    const result = signAuthnRequestPost(xml, { privateKey: signingKey, signingCert });
+    const doc = await parseXml2JsFromString(result);
+    expect(doc).to.deep.equal({
+      AuthnRequest: {
+        $: { xmlns: "urn:oasis:names:tc:SAML:2.0:protocol", Id: "_0" },
+        Issuer: [
+          {
+            _: "http://example.com",
+            $: { "xmlns:saml2": "urn:oasis:names:tc:SAML:2.0:assertion" },
+          },
+        ],
+        Signature: [
+          {
+            $: { xmlns: "http://www.w3.org/2000/09/xmldsig#" },
+            SignedInfo: [
+              {
+                CanonicalizationMethod: [
+                  { $: { Algorithm: "http://www.w3.org/2001/10/xml-exc-c14n#" } },
+                ],
+                SignatureMethod: [
+                  { $: { Algorithm: "http://www.w3.org/2000/09/xmldsig#rsa-sha1" } },
+                ],
+                Reference: [
+                  {
+                    $: { URI: "#_0" },
+                    Transforms: [
+                      {
+                        Transform: [
+                          {
+                            $: {
+                              Algorithm: "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+                            },
+                          },
+                          { $: { Algorithm: "http://www.w3.org/2001/10/xml-exc-c14n#" } },
+                        ],
+                      },
+                    ],
+                    DigestMethod: [{ $: { Algorithm: "http://www.w3.org/2000/09/xmldsig#sha1" } }],
+                    DigestValue: [{ _: "wHDDyV7rEQ/AQLYeLgsEUXX+Zxw=" }],
+                  },
+                ],
+              },
+            ],
+            KeyInfo: [
+              {
+                X509Data: [
+                  {
+                    X509Certificate: [
+                      {
+                        _: "MIIDtTCCAp2gAwIBAgIJAKg4VeVcIDz1MA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV\nBAYTAlVTMRMwEQYDVQQIEwpTb21lLVN0YXRlMSEwHwYDVQQKExhJbnRlcm5ldCBX\naWRnaXRzIFB0eSBMdGQwHhcNMTUwODEzMDE1NDIwWhcNMTUwOTEyMDE1NDIwWjBF\nMQswCQYDVQQGEwJVUzETMBEGA1UECBMKU29tZS1TdGF0ZTEhMB8GA1UEChMYSW50\nZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB\nCgKCAQEAxG3ouM7U+fXbJt69X1H6d4UNg/uRr06pFuU9RkfIwNC+yaXyptqB3ynX\nKsL7BFt4DCd0fflRvJAx3feJIDp16wN9GDVHcufWMYPhh2j5HcTW/j9JoIJzGhJy\nvO00YKBt+hHy83iN1SdChKv5y0iSyiPP5GnqFw+ayyHoM6hSO0PqBou1Xb0ZSIE+\nDHosBnvVna5w2AiPY4xrJl9yZHZ4Q7DfMiYTgstjETio4bX+6oLiBnYktn7DjdEs\nlqhffVme4PuBxNojI+uCeg/sn4QVLd/iogMJfDWNuLD8326Mi/FE9cCRvFlvAiMS\naebMI3zPaySsxTK7Zgj5TpEbmbHI9wIDAQABo4GnMIGkMB0GA1UdDgQWBBSVGgvo\nW4MhMuzBGce29PY8vSzHFzB1BgNVHSMEbjBsgBSVGgvoW4MhMuzBGce29PY8vSzH\nF6FJpEcwRTELMAkGA1UEBhMCVVMxEzARBgNVBAgTClNvbWUtU3RhdGUxITAfBgNV\nBAoTGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZIIJAKg4VeVcIDz1MAwGA1UdEwQF\nMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAJu1rqs+anD74dbdwgd3CnqnQsQDJiEX\nmBhG2leaGt3ve9b/9gKaJg2pyb2NyppDe1uLqh6nNXDuzg1oNZrPz5pJL/eCXPl7\nFhxhMUi04TtLf8LeNTCIWYZiFuO4pmhohHcv8kRvYR1+6SkLTC8j/TZerm7qvesS\niTQFNapa1eNdVQ8nFwVkEtWl+JzKEM1BlRcn42sjJkijeFp7DpI7pU+PnYeiaXpR\nv5pJo8ogM1iFxN+SnfEs0EuQ7fhKIG9aHKi7bKZ7L6SyX7MDIGLeulEU6lf5D9Bf\nXNmcMambiS0pXhL2QXajt96UBq8FT2KNXY8XNtR4y6MyyCzhaiZZcc8=\n",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+            SignatureValue: [
+              {
+                _: "t6Vg5DrOQiwfVv1IBzhPXMwoRGdNY1lIKbvcZOXr9EeFEEaI8I8qPs9Ibl+Hj3eCC0aDVLg/Uhg9/NCygfYuQuJjFdji0/rEFve/DEgGDscCS42+0J5fM55wNyVLglly9D+hJdZChmHg5IQltFcvOsNHYxbUiPywbOSLSHHFqOfdL4bqYNO/nwhhHMRuA6VQGRSC8EGJkjF9kwuFVjF7XvXyV2aTRJgZYmUB3fzIlokUfBNg2PpvexLipOb1K14ZV0nORewOCPjulJWnd+WSJkHBY1jA/OGiJNCeokOw7XTOLrAZ9+d4/JJ7T3XthWwHrfP3gEljoNTUdQV/gBNNqA==",
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
 });
