@@ -27,6 +27,7 @@ import {
   XMLObject,
   XMLOutput,
   ValidateInResponseTo,
+  XMLValue,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertRequired, signXmlMetadata } from "./utility";
@@ -1197,8 +1198,8 @@ class SAML {
         return hasChildren ? value : value._;
       };
 
-      if (attributes) {
-        const profileAttributes: Record<string, unknown> = {};
+      if (attributes.length > 0) {
+        const profileAttributes: Record<string, XMLValue | XMLValue[]> = {};
 
         attributes.forEach((attribute) => {
           if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
@@ -1206,8 +1207,8 @@ class SAML {
             return;
           }
 
-          const name = attribute.$.Name;
-          const value =
+          const name: string = attribute.$.Name;
+          const value: XMLValue | XMLValue[] =
             attribute.AttributeValue.length === 1
               ? attrValueMapper(attribute.AttributeValue[0])
               : attribute.AttributeValue.map(attrValueMapper);
