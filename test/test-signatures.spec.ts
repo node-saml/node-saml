@@ -9,6 +9,7 @@ const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
 describe("Signatures", function () {
   const INVALID_SIGNATURE = "Invalid signature",
+    INVALID_DOCUMENT_SIGNATURE = "Invalid document signature",
     INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion",
     INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms",
     createBody = (pathToXml: string) => ({
@@ -64,6 +65,18 @@ describe("Signatures", function () {
     );
 
     //== INVALID
+    it(
+      "R1A - root not signed, but required,  asrt signed => error",
+      testOneResponse(
+        "/valid/response.root-unsigned.assertion-signed.xml",
+        INVALID_DOCUMENT_SIGNATURE,
+        1,
+        {
+          wantDocumentSigned: true,
+          issuer: "onesaml_login",
+        }
+      )
+    );
     it(
       "R1A - none signed => error",
       testOneResponse(

@@ -125,6 +125,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   audience: string | false;
   scoping?: SamlScopingConfig;
   wantAssertionsSigned: boolean;
+  wantDocumentSigned: boolean;
   maxAssertionAgeMs: number;
   generateUniqueId: () => string;
   signMetadata?: boolean;
