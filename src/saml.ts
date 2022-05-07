@@ -263,7 +263,7 @@ class SAML {
 
     if (isPassive) request["samlp:AuthnRequest"]["@IsPassive"] = true;
 
-    if (this.options.forceAuthn) {
+    if (this.options.forceAuthn === true) {
       request["samlp:AuthnRequest"]["@ForceAuthn"] = true;
     }
 
