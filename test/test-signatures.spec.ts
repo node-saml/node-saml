@@ -72,7 +72,7 @@ describe("Signatures", function () {
         INVALID_DOCUMENT_SIGNATURE,
         1,
         {
-          wantDocumentSigned: true,
+          wantMessageSigned: true,
           issuer: "onesaml_login",
         }
       )

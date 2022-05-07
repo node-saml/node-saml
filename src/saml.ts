@@ -158,7 +158,7 @@ class SAML {
       allowCreate: ctorOptions.allowCreate ?? true,
       spNameQualifier: ctorOptions.spNameQualifier,
       wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? false,
-      wantDocumentSigned: ctorOptions.wantDocumentSigned ?? false,
+      wantMessageSigned: ctorOptions.wantMessageSigned ?? false,
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],
@@ -783,7 +783,7 @@ class SAML {
         validSignature = true;
       }
 
-      if (this.options.wantDocumentSigned === true && validSignature === false) {
+      if (this.options.wantMessageSigned === true && validSignature === false) {
         throw new Error("Invalid document signature");
       }
 
