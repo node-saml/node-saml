@@ -12,7 +12,6 @@ import * as assert from "assert";
 import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
 import { parseDomFromString, xpath } from "../src/xml";
-import { removeCertPEMHeaderAndFooter } from "../src/crypto";
 
 export const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -609,35 +608,6 @@ describe("node-saml /", function () {
 
         const dom = parseDomFromString(metadata);
         expect(samlObj.validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
-      });
-
-      it("signed Metadata contains KeyInfo in signature", function () {
-        const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
-        const samlConfig: SamlConfig = {
-          cert: TEST_CERT,
-          issuer: "http://example.serviceprovider.com",
-          callbackUrl: "http://example.serviceprovider.com/saml/callback",
-          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
-          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
-          signingCert,
-          wantAssertionsSigned: true,
-          signMetadata: true,
-          signatureAlgorithm: "sha256",
-          digestAlgorithm: "sha256",
-        };
-
-        const samlObj = new SAML(samlConfig);
-
-        const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
-        const dom = parseDomFromString(metadata);
-        expect(samlObj.validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
-
-        const signatureCerts = xpath.selectElements(
-          dom.documentElement,
-          "/*[local-name()='EntityDescriptor']/*[local-name()='Signature']/*[local-name()='KeyInfo']/*[local-name()='X509Data']/*[local-name()='X509Certificate']"
-        );
-        expect(signatureCerts.length).to.equal(1);
-        expect(signatureCerts[0]?.textContent).to.equal(removeCertPEMHeaderAndFooter(signingCert));
       });
     });
 
