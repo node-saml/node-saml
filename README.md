@@ -248,15 +248,6 @@ Alternativelly a single line X.509 certificate without start/end lines where all
 signingCert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
 ```
 
-An array of certificates can be provided to support certificate rotation. When supplying an array of certificates, the first entry in the array should match the current privateKey and that will be embeddeed in AuthnRequest.
-
-```javascript
-signingCert: [
-  "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==",
-  "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g=",
-];
-```
-
 ## Usage with Active Directory Federation Services
 
 Here is a configuration that has been proven to work with ADFS:
