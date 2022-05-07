@@ -241,7 +241,7 @@ describe("SAML request", function () {
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       issuer: "onelogin_saml",
-      forceAuthn: false,
+      forceAuthn: true,
       passive: true,
     };
 
@@ -253,6 +253,7 @@ describe("SAML request", function () {
           ProtocolBinding: "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
           AssertionConsumerServiceURL: "http://localhost/saml/consume",
           Destination: "https://wwwexampleIdp.com/saml",
+          ForceAuthn: "true",
           IsPassive: "true",
         },
         "saml:Issuer": [
