@@ -302,66 +302,14 @@ describe("SAML request", function () {
       });
   });
 
-  it("Config with disableRequestedAuthnContext", async function () {
-    const config: SamlConfig = {
-      entryPoint: "https://wwwexampleIdp.com/saml",
-      cert: FAKE_CERT,
-      issuer: "onelogin_saml",
-      disableRequestedAuthnContext: true,
-    };
-
-    const result = {
-      "samlp:AuthnRequest": {
-        $: {
-          "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
-          Version: "2.0",
-          ProtocolBinding: "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-          AssertionConsumerServiceURL: "http://localhost/saml/consume",
-          Destination: "https://wwwexampleIdp.com/saml",
-        },
-        "saml:Issuer": [
-          { _: "onelogin_saml", $: { "xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion" } },
-        ],
-        "samlp:NameIDPolicy": [
-          {
-            $: {
-              "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
-              Format: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-              AllowCreate: "true",
-            },
-          },
-        ],
-      },
-    };
-
-    const oSAML = new SAML(config);
-    return oSAML
-      .getAuthorizeFormAsync("http://localhost/saml/consume")
-      .then((formBody) => {
-        expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
-        const samlRequestMatchValues = formBody.match(/<input.*name="SAMLRequest" value="([^"]*)"/);
-        assertRequired(samlRequestMatchValues?.[1]);
-        const encodedSamlRequest = samlRequestMatchValues?.[1];
-
-        let buffer = Buffer.from(encodedSamlRequest, "base64");
-        buffer = zlib.inflateRawSync(buffer);
-
-        return parseStringPromise(buffer.toString());
-      })
-      .then((doc) => {
-        delete doc["samlp:AuthnRequest"]["$"]["ID"];
-        delete doc["samlp:AuthnRequest"]["$"]["IssueInstant"];
-        expect(doc).to.deep.equal(result);
-      });
-  });
-
-  it("Config with skipRequestCompression", async function () {
+  it("Config with disableRequestedAuthnContext, skipRequestCompression, disableRequestAcsUrl", async function () {
     const config: SamlConfig = {
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       issuer: "onelogin_saml",
       disableRequestedAuthnContext: true,
       skipRequestCompression: true,
+      disableRequestAcsUrl: true,
     };
 
     const result = {
@@ -370,7 +318,6 @@ describe("SAML request", function () {
           "xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
           Version: "2.0",
           ProtocolBinding: "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-          AssertionConsumerServiceURL: "http://localhost/saml/consume",
           Destination: "https://wwwexampleIdp.com/saml",
         },
         "saml:Issuer": [
