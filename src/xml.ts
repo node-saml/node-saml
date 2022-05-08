@@ -126,6 +126,7 @@ export const signXml = (
   }
   if (options.signingCert != null) {
     const cert = removeCertPEMHeaderAndFooter(options.signingCert);
+    /* istanbul ignore next */
     sig.keyInfoProvider = {
       file: "",
       getKeyInfo: () => "<X509Data><X509Certificate>" + cert + "</X509Certificate></X509Data>",
