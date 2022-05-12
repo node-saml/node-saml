@@ -1140,7 +1140,6 @@ class SAML {
             subjectConfirmations.length > 0 &&
             !subjectConfirmation
           ) {
-            // This is WRONG, since we have subjectConfirmations but we found none valid, error
             msg = "No valid subject confirmation found among those available in the SAML assertion";
             throw new Error(msg);
           } else {
