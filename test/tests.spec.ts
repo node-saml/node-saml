@@ -716,7 +716,7 @@ describe("node-saml /", function () {
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
         // The second `SubjectConfirmationData` is invalid, the first one could not be used so we should get
-        assert.rejects(samlObj.validatePostResponseAsync(container), {
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message:
             "No valid subject confirmation found among those available in the SAML assertion",
         });
@@ -743,7 +743,7 @@ describe("node-saml /", function () {
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
         // The second `SubjectConfirmationData` purposefully has the wrong InResponseTo so we can check for it
-        assert.rejects(samlObj.validatePostResponseAsync(container), {
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "InResponseTo does not match subjectInResponseTo",
         });
       });
@@ -769,7 +769,7 @@ describe("node-saml /", function () {
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
         // The second `SubjectConfirmationData` purposefully has the wrong InResponseTo so we can check for it
-        assert.rejects(samlObj.validatePostResponseAsync(container), {
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "InResponseTo does not match subjectInResponseTo",
         });
       });
@@ -794,7 +794,7 @@ describe("node-saml /", function () {
 
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
-        assert.rejects(samlObj.validatePostResponseAsync(container), {
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "InResponseTo does not match subjectInResponseTo",
         });
       });
@@ -819,7 +819,7 @@ describe("node-saml /", function () {
 
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
-        assert.rejects(samlObj.validatePostResponseAsync(container), {
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "InResponseTo does not match subjectInResponseTo",
         });
       });

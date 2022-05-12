@@ -1079,7 +1079,8 @@ class SAML {
           }
         }
         subjectConfirmations = subject[0].SubjectConfirmation;
-        subjectConfirmation = (subjectConfirmations as any).find(
+        // subjectConfirmation = (subjectConfirmations as any).find(
+        subjectConfirmation = subject[0].SubjectConfirmation?.find(
           (_subjectConfirmation: XMLOutput) => {
             const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
             if (_confirmData?.$) {
