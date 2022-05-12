@@ -1066,6 +1066,7 @@ class SAML {
       const subject = assertion.Subject;
       let subjectConfirmation: XMLOutput | null = null;
       let confirmData: XMLOutput | null = null;
+      let subjectConfirmations: XMLOutput[] | null = null;
       if (subject) {
         const nameID = subject[0].NameID;
         if (nameID && nameID[0]._) {
@@ -1077,8 +1078,8 @@ class SAML {
             profile.spNameQualifier = nameID[0].$.SPNameQualifier;
           }
         }
-
-        subjectConfirmation = subject[0].SubjectConfirmation?.find(
+        subjectConfirmations = subject[0].SubjectConfirmation;
+        subjectConfirmation = (subjectConfirmations as any).find(
           (_subjectConfirmation: XMLOutput) => {
             const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
             if (_confirmData?.$) {
@@ -1134,8 +1135,18 @@ class SAML {
             }
           }
         } else {
-          await this.cacheProvider.removeAsync(inResponseTo);
-          break getInResponseTo;
+          if (
+            subjectConfirmations != null &&
+            subjectConfirmations.length > 0 &&
+            !subjectConfirmation
+          ) {
+            // This is WRONG, since we have subjectConfirmations but we found none valid, error
+            msg = "No valid subject confirmation found among those available in the SAML assertion";
+            throw new Error(msg);
+          } else {
+            await this.cacheProvider.removeAsync(inResponseTo);
+            break getInResponseTo;
+          }
         }
       } else {
         break getInResponseTo;
