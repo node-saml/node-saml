@@ -1079,7 +1079,6 @@ class SAML {
           }
         }
         subjectConfirmations = subject[0].SubjectConfirmation;
-        // subjectConfirmation = (subjectConfirmations as any).find(
         subjectConfirmation = subject[0].SubjectConfirmation?.find(
           (_subjectConfirmation: XMLOutput) => {
             const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
@@ -1136,11 +1135,7 @@ class SAML {
             }
           }
         } else {
-          if (
-            subjectConfirmations != null &&
-            subjectConfirmations.length > 0 &&
-            !subjectConfirmation
-          ) {
+          if (subjectConfirmations && !subjectConfirmation) {
             msg = "No valid subject confirmation found among those available in the SAML assertion";
             throw new Error(msg);
           } else {
