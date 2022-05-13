@@ -774,7 +774,7 @@ describe("node-saml /", function () {
         });
       });
 
-      it("valid xml document with no SubjectConfirmation should not validate", async () => {
+      it("valid xml document with no SubjectConfirmation should validate", async () => {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-no-subjectconfirmation.xml",
@@ -794,9 +794,8 @@ describe("node-saml /", function () {
 
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
-        await assert.rejects(samlObj.validatePostResponseAsync(container), {
-          message: "InResponseTo does not match subjectInResponseTo",
-        });
+        const { profile } = await samlObj.validatePostResponseAsync(container);
+        assertRequired(profile, "profile must exist");
       });
 
       it("valid xml document with only empty SubjectConfirmation should not validate", async () => {
@@ -820,7 +819,8 @@ describe("node-saml /", function () {
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
-          message: "InResponseTo does not match subjectInResponseTo",
+          message:
+            "No valid subject confirmation found among those available in the SAML assertion",
         });
       });
 
