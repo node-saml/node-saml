@@ -1101,18 +1101,6 @@ class SAML {
                 assertion.$.IssueInstant
               );
 
-        subjectConfirmation = subject[0].SubjectConfirmation?.find(
-          (_subjectConfirmation: XMLOutput) => {
-            const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
-            if (_confirmData?.$) {
-              const subjectNotBefore = _confirmData.$.NotBefore;
-              const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
-              const maxTimeLimitMs = this.processMaxAgeAssertionTime(
-                this.options.maxAssertionAgeMs,
-                subjectNotOnOrAfter,
-                assertion.$.IssueInstant
-              );
-
               const subjErr = this.checkTimestampsValidityError(
                 nowMs,
                 subjectNotBefore,
