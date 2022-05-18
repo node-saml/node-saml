@@ -23,10 +23,12 @@ describe("crypto.ts", function () {
     });
 
     it("should fail with falsy", function () {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       assert.throws(() => keyToPEM(null as any));
     });
 
     it("should do nothing to non strings", function () {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = keyToPEM(1 as any);
       expect(result).to.equal(1);
     });

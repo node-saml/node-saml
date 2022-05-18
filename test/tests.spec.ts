@@ -5,7 +5,7 @@ import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { Profile, SamlConfig, ValidateInResponseTo } from "../src/types";
+import { Profile, SamlConfig, ValidateInResponseTo, XMLOutput } from "../src/types";
 import { RacComparision } from "../src/types.js";
 import { expect } from "chai";
 import * as assert from "assert";
@@ -24,7 +24,10 @@ describe("node-saml /", function () {
   describe("saml.js / ", function () {
     it("should throw an error if cert property is provided to saml constructor but is empty", function () {
       expect(function () {
-        const strategy = new SAML({ cert: undefined as any, issuer: "onelogin_saml" });
+        const strategy = new SAML({
+          cert: undefined as unknown as string,
+          issuer: "onelogin_saml",
+        });
         typeof strategy.options.cert === "undefined";
       }).throw("cert is required");
     });
@@ -137,10 +140,10 @@ describe("node-saml /", function () {
     });
 
     it("_generateLogoutRequest should throw error when samlLogoutRequestExtensions is not a object", async function () {
-      const config: any = {
+      const config: SamlConfig = {
         entryPoint: "https://wwwexampleIdp.com/saml",
         cert: FAKE_CERT,
-        samlLogoutRequestExtensions: "anyvalue",
+        samlLogoutRequestExtensions: "anyvalue" as unknown as Record<string, unknown>,
         issuer: "onelogin_saml",
       };
       const samlObj = new SAML(config);
@@ -944,7 +947,7 @@ describe("node-saml /", function () {
             const samlObj = new SAML({ ...noAudienceSamlConfig });
             const { profile } = await samlObj.validatePostResponseAsync(container);
             expect(profile).to.not.exist;
-          } catch (err: any) {
+          } catch (err) {
             expect(err).to.exist;
             expect(err).to.be.instanceOf(Error);
             expect((err as Error).message).to.match(/SAML assertion audience mismatch/);
@@ -968,7 +971,7 @@ describe("node-saml /", function () {
             });
             const { profile } = await samlObj.validatePostResponseAsync(container);
             expect(profile).to.not.exist;
-          } catch (err: any) {
+          } catch (err) {
             expect(err).to.exist;
             expect(err).to.be.instanceOf(Error);
             expect((err as Error).message).to.match(/SAML assertion audience mismatch/);
@@ -1253,7 +1256,7 @@ describe("node-saml /", function () {
           const samlObj = new SAML({ cert: signingCert, audience: false, issuer: "onesaml_login" });
           const { profile } = await samlObj.validatePostResponseAsync(container);
           assertRequired(profile, "profile must exist");
-          const eptid = profile["urn:oid:1.3.6.1.4.1.5923.1.1.1.10"] as any;
+          const eptid = profile["urn:oid:1.3.6.1.4.1.5923.1.1.1.10"] as XMLOutput;
           const nameid = eptid["NameID"][0];
           expect(nameid._).to.equal(nameid_opaque_string);
           expect(nameid.$.NameQualifier).to.equal(nameQualifier);
@@ -1356,7 +1359,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
         expect(qry.Signature).to.equal(
-          "hel9NaoLU0brY/VhrQsY+lTtuAbTsT/ul6nZ/eVlSMXQRaKn5LTbKadzxmPghX7s4xoHwdah+yZHK/0u4StYSj4b5MKcqbsJapVr2R7H90z8YfGfR2C/G0Gng721YV9Da6VBzKg8Was91zQotgsMpZ9pGX1kPKi6cgFwPwM4NEFugn8AYgXEriNvO5+Q23K/MdBT2bgwRTj2FQCWTuQcgwbyWHXoquHztZ0lbh8UhY5BfQRv7c6D9XPkQEMMQFQeME4PIEg3JnynwFZk5wwhkphMd5nXxau+zt7Nfp4fRm0G8WYnxV1etBnWimwSglZVaSHFYeQBRsC2wvKSiVS8JA=="
+          "D161m5GVbOfRHk85GvhmQ48OoFZ6n8mJuddzCe0g1Zlh9cb3b4oMMk5RCsoaOBsA3ndRnCWF3YQb78rO/MRQ+HIxIt0JDrhBoyT7GXPIUvbM/B4cJEgbfFAYouKQIy1sPunlLaTNkRL4tArKK7r4W2WF6R0hydcN8aln8/+TlTUfIengvVuXGLdtW0wSt+1HK1PiwrhLtqFHxxq2XL0X6jBqMEYYjByLfZme3Sk6x6uPIW7zhJn6OXzXlLuH9ILxusexu7GaLpw7C5EUQW43R6vlTGw+bBmx+tC0fqaMLOUWHX/uISAAeWYCAGYA8cbRuqIWh/vnVifxF0CP2sf5Vg=="
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1406,7 +1409,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
-          "GrRJDEmwB74g4CjGS4gjDhzR9Mnpo7S1DJyhaLxVRA97tumydsrJNpqbKDAsepnoFcZeS+mWn3hZSE/blsyCUJn5+010MsgQ8KWmRgaFEYPOfbBa2KK1atXNN8zcSdNukpd/rI17fB1HDeCPG8t+rtaE/QviL7DpsF6hGXbWSTi8eSRSNmLKFIntvS81CNiZdub1NI8hSd/rU873u7RfWnv6ChPltCs41Znj49ke6UJaSrHX7kNlnbzqw5WLJp73d3/yT2Yew+xpGDKAGrjYtbQEY0zZ8chfKWyTobLV9vNF1DCFRDeZbLrCzL29elo/aZ8BuIEdTNv/IOZoOMZxRA=="
+          "br4UPzZ/Oy/hvG7zMGZ041Lba5WDl/JqwDDf40yxxnYXWLdDY77RD5aE8+YK6BY7BbSkvQSNXFbBXPAITcRhyNCT+3JDfwXLDgOf3xvJOzkWHRO3DUi5IOJ9IdKT/Ted+HC0J9L/4W+VA0n+5v6Lrw83UDib57ICytLvW5jamFQE8pO/Z8fQzOpSbzTwf+Q8u5KYkXeg1+H2u6OJYBFVDYOWxOTuuujW8JccqlCleX9tXDJvx/I0tOkwwnIioh1X2xVHGPy1k1wndpf1eUZtjZ4uUMcwRyxt7YuAnV433DohO3WOm2sNehwOy2AO1DUlbFi6/zbqkRK3TrmD9Q+ZUQ=="
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1432,7 +1435,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(url.parse(authorizeUrl).query || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
-          "MeFo+LjufxP5A+sCRwzR/YH/RV6W14aYSFjUdie62JxkI6hDcVhoSZQUJ3wtWMhL59gJj05tTFnXAZRqUQVsavyy41cmUZVeCsat0gaHBQOILXpp9deB0iSJt1EVQTOJkVx8uu2/WYu/bBiH7w2bpwuCf1gJhlqZb/ca3B6yjHSMjnnVfc2LbNPWHpE5464lrs79VjDXf9GQWfrBr95dh3P51IAb7C+77KDWQUl9WfZfyyuEgS83vyZ0UGOxT4AObJ6NOcLs8+iidDdWJJkBaKQev6U+AghCjLQUYOrflivLIIyqATKu2q9PbOse6Phmnxok50+broXSG23+e+742Q=="
+          "FL5f9hUYxXaCvr/HJOIKXvDlmWIQilsfcmETqwp8bXCnjEBS44uvEY+FhkYgrFOfaMXkAY+kd8rZ7CkP4SWnPxzhmHqdbBIyAdPpIOOHq7/VTqQXrprijtRBHTxrtOtxi3yOjskRz6ad8igokr9Ut3nlorvelZwtskJP/YsAE3v1CrL/bX3EGbepE3Bq5ehdHaNHxP+dwwhMJ6s5jxKLt5YU+vXohonM8fTBEPzbnQ1+0LK9GL3c6JfqNjjBvdWRXdyReRu+gCHisnrI68vBgCwy4VC9E4tg9JNLggtFkxNbhM8Bgu7eWlyhVLdWKKc1vwaDUOrYOimx6CfTXrAQvg=="
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1973,60 +1976,6 @@ describe("node-saml /", function () {
         expect(profile["net::ip"] as string).to.equal("::1");
         const value = await samlObj.cacheProvider.getAsync(requestId);
         expect(value).to.not.exist;
-      });
-
-      describe("InResponseTo server cache expiration tests /", () => {
-        it("should expire a cached request id after the time", async () => {
-          const requestId = "_dfab47d5d46374cd4b71";
-          fakeClock = sinon.useFakeTimers();
-
-          const samlConfig: SamlConfig = {
-            validateInResponseTo: ValidateInResponseTo.always,
-            requestIdExpirationPeriodMs: 100,
-            cert: FAKE_CERT,
-            issuer: "onesaml_login",
-          };
-          const samlObj = new SAML(samlConfig);
-
-          // Mock the SAML request being passed through Passport-SAML
-          await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
-
-          await fakeClock.tickAsync(300);
-          const value = await samlObj.cacheProvider.getAsync(requestId);
-          expect(value).to.not.exist;
-        });
-
-        it("should expire many cached request ids after the time", async () => {
-          const expiredRequestId1 = "_dfab47d5d46374cd4b71";
-          const expiredRequestId2 = "_dfab47d5d46374cd4b72";
-          const requestId = "_dfab47d5d46374cd4b73";
-          fakeClock = sinon.useFakeTimers();
-
-          const samlConfig: SamlConfig = {
-            validateInResponseTo: ValidateInResponseTo.always,
-            requestIdExpirationPeriodMs: 100,
-            cert: FAKE_CERT,
-            issuer: "onesaml_login",
-          };
-          const samlObj = new SAML(samlConfig);
-
-          await samlObj.cacheProvider.saveAsync(expiredRequestId1, new Date().toISOString());
-          await samlObj.cacheProvider.saveAsync(expiredRequestId2, new Date().toISOString());
-
-          await fakeClock.tickAsync(300);
-          // Add one more that shouldn't expire
-          await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
-
-          const value1 = await samlObj.cacheProvider.getAsync(expiredRequestId1);
-          expect(value1).to.not.exist;
-          const value2 = await samlObj.cacheProvider.getAsync(expiredRequestId2);
-          expect(value2).to.not.exist;
-          const value3 = await samlObj.cacheProvider.getAsync(requestId);
-          expect(value3).to.exist;
-          await fakeClock.tickAsync(300);
-          const value4 = await samlObj.cacheProvider.getAsync(requestId);
-          expect(value4).to.not.exist;
-        });
       });
     });
 
