@@ -1074,7 +1074,7 @@ class SAML {
       }
 
       const subject = assertion.Subject;
-      let subjectConfirmation: XMLOutput | null = null;
+      let subjectConfirmation: XMLOutput | null | undefined;
       let confirmData: XMLOutput | null = null;
       let subjectConfirmations: XMLOutput[] | null = null;
       if (subject) {
@@ -1089,32 +1089,30 @@ class SAML {
           }
         }
         subjectConfirmations = subject[0].SubjectConfirmation;
-        subjectConfirmation = subject[0].SubjectConfirmation?.find(
-          (_subjectConfirmation: XMLOutput) => {
-            const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
-            if (_confirmData?.$) {
-              const subjectNotBefore = _confirmData.$.NotBefore;
-              const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
-              const maxTimeLimitMs = this.processMaxAgeAssertionTime(
-                this.options.maxAssertionAgeMs,
-                subjectNotOnOrAfter,
-                assertion.$.IssueInstant
-              );
+        subjectConfirmation = subjectConfirmations?.find((_subjectConfirmation: XMLOutput) => {
+          const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
+          if (_confirmData?.$) {
+            const subjectNotBefore = _confirmData.$.NotBefore;
+            const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
+            const maxTimeLimitMs = this.processMaxAgeAssertionTime(
+              this.options.maxAssertionAgeMs,
+              subjectNotOnOrAfter,
+              assertion.$.IssueInstant
+            );
 
-              const subjErr = this.checkTimestampsValidityError(
-                nowMs,
-                subjectNotBefore,
-                subjectNotOnOrAfter,
-                maxTimeLimitMs
-              );
-              if (subjErr === null) return true;
-            }
-
-            return false;
+            const subjErr = this.checkTimestampsValidityError(
+              nowMs,
+              subjectNotBefore,
+              subjectNotOnOrAfter,
+              maxTimeLimitMs
+            );
+            if (subjErr === null) return true;
           }
-        );
 
-        if (subjectConfirmation) {
+          return false;
+        });
+
+        if (subjectConfirmation != null) {
           confirmData = subjectConfirmation.SubjectConfirmationData[0];
         }
       }
@@ -1145,7 +1143,7 @@ class SAML {
             }
           }
         } else {
-          if (subjectConfirmations && !subjectConfirmation) {
+          if (subjectConfirmations != null && subjectConfirmation == null) {
             msg = "No valid subject confirmation found among those available in the SAML assertion";
             throw new Error(msg);
           } else {
