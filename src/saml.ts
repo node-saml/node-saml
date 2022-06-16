@@ -1074,8 +1074,9 @@ class SAML {
       }
 
       const subject = assertion.Subject;
-      let subjectConfirmation: XMLOutput | null = null;
+      let subjectConfirmation: XMLOutput | null | undefined;
       let confirmData: XMLOutput | null = null;
+      let subjectConfirmations: XMLOutput[] | null = null;
       if (subject) {
         const nameID = subject[0].NameID;
         if (nameID && nameID[0]._) {
@@ -1087,33 +1088,31 @@ class SAML {
             profile.spNameQualifier = nameID[0].$.SPNameQualifier;
           }
         }
+        subjectConfirmations = subject[0].SubjectConfirmation;
+        subjectConfirmation = subjectConfirmations?.find((_subjectConfirmation: XMLOutput) => {
+          const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
+          if (_confirmData?.$) {
+            const subjectNotBefore = _confirmData.$.NotBefore;
+            const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
+            const maxTimeLimitMs = this.processMaxAgeAssertionTime(
+              this.options.maxAssertionAgeMs,
+              subjectNotOnOrAfter,
+              assertion.$.IssueInstant
+            );
 
-        subjectConfirmation = subject[0].SubjectConfirmation?.find(
-          (_subjectConfirmation: XMLOutput) => {
-            const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
-            if (_confirmData?.$) {
-              const subjectNotBefore = _confirmData.$.NotBefore;
-              const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
-              const maxTimeLimitMs = this.processMaxAgeAssertionTime(
-                this.options.maxAssertionAgeMs,
-                subjectNotOnOrAfter,
-                assertion.$.IssueInstant
-              );
-
-              const subjErr = this.checkTimestampsValidityError(
-                nowMs,
-                subjectNotBefore,
-                subjectNotOnOrAfter,
-                maxTimeLimitMs
-              );
-              if (subjErr === null) return true;
-            }
-
-            return false;
+            const subjErr = this.checkTimestampsValidityError(
+              nowMs,
+              subjectNotBefore,
+              subjectNotOnOrAfter,
+              maxTimeLimitMs
+            );
+            if (subjErr === null) return true;
           }
-        );
 
-        if (subjectConfirmation) {
+          return false;
+        });
+
+        if (subjectConfirmation != null) {
           confirmData = subjectConfirmation.SubjectConfirmationData[0];
         }
       }
@@ -1144,8 +1143,13 @@ class SAML {
             }
           }
         } else {
-          await this.cacheProvider.removeAsync(inResponseTo);
-          break getInResponseTo;
+          if (subjectConfirmations != null && subjectConfirmation == null) {
+            msg = "No valid subject confirmation found among those available in the SAML assertion";
+            throw new Error(msg);
+          } else {
+            await this.cacheProvider.removeAsync(inResponseTo);
+            break getInResponseTo;
+          }
         }
       } else {
         break getInResponseTo;
