@@ -69,8 +69,6 @@
     "node_modules",
     "docs",
     "lib",
-    "multiSamlStrategy.js",
-    "multiSamlStrategy.d.ts",
     "test",
     "coverage"
   ]
