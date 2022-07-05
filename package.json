@@ -79,7 +79,7 @@
     "concurrently": "^7.1.0",
     "eslint": "^8.14.0",
     "eslint-config-prettier": "^8.5.0",
-    "eslint-plugin-prettier": "^4.0.0",
+    "eslint-plugin-prettier": "^4.2.1",
     "mocha": "^10.0.0",
     "nyc": "^15.1.0",
     "onchange": "^7.1.0",
