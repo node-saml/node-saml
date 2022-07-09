@@ -116,7 +116,7 @@ async function promiseWithNameID(nameid: Node): Promise<NameID> {
 }
 
 class SAML {
-  // note that some methods in SAML are not yet marked as private as they are used in testing.
+  // note that some methods in SAML are not yet marked as protected as they are used in testing.
   // those methods start with an underscore, e.g. _generateLogoutRequest
   options: SamlOptions;
   // This is only for testing
@@ -191,7 +191,7 @@ class SAML {
     return options;
   }
 
-  private getCallbackUrl(host?: string | undefined) {
+  protected getCallbackUrl(host?: string | undefined) {
     // Post-auth destination
     if (this.options.callbackUrl) {
       return this.options.callbackUrl;
@@ -210,7 +210,7 @@ class SAML {
     }
   }
 
-  private signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
+  protected signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
     assertRequired(this.options.privateKey, "privateKey is required");
 
     const samlMessageToSign: querystring.ParsedUrlQueryInput = {};
@@ -232,7 +232,7 @@ class SAML {
     samlMessage.Signature = signer.sign(keyToPEM(this.options.privateKey), "base64");
   }
 
-  private async generateAuthorizeRequestAsync(
+  protected async generateAuthorizeRequestAsync(
     isPassive: boolean,
     isHttpPostBinding: boolean,
     host: string | undefined
@@ -667,7 +667,7 @@ class SAML {
       this.getLogoutResponseUrlAsync(samlLogoutRequest, RelayState, options, success)
     )(callback);
   }
-  private async getLogoutResponseUrlAsync(
+  protected async getLogoutResponseUrlAsync(
     samlLogoutRequest: Profile,
     RelayState: string,
     options: AuthenticateOptions & AuthorizeOptions,
@@ -684,7 +684,7 @@ class SAML {
     );
   }
 
-  private async certsToCheck(): Promise<string[]> {
+  protected async certsToCheck(): Promise<string[]> {
     let checkedCerts: string[];
 
     if (typeof this.options.cert === "function") {
@@ -908,7 +908,7 @@ class SAML {
     }
   }
 
-  private async validateInResponseTo(inResponseTo: string | null): Promise<void> {
+  protected async validateInResponseTo(inResponseTo: string | null): Promise<void> {
     if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
       if (inResponseTo) {
         const result = await this.cacheProvider.getAsync(inResponseTo);
@@ -938,7 +938,7 @@ class SAML {
     return await processValidlySignedSamlLogoutAsync(this, doc, dom);
   }
 
-  private async hasValidSignatureForRedirect(
+  protected async hasValidSignatureForRedirect(
     container: ParsedQs,
     originalQuery: string
   ): Promise<boolean | void> {
@@ -976,7 +976,7 @@ class SAML {
     }
   }
 
-  private validateSignatureForRedirect(
+  protected validateSignatureForRedirect(
     urlString: crypto.BinaryLike,
     signature: string,
     alg: string,
@@ -1003,7 +1003,7 @@ class SAML {
     return verifier.verify(certToPEM(cert), signature, "base64");
   }
 
-  private verifyLogoutRequest(doc: XMLOutput) {
+  protected verifyLogoutRequest(doc: XMLOutput) {
     this.verifyIssuer(doc.LogoutRequest);
     const nowMs = new Date().getTime();
     const conditions = doc.LogoutRequest.$;
@@ -1017,7 +1017,7 @@ class SAML {
     }
   }
 
-  private async verifyLogoutResponse(doc: XMLOutput) {
+  protected async verifyLogoutResponse(doc: XMLOutput) {
     const statusCode = doc.LogoutResponse.Status[0].StatusCode[0].$.Value;
     if (statusCode !== "urn:oasis:names:tc:SAML:2.0:status:Success")
       throw new Error("Bad status code: " + statusCode);
@@ -1031,7 +1031,7 @@ class SAML {
     return true;
   }
 
-  private verifyIssuer(samlMessage: XMLOutput) {
+  protected verifyIssuer(samlMessage: XMLOutput) {
     if (this.options.idpIssuer != null) {
       const issuer = samlMessage.Issuer;
       if (issuer) {
@@ -1045,7 +1045,7 @@ class SAML {
     }
   }
 
-  private async processValidlySignedAssertionAsync(
+  protected async processValidlySignedAssertionAsync(
     xml: string,
     samlResponseXml: string,
     inResponseTo: string | null
@@ -1246,7 +1246,7 @@ class SAML {
     return { profile, loggedOut: false };
   }
 
-  private checkTimestampsValidityError(
+  protected checkTimestampsValidityError(
     nowMs: number,
     notBefore: string,
     notOnOrAfter: string,
@@ -1272,7 +1272,7 @@ class SAML {
     return null;
   }
 
-  private checkAudienceValidityError(
+  protected checkAudienceValidityError(
     expectedAudience: string,
     audienceRestrictions: AudienceRestrictionXML[]
   ) {
@@ -1377,7 +1377,7 @@ class SAML {
    * @param issueInstant Time when response was issued.
    * @returns {*} The expiration time to be used, in Ms.
    */
-  private processMaxAgeAssertionTime(
+  protected processMaxAgeAssertionTime(
     maxAssertionAgeMs: number,
     notOnOrAfter: string,
     issueInstant: string
@@ -1393,7 +1393,7 @@ class SAML {
     return maxAssertionTimeMs < notOnOrAfterMs ? maxAssertionTimeMs : notOnOrAfterMs;
   }
 
-  private mustValidateInResponseTo(hasInResponseTo: boolean): boolean {
+  protected mustValidateInResponseTo(hasInResponseTo: boolean): boolean {
     return (
       this.options.validateInResponseTo === ValidateInResponseTo.always ||
       (this.options.validateInResponseTo === ValidateInResponseTo.ifPresent && hasInResponseTo)
