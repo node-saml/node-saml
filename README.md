@@ -1,13 +1,12 @@
 # Node SAML
 
 [![Build Status](https://github.com/node-saml/node-saml/workflows/Build%20Status/badge.svg)](https://github.com/node-saml/node-saml/actions?query=workflow%3ABuild%Status)
-[![GitHub version](https://badge.fury.io/gh/node-saml%2Fnode-saml.svg)](https://badge.fury.io/gh/node-saml%2Fnode-saml)
-[![npm version](https://badge.fury.io/js/node-saml.svg)](http://badge.fury.io/js/node-saml)
+[![npm version](https://badge.fury.io/js/@node-saml%2Fnode-saml.svg)](https://badge.fury.io/js/@node-saml%2Fnode-saml)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 [![codecov](https://codecov.io/gh/node-saml/node-saml/branch/master/graph/badge.svg?token=PQWCMBWBFB)](https://codecov.io/gh/node-saml/node-saml)
 [![DeepScan grade](https://deepscan.io/api/teams/17569/projects/20921/branches/586237/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=17569&pid=20921&bid=586237)
 
-[![NPM](https://nodei.co/npm/node-saml.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/node-saml/)
+[![NPM](https://nodei.co/npm/@node-saml/node-saml.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/@node-saml/node-saml)
 
 This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provider for Node.js. This was forked from `passport-saml` at v3.0.0 and will become the SAML implementation for `passport-saml`. When this is mature, `passport-saml` will have code removed and replaced by a dependency on this library.
 

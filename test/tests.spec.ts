@@ -672,6 +672,161 @@ describe("node-saml /", function () {
         expect(profile).to.not.have.property("evilcorp.roles");
       });
 
+      it("valid xml document with multiple SubjectConfirmation should validate", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-24T16:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` is invalid, so if this passes, we are using the first one
+        const { profile } = await samlObj.validatePostResponseAsync(container);
+        assertRequired(profile, "profile must exist");
+        expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
+      });
+
+      it("valid xml document with multiple SubjectConfirmation should fail if no one is valid", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T19:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` is invalid, the first one could not be used so we should get
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message:
+            "No valid subject confirmation found among those available in the SAML assertion",
+        });
+      });
+
+      it("valid xml document with multiple SubjectConfirmation should validate, first is expired so it should take the second one", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` purposefully has the wrong InResponseTo so we can check for it
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message: "InResponseTo does not match subjectInResponseTo",
+        });
+      });
+
+      it("valid xml document with multiple SubjectConfirmations should fail if InResponseTo does not match a valid SubjectConfirmation", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` purposefully has the wrong InResponseTo so we can check for it
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message: "InResponseTo does not match subjectInResponseTo",
+        });
+      });
+
+      it("valid xml document with no SubjectConfirmation should validate", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-no-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        const { profile } = await samlObj.validatePostResponseAsync(container);
+        assertRequired(profile, "profile must exist");
+      });
+
+      it("valid xml document with only empty SubjectConfirmation should not validate", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-empty-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message:
+            "No valid subject confirmation found among those available in the SAML assertion",
+        });
+      });
+
       [ValidateInResponseTo.always, ValidateInResponseTo.ifPresent].forEach(
         (validateInResponseTo) => {
           describe(`with validateInResponseTo set to ${validateInResponseTo}`, () => {
