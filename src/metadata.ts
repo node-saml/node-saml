@@ -1,12 +1,12 @@
-import { removeCertPEMHeaderAndFooter } from "../crypto";
+import { removeCertPEMHeaderAndFooter } from "./crypto";
 import {
   isValidSamlSigningOptions,
   ServiceMetadataXML,
   XMLObject,
   GenerateServiceProviderMetadataParams,
-} from "../types";
-import { assertRequired, signXmlMetadata } from "../utility";
-import { buildXmlBuilderObject } from "../xml";
+} from "./types";
+import { assertRequired, signXmlMetadata } from "./utility";
+import { buildXmlBuilderObject } from "./xml";
 
 export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams
