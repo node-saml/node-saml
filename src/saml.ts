@@ -29,7 +29,7 @@ import {
   XMLValue,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
-import { assertRequired } from "./utility";
+import { assertBooleanIfPresent, assertRequired } from "./utility";
 import {
   buildXml2JsObject,
   buildXmlBuilderObject,
@@ -122,6 +122,16 @@ class SAML {
     assertRequired(ctorOptions.issuer, "issuer is required");
     assertRequired(ctorOptions.cert, "cert is required");
 
+    // Prevent a JS user from passing in "false", which is truthy, and doing the wrong thing
+    assertBooleanIfPresent(ctorOptions.passive);
+    assertBooleanIfPresent(ctorOptions.disableRequestedAuthnContext);
+    assertBooleanIfPresent(ctorOptions.forceAuthn);
+    assertBooleanIfPresent(ctorOptions.skipRequestCompression);
+    assertBooleanIfPresent(ctorOptions.disableRequestAcsUrl);
+    assertBooleanIfPresent(ctorOptions.allowCreate);
+    assertBooleanIfPresent(ctorOptions.wantAssertionsSigned);
+    assertBooleanIfPresent(ctorOptions.signMetadata);
+
     const options: SamlOptions = {
       ...ctorOptions,
       passive: ctorOptions.passive ?? false,
@@ -160,7 +170,7 @@ class SAML {
       signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, or sha512
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
       generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
-
+      signMetadata: ctorOptions.signMetadata ?? false,
       racComparison: ctorOptions.racComparison ?? "exact",
     };
 
@@ -249,7 +259,7 @@ class SAML {
 
     if (isPassive) request["samlp:AuthnRequest"]["@IsPassive"] = true;
 
-    if (this.options.forceAuthn) {
+    if (this.options.forceAuthn === true) {
       request["samlp:AuthnRequest"]["@ForceAuthn"] = true;
     }
 
