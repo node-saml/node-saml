@@ -101,8 +101,10 @@ async function processValidlySignedSamlLogoutAsync(
 }
 
 class SAML {
-  // note that some methods in SAML are not yet marked as private as they are used in testing.
-  // those methods start with an underscore, e.g. _generateLogoutRequest
+  /**
+   * Note that some methods in SAML are not yet marked as protected as they are used in testing.
+   * Those methods start with an underscore, e.g. _generateLogoutRequest
+   */
   options: SamlOptions;
   // This is only for testing
   cacheProvider: CacheProvider;
