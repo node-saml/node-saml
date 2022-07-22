@@ -7,22 +7,16 @@ import * as querystring from "querystring";
 import * as util from "util";
 import { InMemoryCacheProvider } from "./inmemory-cache-provider";
 import * as algorithms from "./algorithms";
-import { signAuthnRequestPost } from "./saml-post-signing";
 import { ParsedQs } from "qs";
 import {
   isValidSamlSigningOptions,
   AudienceRestrictionXML,
-  AuthorizeRequestXML,
   CacheProvider,
   CertCallback,
   ErrorWithXmlStatus,
-  LogoutRequestXML,
   Profile,
-  SamlIDPListConfig,
-  SamlIDPEntryConfig,
   SamlOptions,
   SamlConfig,
-  XMLInput,
   XMLObject,
   XMLOutput,
   ValidateInResponseTo,
@@ -32,7 +26,6 @@ import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
 import {
   buildXml2JsObject,
-  buildXmlBuilderObject,
   decryptXml,
   getNameIdAsync,
   parseDomFromString,
@@ -41,7 +34,7 @@ import {
   xpath,
 } from "./xml";
 import { certToPEM, generateUniqueId, keyToPEM } from "./crypto";
-import { dateStringToTimestamp, generateInstant } from "./datetime";
+import { dateStringToTimestamp } from "./datetime";
 import {
   generateAuthorizeRequestAsync,
   generateServiceProviderMetadata,
