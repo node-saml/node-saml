@@ -78,6 +78,16 @@ export interface ServiceMetadataXML {
   };
 }
 
+export interface NameID {
+  value: string | null;
+  format: string | null;
+}
+
+export interface XmlSignatureLocation {
+  reference: string;
+  action: "append" | "prepend" | "before" | "after";
+}
+
 export type RacComparision = "exact" | "minimum" | "maximum" | "better";
 
 interface SamlScopingConfig {
@@ -143,6 +153,22 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   disableRequestAcsUrl: boolean;
   samlAuthnRequestExtensions?: Record<string, unknown>;
   samlLogoutRequestExtensions?: Record<string, unknown>;
+}
+
+export interface GenerateServiceProviderMetadataParams {
+  decryptionCert?: string | null;
+  signingCerts?: string | string[] | null;
+  issuer: SamlOptions["issuer"];
+  callbackUrl: SamlOptions["callbackUrl"];
+  logoutCallbackUrl?: SamlOptions["logoutCallbackUrl"];
+  identifierFormat?: SamlOptions["identifierFormat"];
+  wantAssertionsSigned: SamlOptions["wantAssertionsSigned"];
+  decryptionPvk?: SamlOptions["decryptionPvk"];
+  privateKey?: SamlOptions["privateKey"];
+  signatureAlgorithm?: SamlOptions["signatureAlgorithm"];
+  xmlSignatureTransforms?: SamlOptions["xmlSignatureTransforms"];
+  digestAlgorithm?: SamlOptions["digestAlgorithm"];
+  signMetadata?: SamlOptions["signMetadata"];
 }
 
 export interface StrategyOptions {

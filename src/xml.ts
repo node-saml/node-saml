@@ -4,9 +4,15 @@ import * as xmlenc from "xml-encryption";
 import * as xmldom from "@xmldom/xmldom";
 import * as xml2js from "xml2js";
 import * as xmlbuilder from "xmlbuilder";
-import { isValidSamlSigningOptions, SamlSigningOptions } from "./types";
+import {
+  isValidSamlSigningOptions,
+  NameID,
+  SamlSigningOptions,
+  XmlSignatureLocation,
+} from "./types";
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
+import { certToPEM } from "./crypto";
 
 type SelectedValue = string | number | boolean | Node;
 
@@ -50,11 +56,60 @@ export const xpath = {
 export const decryptXml = async (xml: string, decryptionKey: string | Buffer) =>
   util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionKey });
 
+/**
+ * we can use this utility before passing XML to `xml-crypto`
+ * we are considered the XML processor and are responsible for newline normalization
+ * https://github.com/node-saml/passport-saml/issues/431#issuecomment-718132752
+ */
 const normalizeNewlines = (xml: string): string => {
-  // we can use this utility before passing XML to `xml-crypto`
-  // we are considered the XML processor and are responsible for newline normalization
-  // https://github.com/node-saml/passport-saml/issues/431#issuecomment-718132752
   return xml.replace(/\r\n?/g, "\n");
+};
+
+/**
+ * This function checks that the |currentNode| in the |fullXml| document contains exactly 1 valid
+ *   signature of the |currentNode|.
+ *
+ * See https://github.com/bergie/passport-saml/issues/19 for references to some of the attack
+ *   vectors against SAML signature verification.
+ */
+export const validateSignature = (
+  fullXml: string,
+  currentNode: Element,
+  certs: string[]
+): boolean => {
+  const xpathSigQuery =
+    ".//*[" +
+    "local-name(.)='Signature' and " +
+    "namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and " +
+    "descendant::*[local-name(.)='Reference' and @URI='#" +
+    currentNode.getAttribute("ID") +
+    "']" +
+    "]";
+  const signatures = xpath.selectElements(currentNode, xpathSigQuery);
+  // This function is expecting to validate exactly one signature, so if we find more or fewer
+  //   than that, reject.
+  if (signatures.length !== 1) {
+    return false;
+  }
+  const xpathTransformQuery =
+    ".//*[" +
+    "local-name(.)='Transform' and " +
+    "namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and " +
+    "ancestor::*[local-name(.)='Reference' and @URI='#" +
+    currentNode.getAttribute("ID") +
+    "']" +
+    "]";
+  const transforms = xpath.selectElements(currentNode, xpathTransformQuery);
+  // Reject also XMLDSIG with more than 2 Transform
+  if (transforms.length > 2) {
+    // do not return false, throw an error so that it can be caught by tests differently
+    throw new Error("Invalid signature, too many transforms");
+  }
+
+  const signature = signatures[0];
+  return certs.some((certToCheck) => {
+    return validateXmlSignatureForCert(signature, certToPEM(certToCheck), fullXml, currentNode);
+  });
 };
 
 /**
@@ -96,11 +151,6 @@ export const validateXmlSignatureForCert = (
   fullXml = normalizeNewlines(fullXml);
   return sig.checkSignature(fullXml);
 };
-
-interface XmlSignatureLocation {
-  reference: string;
-  action: "append" | "prepend" | "before" | "after";
-}
 
 export const signXml = (
   xml: string,
@@ -157,4 +207,58 @@ export const buildXml2JsObject = (rootName: string, xml: any): string => {
 export const buildXmlBuilderObject = (xml: Record<string, any>, pretty: boolean): string => {
   const options = pretty ? { pretty: true, indent: "  ", newline: "\n" } : {};
   return xmlbuilder.create(xml).end(options);
+};
+
+export const promiseWithNameId = async (nameid: Node): Promise<NameID> => {
+  const format = xpath.selectAttributes(nameid, "@Format");
+  return {
+    value: nameid.textContent,
+    format: format && format[0] && format[0].nodeValue,
+  };
+};
+
+export const getNameIdAsync = async (
+  doc: Node,
+  decryptionPvk: string | Buffer | null
+): Promise<NameID> => {
+  const nameIds = xpath.selectElements(
+    doc,
+    "/*[local-name()='LogoutRequest']/*[local-name()='NameID']"
+  );
+  const encryptedIds = xpath.selectElements(
+    doc,
+    "/*[local-name()='LogoutRequest']/*[local-name()='EncryptedID']"
+  );
+
+  if (nameIds.length + encryptedIds.length > 1) {
+    throw new Error("Invalid LogoutRequest");
+  }
+  if (nameIds.length === 1) {
+    return promiseWithNameId(nameIds[0]);
+  }
+  if (encryptedIds.length === 1) {
+    assertRequired(
+      decryptionPvk,
+      "No decryption key found getting name ID for encrypted SAML response"
+    );
+
+    const encryptedDatas = xpath.selectElements(
+      encryptedIds[0],
+      "./*[local-name()='EncryptedData']"
+    );
+
+    if (encryptedDatas.length !== 1) {
+      throw new Error("Invalid LogoutRequest");
+    }
+    const encryptedDataXml = encryptedDatas[0].toString();
+
+    const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
+    const decryptedDoc = parseDomFromString(decryptedXml);
+    const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
+    if (decryptedIds.length !== 1) {
+      throw new Error("Invalid EncryptedAssertion content");
+    }
+    return await promiseWithNameId(decryptedIds[0]);
+  }
+  throw new Error("Missing SAML NameID");
 };

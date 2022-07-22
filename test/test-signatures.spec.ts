@@ -2,6 +2,7 @@ import { SAML } from "../src";
 import * as fs from "fs";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types";
+import * as xml from "../src/xml";
 import * as assert from "assert";
 import { expect } from "chai";
 
@@ -23,7 +24,7 @@ describe("Signatures", function () {
       //== Instantiate new instance before every test
       const samlObj = new SAML({ cert, issuer: options.issuer ?? "onesaml_login", ...options });
       //== Spy on `validateSignature` to be able to count how many times it has been called
-      const validateSignatureSpy = sinon.spy(samlObj, "validateSignature");
+      const validateSignatureSpy = sinon.spy(xml, "validateSignature");
 
       //== Run the test in `func`
       await assert.rejects(samlObj.validatePostResponseAsync(samlResponseBody), {
@@ -31,6 +32,8 @@ describe("Signatures", function () {
       });
       //== Assert times `validateSignature` was called
       expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
+
+      validateSignatureSpy.restore();
     },
     testOneResponse = (
       pathToXml: string,
