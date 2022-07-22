@@ -29,7 +29,7 @@ import {
   XMLValue,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
-import { assertRequired } from "./utility";
+import { assertBooleanIfPresent, assertRequired } from "./utility";
 import {
   buildXml2JsObject,
   buildXmlBuilderObject,
@@ -122,17 +122,26 @@ class SAML {
     assertRequired(ctorOptions.issuer, "issuer is required");
     assertRequired(ctorOptions.cert, "cert is required");
 
+    // Prevent a JS user from passing in "false", which is truthy, and doing the wrong thing
+    assertBooleanIfPresent(ctorOptions.passive);
+    assertBooleanIfPresent(ctorOptions.disableRequestedAuthnContext);
+    assertBooleanIfPresent(ctorOptions.forceAuthn);
+    assertBooleanIfPresent(ctorOptions.skipRequestCompression);
+    assertBooleanIfPresent(ctorOptions.disableRequestAcsUrl);
+    assertBooleanIfPresent(ctorOptions.allowCreate);
+    assertBooleanIfPresent(ctorOptions.wantAssertionsSigned);
+    assertBooleanIfPresent(ctorOptions.signMetadata);
+
     const options: SamlOptions = {
       ...ctorOptions,
-      // Coerce all values to boolean using !! where appropriate
-      passive: !!(ctorOptions.passive ?? false),
-      disableRequestedAuthnContext: !!(ctorOptions.disableRequestedAuthnContext ?? false),
+      passive: ctorOptions.passive ?? false,
+      disableRequestedAuthnContext: ctorOptions.disableRequestedAuthnContext ?? false,
       additionalParams: ctorOptions.additionalParams ?? {},
       additionalAuthorizeParams: ctorOptions.additionalAuthorizeParams ?? {},
       additionalLogoutParams: ctorOptions.additionalLogoutParams ?? {},
-      forceAuthn: !!(ctorOptions.forceAuthn ?? false),
-      skipRequestCompression: !!(ctorOptions.skipRequestCompression ?? false),
-      disableRequestAcsUrl: !!(ctorOptions.disableRequestAcsUrl ?? false),
+      forceAuthn: ctorOptions.forceAuthn ?? false,
+      skipRequestCompression: ctorOptions.skipRequestCompression ?? false,
+      disableRequestAcsUrl: ctorOptions.disableRequestAcsUrl ?? false,
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
       path: ctorOptions.path ?? "/saml/consume",
@@ -143,9 +152,9 @@ class SAML {
         ctorOptions.identifierFormat === undefined
           ? "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
           : ctorOptions.identifierFormat,
-      allowCreate: !!(ctorOptions.allowCreate ?? true),
+      allowCreate: ctorOptions.allowCreate ?? true,
       spNameQualifier: ctorOptions.spNameQualifier,
-      wantAssertionsSigned: !!(ctorOptions.wantAssertionsSigned ?? false),
+      wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? false,
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],
@@ -161,7 +170,7 @@ class SAML {
       signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, or sha512
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
       generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
-      signMetadata: !!(ctorOptions.signMetadata ?? false),
+      signMetadata: ctorOptions.signMetadata ?? false,
       racComparison: ctorOptions.racComparison ?? "exact",
     };
 
