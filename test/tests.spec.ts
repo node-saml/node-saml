@@ -610,7 +610,7 @@ describe("node-saml /", function () {
         expect(validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
       });
 
-      it("signMetadata creates a valid signature", function () {
+      it("generateServiceProviderMetadata contains metadataExtensions", function () {
         const samlConfig: SamlConfig = {
           issuer: "http://example.serviceprovider.com",
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
