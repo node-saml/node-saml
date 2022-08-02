@@ -42,7 +42,7 @@ nwtlCg==
     <AssertionConsumerService index="1" isDefault="true" Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="http://example.serviceprovider.com/saml/callback"/>
   </SPSSODescriptor>
   <md:ContactPerson contactType="support">
-    <md:GivenName>John</md:GivenName>
+    <md:GivenName>test</md:GivenName>
     <md:EmailAddress>test@node-saml</md:EmailAddress>
   </md:ContactPerson>
 </EntityDescriptor>
