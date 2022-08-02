@@ -609,6 +609,30 @@ describe("node-saml /", function () {
         const dom = parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
       });
+
+      it("signMetadata creates a valid signature", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          cert: FAKE_CERT,
+          metadataExtensions: {
+            "md:ContactPerson": {
+              "@contactType": "support",
+              "md:GivenName": "test",
+              "md:EmailAddress": "test@node-saml",
+            },
+          },
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_metadataExtensions.xml",
+          "utf-8"
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
+      });
     });
 
     describe("validatePostResponse checks /", function () {

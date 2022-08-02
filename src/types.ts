@@ -153,6 +153,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   disableRequestAcsUrl: boolean;
   samlAuthnRequestExtensions?: Record<string, unknown>;
   samlLogoutRequestExtensions?: Record<string, unknown>;
+  metadataExtensions?: Record<string, unknown>;
 }
 
 export interface GenerateServiceProviderMetadataParams {
@@ -169,6 +170,7 @@ export interface GenerateServiceProviderMetadataParams {
   xmlSignatureTransforms?: SamlOptions["xmlSignatureTransforms"];
   digestAlgorithm?: SamlOptions["digestAlgorithm"];
   signMetadata?: SamlOptions["signMetadata"];
+  metadataExtensions?: SamlOptions["metadataExtensions"];
 }
 
 export interface StrategyOptions {
