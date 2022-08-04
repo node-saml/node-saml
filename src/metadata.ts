@@ -49,6 +49,7 @@ export const generateServiceProviderMetadata = (
     EntityDescriptor: {
       "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
       "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
+      ...(metadataExtensions ? { "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata" } : {}),
       "@entityID": issuer,
       "@ID": issuer.replace(/\W/g, "_"),
       SPSSODescriptor: {
