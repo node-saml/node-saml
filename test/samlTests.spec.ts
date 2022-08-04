@@ -1,5 +1,5 @@
 "use strict";
-import * as url from "url";
+import { URL } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
 import { SAML } from "../src/saml";
@@ -42,31 +42,32 @@ describe("SAML.js", function () {
     describe("getAuthorizeUrl", function () {
       it("calls callback with right host", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        expect(url.parse(target).host).to.equal("exampleidp.com");
+        expect(new URL(target).host).to.equal("exampleidp.com");
       });
       it("calls callback with right protocol", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        expect(url.parse(target).protocol).to.equal("https:");
+        expect(new URL(target).protocol).to.equal("https:");
       });
       it("calls callback with right path", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        expect(url.parse(target).pathname).to.equal("/path");
+        expect(new URL(target).pathname).to.equal("/path");
       });
       it("calls callback with original query string", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        expect(url.parse(target, true).query["key"]).to.equal("value");
+        expect(new URL(target).searchParams.get("key")).to.equal("value");
       });
       it("calls callback with additional run-time params in query string", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, options);
-        expect(Object.keys(url.parse(target, true).query)).to.have.lengthOf(3);
-        expect(url.parse(target, true).query["key"]).to.equal("value");
-        expect(url.parse(target, true).query["SAMLRequest"]).to.not.be.empty;
-        expect(url.parse(target, true).query["additionalKey"]).to.equal("additionalValue");
+        const urlSearchParams = new URL(target).searchParams;
+        expect(Array.from(urlSearchParams)).to.have.lengthOf(3);
+        expect(urlSearchParams.get("key")).to.equal("value");
+        expect(urlSearchParams.get("SAMLRequest")).to.not.be.empty;
+        expect(urlSearchParams.get("additionalKey")).to.equal("additionalValue");
       });
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml request object", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
-        expect(url.parse(target, true).query).have.property("SAMLRequest");
+        expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
       });
     });
 
@@ -74,37 +75,38 @@ describe("SAML.js", function () {
       it("calls callback with right host", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        expect(url.parse(target).host).to.equal("exampleidp.com");
+        expect(new URL(target).host).to.equal("exampleidp.com");
       });
       it("calls callback with right protocol", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        expect(url.parse(target).protocol).to.equal("https:");
-        expect(url.parse(target).protocol).to.equal("https:");
+        expect(new URL(target).protocol).to.equal("https:");
+        expect(new URL(target).protocol).to.equal("https:");
       });
       it("calls callback with right path", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        expect(url.parse(target).pathname).to.equal("/path");
+        expect(new URL(target).pathname).to.equal("/path");
       });
       it("calls callback with original query string", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        expect(url.parse(target, true).query["key"]).to.equal("value");
+        expect(new URL(target).searchParams.get("key")).to.equal("value");
       });
       it("calls callback with additional run-time params in query string", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", options);
-        expect(Object.keys(url.parse(target, true).query)).to.have.lengthOf(3);
-        expect(url.parse(target, true).query["key"]).to.equal("value");
-        expect(url.parse(target, true).query["SAMLRequest"]).to.not.be.empty;
-        expect(url.parse(target, true).query["additionalKey"]).to.equal("additionalValue");
+        const urlSearchParams = new URL(target).searchParams;
+        expect(Array.from(urlSearchParams)).to.have.lengthOf(3);
+        expect(urlSearchParams.get("key")).to.equal("value");
+        expect(urlSearchParams.get("SAMLRequest")).to.not.be.empty;
+        expect(urlSearchParams.get("additionalKey")).to.equal("additionalValue");
       });
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml request object", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
-        expect(url.parse(target, true).query).have.property("SAMLRequest");
+        expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
       });
     });
 
@@ -114,7 +116,7 @@ describe("SAML.js", function () {
           expect(err).to.not.exist;
           try {
             assertRequired(target);
-            const parsed = url.parse(target);
+            const parsed = new URL(target);
             assert.strictEqual(parsed.host, "exampleidp.com");
             done();
           } catch (err2) {
@@ -127,7 +129,7 @@ describe("SAML.js", function () {
           expect(err).to.not.exist;
           try {
             assertRequired(target);
-            const parsed = url.parse(target);
+            const parsed = new URL(target);
             assert.strictEqual(parsed.protocol, "https:");
             done();
           } catch (err2) {
@@ -140,7 +142,7 @@ describe("SAML.js", function () {
           expect(err).to.not.exist;
           try {
             assertRequired(target);
-            const parsed = url.parse(target);
+            const parsed = new URL(target);
             assert.strictEqual(parsed.pathname, "/path");
             done();
           } catch (err2) {
@@ -153,8 +155,8 @@ describe("SAML.js", function () {
           expect(err).to.not.exist;
           try {
             assertRequired(target);
-            const parsed = url.parse(target, true);
-            assert.strictEqual(parsed.query["key"], "value");
+            const parsed = new URL(target);
+            assert.strictEqual(parsed.searchParams.get("key"), "value");
             done();
           } catch (err2) {
             done(err2);
@@ -166,10 +168,10 @@ describe("SAML.js", function () {
           expect(err).to.not.exist;
           try {
             assertRequired(target);
-            const parsed = url.parse(target, true);
-            assert.strictEqual(parsed.query["key"], "value");
-            expect(parsed.query["SAMLResponse"]).to.exist;
-            assert.strictEqual(parsed.query["additionalKey"], "additionalValue");
+            const parsed = new URL(target);
+            assert.strictEqual(parsed.searchParams.get("key"), "value");
+            expect(parsed.searchParams.get("SAMLResponse")).to.exist;
+            assert.strictEqual(parsed.searchParams.get("additionalKey"), "additionalValue");
             done();
           } catch (err2) {
             done(err2);
@@ -182,8 +184,8 @@ describe("SAML.js", function () {
           expect(err).to.not.exist;
           try {
             assertRequired(target);
-            const parsed = url.parse(target, true);
-            expect(parsed.query).have.property("SAMLResponse");
+            const parsed = new URL(target);
+            expect(parsed.searchParams.get("SAMLResponse")).to.not.be.empty;
             done();
           } catch (err2) {
             done(err2);
