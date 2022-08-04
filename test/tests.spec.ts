@@ -588,6 +588,21 @@ describe("node-saml /", function () {
         expect(metadata).to.contain('AuthnRequestsSigned="true"');
       });
 
+      it("generateServiceProviderMetadata contains AuthnRequestsSigned=false", function () {
+        const samlConfig: SamlConfig = {
+          cert: TEST_CERT,
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          authnRequestsSigned: false,
+        };
+
+        const samlObj = new SAML(samlConfig);
+
+        const metadata = samlObj.generateServiceProviderMetadata(null);
+        expect(metadata).to.contain('AuthnRequestsSigned="false"');
+      });
+
       it("signMetadata creates a valid signature", function () {
         const samlConfig: SamlConfig = {
           cert: TEST_CERT,

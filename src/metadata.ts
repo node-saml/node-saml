@@ -19,6 +19,7 @@ export const generateServiceProviderMetadata = (
     wantAssertionsSigned,
     decryptionPvk,
     privateKey,
+    authnRequestsSigned = null,
   } = params;
 
   let { signingCerts, decryptionCert } = params;
@@ -52,6 +53,9 @@ export const generateServiceProviderMetadata = (
       "@ID": issuer.replace(/\W/g, "_"),
       SPSSODescriptor: {
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
+        ...(typeof authnRequestsSigned == "boolean"
+          ? { "@AuthnRequestsSigned": authnRequestsSigned }
+          : {}),
       },
     },
   };
