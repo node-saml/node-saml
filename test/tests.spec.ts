@@ -643,11 +643,13 @@ describe("node-saml /", function () {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           cert: FAKE_CERT,
           metadataExtensions: {
-            "md:ContactPerson": {
-              "@contactType": "support",
-              "md:GivenName": "test",
-              "md:EmailAddress": "test@node-saml",
-            },
+            ContactPerson: [
+              {
+                "@contactType": "support",
+                GivenName: "test",
+                EmailAddress: "test@node-saml",
+              },
+            ],
           },
         };
 
