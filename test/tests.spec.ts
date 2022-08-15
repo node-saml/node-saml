@@ -642,12 +642,30 @@ describe("node-saml /", function () {
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           cert: FAKE_CERT,
-          metadataExtensions: {
-            ContactPerson: [
+          metadataContactPerson: [
+            {
+              "@contactType": "support",
+              GivenName: "test",
+              EmailAddress: ["test@node-saml"],
+            },
+          ],
+          metadataOrganization: {
+            OrganizationName: [
               {
-                "@contactType": "support",
-                GivenName: "test",
-                EmailAddress: "test@node-saml",
+                "@xml:lang": "en",
+                "#text": "node-saml",
+              },
+            ],
+            OrganizationDisplayName: [
+              {
+                "@xml:lang": "en",
+                "#text": "node-saml",
+              },
+            ],
+            OrganizationURL: [
+              {
+                "@xml:lang": "en",
+                "#text": "https://github.com/node-saml",
               },
             ],
           },

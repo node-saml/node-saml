@@ -153,30 +153,28 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   disableRequestAcsUrl: boolean;
   samlAuthnRequestExtensions?: Record<string, unknown>;
   samlLogoutRequestExtensions?: Record<string, unknown>;
-  metadataExtensions?: {
-    ContactPerson?: {
-      "@contactType": "technical" | "support" | "administrative" | "billing" | "other";
-      Extensions?: string;
-      Company?: string;
-      GivenName?: string;
-      SurName?: string;
-      EmailAddress?: string;
-      TelephoneNumber?: string;
+  metadataContactPerson?: {
+    "@contactType": "technical" | "support" | "administrative" | "billing" | "other";
+    Extensions?: string;
+    Company?: string;
+    GivenName?: string;
+    SurName?: string;
+    EmailAddress?: [string];
+    TelephoneNumber?: [string];
+  }[];
+  metadataOrganization?: {
+    OrganizationName: {
+      "@xml:lang": string;
+      "#text": string;
     }[];
-    Organization?: {
-      OrganizationName: {
-        "@xml:lang": string;
-        "#text": string;
-      }[];
-      OrganizationDisplayName: {
-        "@xml:lang": string;
-        "#text": string;
-      }[];
-      OrganizationURL: {
-        "@xml:lang": string;
-        "#text": string;
-      }[];
-    };
+    OrganizationDisplayName: {
+      "@xml:lang": string;
+      "#text": string;
+    }[];
+    OrganizationURL: {
+      "@xml:lang": string;
+      "#text": string;
+    }[];
   };
 }
 
@@ -194,7 +192,8 @@ export interface GenerateServiceProviderMetadataParams {
   xmlSignatureTransforms?: SamlOptions["xmlSignatureTransforms"];
   digestAlgorithm?: SamlOptions["digestAlgorithm"];
   signMetadata?: SamlOptions["signMetadata"];
-  metadataExtensions?: SamlOptions["metadataExtensions"];
+  metadataContactPerson?: SamlOptions["metadataContactPerson"];
+  metadataOrganization?: SamlOptions["metadataOrganization"];
 }
 
 export interface StrategyOptions {

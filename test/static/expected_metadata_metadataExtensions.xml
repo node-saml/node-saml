@@ -45,4 +45,9 @@ nwtlCg==
     <GivenName>test</GivenName>
     <EmailAddress>test@node-saml</EmailAddress>
   </ContactPerson>
+  <Organization>
+    <OrganizationName xml:lang="en">node-saml</OrganizationName>
+    <OrganizationDisplayName xml:lang="en">node-saml</OrganizationDisplayName>
+    <OrganizationURL xml:lang="en">https://github.com/node-saml</OrganizationURL>
+  </Organization>
 </EntityDescriptor>

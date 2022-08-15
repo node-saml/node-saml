@@ -19,7 +19,8 @@ export const generateServiceProviderMetadata = (
     wantAssertionsSigned,
     decryptionPvk,
     privateKey,
-    metadataExtensions,
+    metadataContactPerson,
+    metadataOrganization,
   } = params;
 
   let { signingCerts, decryptionCert } = params;
@@ -54,7 +55,8 @@ export const generateServiceProviderMetadata = (
       SPSSODescriptor: {
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
       },
-      ...metadataExtensions,
+      ...(metadataContactPerson ? { ContactPerson: metadataContactPerson } : {}),
+      ...(metadataOrganization ? { Organization: metadataOrganization } : {}),
     },
   };
 
