@@ -20,6 +20,8 @@ export const generateServiceProviderMetadata = (
     decryptionPvk,
     privateKey,
     authnRequestsSigned,
+    metadataContactPerson,
+    metadataOrganization,
   } = params;
 
   let { signingCerts, decryptionCert } = params;
@@ -55,6 +57,8 @@ export const generateServiceProviderMetadata = (
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
         ...(typeof authnRequestsSigned !== "undefined" ? { "@AuthnRequestsSigned": "false" } : {}),
       },
+      ...(metadataContactPerson ? { ContactPerson: metadataContactPerson } : {}),
+      ...(metadataOrganization ? { Organization: metadataOrganization } : {}),
     },
   };
 

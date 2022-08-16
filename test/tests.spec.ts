@@ -1,6 +1,6 @@
 "use strict";
 import { SAML } from "../src/saml";
-import * as url from "url";
+import { URL } from "url";
 import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
@@ -571,6 +571,31 @@ describe("node-saml /", function () {
         expect(metadata).to.contain('WantAssertionsSigned="true"');
       });
 
+      it("generateServiceProviderMetadata throw error", function () {
+        const samlConfig: SamlConfig = {
+          cert: TEST_CERT,
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          wantAssertionsSigned: true,
+        };
+
+        const samlObj = new SAML(samlConfig);
+        let metadata;
+        try {
+          metadata = samlObj.generateServiceProviderMetadata(null);
+        } catch (error) {
+          // typescript
+          if (error instanceof Error) {
+            expect(error.toString()).to.contain(
+              "Error: Missing decryptionCert while generating metadata for decrypting service provider"
+            );
+          }
+        }
+        expect(metadata).to.be.undefined;
+      });
+
       it("generateServiceProviderMetadata contains AuthnRequestsSigned", function () {
         const samlConfig: SamlConfig = {
           cert: TEST_CERT,
@@ -623,6 +648,50 @@ describe("node-saml /", function () {
 
         const dom = parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
+      });
+
+      it("generateServiceProviderMetadata contains metadataExtensions", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          cert: FAKE_CERT,
+          metadataContactPerson: [
+            {
+              "@contactType": "support",
+              GivenName: "test",
+              EmailAddress: ["test@node-saml"],
+            },
+          ],
+          metadataOrganization: {
+            OrganizationName: [
+              {
+                "@xml:lang": "en",
+                "#text": "node-saml",
+              },
+            ],
+            OrganizationDisplayName: [
+              {
+                "@xml:lang": "en",
+                "#text": "node-saml",
+              },
+            ],
+            OrganizationURL: [
+              {
+                "@xml:lang": "en",
+                "#text": "https://github.com/node-saml",
+              },
+            ],
+          },
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_metadataExtensions.xml",
+          "utf-8"
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
       });
     });
 
@@ -1371,7 +1440,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
-        const qry = querystring.parse(url.parse(authorizeUrl).query || "");
+        const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
         expect(qry.Signature).to.equal(
           "D161m5GVbOfRHk85GvhmQ48OoFZ6n8mJuddzCe0g1Zlh9cb3b4oMMk5RCsoaOBsA3ndRnCWF3YQb78rO/MRQ+HIxIt0JDrhBoyT7GXPIUvbM/B4cJEgbfFAYouKQIy1sPunlLaTNkRL4tArKK7r4W2WF6R0hydcN8aln8/+TlTUfIengvVuXGLdtW0wSt+1HK1PiwrhLtqFHxxq2XL0X6jBqMEYYjByLfZme3Sk6x6uPIW7zhJn6OXzXlLuH9ILxusexu7GaLpw7C5EUQW43R6vlTGw+bBmx+tC0fqaMLOUWHX/uISAAeWYCAGYA8cbRuqIWh/vnVifxF0CP2sf5Vg=="
@@ -1421,7 +1490,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
-        const qry = querystring.parse(url.parse(authorizeUrl).query || "");
+        const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
           "br4UPzZ/Oy/hvG7zMGZ041Lba5WDl/JqwDDf40yxxnYXWLdDY77RD5aE8+YK6BY7BbSkvQSNXFbBXPAITcRhyNCT+3JDfwXLDgOf3xvJOzkWHRO3DUi5IOJ9IdKT/Ted+HC0J9L/4W+VA0n+5v6Lrw83UDib57ICytLvW5jamFQE8pO/Z8fQzOpSbzTwf+Q8u5KYkXeg1+H2u6OJYBFVDYOWxOTuuujW8JccqlCleX9tXDJvx/I0tOkwwnIioh1X2xVHGPy1k1wndpf1eUZtjZ4uUMcwRyxt7YuAnV433DohO3WOm2sNehwOy2AO1DUlbFi6/zbqkRK3TrmD9Q+ZUQ=="
@@ -1447,7 +1516,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
-        const qry = querystring.parse(url.parse(authorizeUrl).query || "");
+        const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
           "FL5f9hUYxXaCvr/HJOIKXvDlmWIQilsfcmETqwp8bXCnjEBS44uvEY+FhkYgrFOfaMXkAY+kd8rZ7CkP4SWnPxzhmHqdbBIyAdPpIOOHq7/VTqQXrprijtRBHTxrtOtxi3yOjskRz6ad8igokr9Ut3nlorvelZwtskJP/YsAE3v1CrL/bX3EGbepE3Bq5ehdHaNHxP+dwwhMJ6s5jxKLt5YU+vXohonM8fTBEPzbnQ1+0LK9GL3c6JfqNjjBvdWRXdyReRu+gCHisnrI68vBgCwy4VC9E4tg9JNLggtFkxNbhM8Bgu7eWlyhVLdWKKc1vwaDUOrYOimx6CfTXrAQvg=="
