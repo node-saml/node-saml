@@ -135,7 +135,6 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   audience: string | false;
   scoping?: SamlScopingConfig;
   wantAssertionsSigned: boolean;
-  authnRequestsSigned?: boolean;
   maxAssertionAgeMs: number;
   generateUniqueId: () => string;
   signMetadata: boolean;
@@ -187,7 +186,6 @@ export interface GenerateServiceProviderMetadataParams {
   logoutCallbackUrl?: SamlOptions["logoutCallbackUrl"];
   identifierFormat?: SamlOptions["identifierFormat"];
   wantAssertionsSigned: SamlOptions["wantAssertionsSigned"];
-  authnRequestsSigned?: SamlOptions["authnRequestsSigned"];
   decryptionPvk?: SamlOptions["decryptionPvk"];
   privateKey?: SamlOptions["privateKey"];
   signatureAlgorithm?: SamlOptions["signatureAlgorithm"];

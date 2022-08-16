@@ -60,7 +60,6 @@ const saml = new SAML(options);
 - `allowCreate`: grants permission to the identity provider to create a new subject identifier (default: `true`)
 - `spNameQualifier`: optionally specifies that the assertion subject's identifier be returned (or created) in the namespace of another service provider, or in the namespace of an affiliation of service providers
 - `wantAssertionsSigned`: if truthy, add `WantAssertionsSigned="true"` to the metadata, to specify that the IdP should always sign the assertions.
-- `authnRequestsSigned`: if defined, add `AuthnRequestsSigned="false"` to the metadata, to specify that the request is not signed. This option is canceled if you sign your requests.
 - `acceptedClockSkewMs`: Time in milliseconds of skew that is acceptable between client and server when checking `OnBefore` and `NotOnOrAfter` assertion condition validity timestamps. Setting to `-1` will disable checking these conditions entirely. Default is `0`.
 - `maxAssertionAgeMs`: Amount of time after which the framework should consider an assertion expired. If the limit imposed by this variable is stricter than the limit imposed by `NotOnOrAfter`, this limit will be used when determining if an assertion is expired.
 - `attributeConsumingServiceIndex`: optional `AttributeConsumingServiceIndex` attribute to add to AuthnRequest to instruct the IDP which attribute set to attach to the response ([link](http://blog.aniljohn.com/2014/01/data-minimization-front-channel-saml-attribute-requests.html))
