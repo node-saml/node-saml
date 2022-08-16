@@ -55,7 +55,7 @@ export const generateServiceProviderMetadata = (
       "@ID": issuer.replace(/\W/g, "_"),
       SPSSODescriptor: {
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
-        ...(typeof authnRequestsSigned !== "undefined" ? { "@AuthnRequestsSigned": "false" } : {}),
+        "@AuthnRequestsSigned": "false",
       },
       ...(metadataContactPerson ? { ContactPerson: metadataContactPerson } : {}),
       ...(metadataOrganization ? { Organization: metadataOrganization } : {}),
