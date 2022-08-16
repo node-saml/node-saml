@@ -59,6 +59,13 @@ describe("Signatures", function () {
       testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 1)
     );
     it(
+      "R1A - root signed, root signiture required => valid",
+      testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", false, 1, {
+        wantAuthenticationResponseSigned: true,
+        issuer: "onesaml_login",
+      })
+    );
+    it(
       "R1A - root signed => valid",
       testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", false, 1)
     );
@@ -75,7 +82,7 @@ describe("Signatures", function () {
         INVALID_DOCUMENT_SIGNATURE,
         1,
         {
-          wantMessageSigned: true,
+          wantAuthenticationResponseSigned: true,
           issuer: "onesaml_login",
         }
       )
