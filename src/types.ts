@@ -50,6 +50,7 @@ export type CertCallback = (
  */
 export interface MandatorySamlOptions {
   cert: string | string[] | CertCallback;
+  issuer: string;
 }
 
 export interface SamlIDPListConfig {
@@ -77,6 +78,16 @@ export interface ServiceMetadataXML {
   };
 }
 
+export interface NameID {
+  value: string | null;
+  format: string | null;
+}
+
+export interface XmlSignatureLocation {
+  reference: string;
+  action: "append" | "prepend" | "before" | "after";
+}
+
 export type RacComparision = "exact" | "minimum" | "maximum" | "better";
 
 interface SamlScopingConfig {
@@ -102,7 +113,6 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   protocol?: string;
   host: string;
   entryPoint?: string;
-  issuer: string;
   decryptionPvk?: string | Buffer;
 
   // Additional SAML behaviors
@@ -128,7 +138,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   wantMessageSigned: boolean;
   maxAssertionAgeMs: number;
   generateUniqueId: () => string;
-  signMetadata?: boolean;
+  signMetadata: boolean;
 
   // InResponseTo Validation
   validateInResponseTo: ValidateInResponseTo;
@@ -144,6 +154,47 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   disableRequestAcsUrl: boolean;
   samlAuthnRequestExtensions?: Record<string, unknown>;
   samlLogoutRequestExtensions?: Record<string, unknown>;
+  metadataContactPerson?: {
+    "@contactType": "technical" | "support" | "administrative" | "billing" | "other";
+    Extensions?: string;
+    Company?: string;
+    GivenName?: string;
+    SurName?: string;
+    EmailAddress?: [string];
+    TelephoneNumber?: [string];
+  }[];
+  metadataOrganization?: {
+    OrganizationName: {
+      "@xml:lang": string;
+      "#text": string;
+    }[];
+    OrganizationDisplayName: {
+      "@xml:lang": string;
+      "#text": string;
+    }[];
+    OrganizationURL: {
+      "@xml:lang": string;
+      "#text": string;
+    }[];
+  };
+}
+
+export interface GenerateServiceProviderMetadataParams {
+  decryptionCert?: string | null;
+  signingCerts?: string | string[] | null;
+  issuer: SamlOptions["issuer"];
+  callbackUrl: SamlOptions["callbackUrl"];
+  logoutCallbackUrl?: SamlOptions["logoutCallbackUrl"];
+  identifierFormat?: SamlOptions["identifierFormat"];
+  wantAssertionsSigned: SamlOptions["wantAssertionsSigned"];
+  decryptionPvk?: SamlOptions["decryptionPvk"];
+  privateKey?: SamlOptions["privateKey"];
+  signatureAlgorithm?: SamlOptions["signatureAlgorithm"];
+  xmlSignatureTransforms?: SamlOptions["xmlSignatureTransforms"];
+  digestAlgorithm?: SamlOptions["digestAlgorithm"];
+  signMetadata?: SamlOptions["signMetadata"];
+  metadataContactPerson?: SamlOptions["metadataContactPerson"];
+  metadataOrganization?: SamlOptions["metadataOrganization"];
 }
 
 export interface StrategyOptions {

@@ -1,6 +1,6 @@
 "use strict";
 import { SAML } from "../src/saml";
-import * as url from "url";
+import { URL } from "url";
 import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
@@ -11,7 +11,7 @@ import { expect } from "chai";
 import * as assert from "assert";
 import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
-import { parseDomFromString, xpath } from "../src/xml";
+import { parseDomFromString, validateSignature, xpath } from "../src/xml";
 
 export const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -571,6 +571,31 @@ describe("node-saml /", function () {
         expect(metadata).to.contain('WantAssertionsSigned="true"');
       });
 
+      it("generateServiceProviderMetadata throw error", function () {
+        const samlConfig: SamlConfig = {
+          cert: TEST_CERT,
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          wantAssertionsSigned: true,
+        };
+
+        const samlObj = new SAML(samlConfig);
+        let metadata;
+        try {
+          metadata = samlObj.generateServiceProviderMetadata(null);
+        } catch (error) {
+          // typescript
+          if (error instanceof Error) {
+            expect(error.toString()).to.contain(
+              "Error: Missing decryptionCert while generating metadata for decrypting service provider"
+            );
+          }
+        }
+        expect(metadata).to.be.undefined;
+      });
+
       it("generateServiceProviderMetadata contains AuthnRequestsSigned", function () {
         const samlConfig: SamlConfig = {
           cert: TEST_CERT,
@@ -607,7 +632,51 @@ describe("node-saml /", function () {
         const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
 
         const dom = parseDomFromString(metadata);
-        expect(samlObj.validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
+        expect(validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
+      });
+
+      it("generateServiceProviderMetadata contains metadataExtensions", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          cert: FAKE_CERT,
+          metadataContactPerson: [
+            {
+              "@contactType": "support",
+              GivenName: "test",
+              EmailAddress: ["test@node-saml"],
+            },
+          ],
+          metadataOrganization: {
+            OrganizationName: [
+              {
+                "@xml:lang": "en",
+                "#text": "node-saml",
+              },
+            ],
+            OrganizationDisplayName: [
+              {
+                "@xml:lang": "en",
+                "#text": "node-saml",
+              },
+            ],
+            OrganizationURL: [
+              {
+                "@xml:lang": "en",
+                "#text": "https://github.com/node-saml",
+              },
+            ],
+          },
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_metadataExtensions.xml",
+          "utf-8"
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
       });
     });
 
@@ -698,6 +767,33 @@ describe("node-saml /", function () {
         expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
       });
 
+      it("valid xml document with multiple SubjectConfirmation should fail if no one is valid", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T19:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` is invalid, the first one could not be used so we should get
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message:
+            "No valid subject confirmation found among those available in the SAML assertion",
+        });
+      });
+
       it("valid xml document with multiple SubjectConfirmation should validate, first is expired so it should take the second one", async () => {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
@@ -719,12 +815,38 @@ describe("node-saml /", function () {
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
         // The second `SubjectConfirmationData` purposefully has the wrong InResponseTo so we can check for it
-        assert.rejects(samlObj.validatePostResponseAsync(container), {
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "InResponseTo does not match subjectInResponseTo",
         });
       });
 
-      it("valid xml document with no SubjectConfirmation should not validate", async () => {
+      it("valid xml document with multiple SubjectConfirmations should fail if InResponseTo does not match a valid SubjectConfirmation", async () => {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        const base64xml = fs.readFileSync(
+          __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
+          "base64"
+        );
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+
+        const samlObj = new SAML({
+          cert: signingCert,
+          privateKey: privateKey,
+          issuer: "onesaml_login",
+          audience: false,
+          validateInResponseTo: ValidateInResponseTo.always,
+        });
+
+        // Prime cache so we can validate InResponseTo
+        await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
+        // The second `SubjectConfirmationData` purposefully has the wrong InResponseTo so we can check for it
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message: "InResponseTo does not match subjectInResponseTo",
+        });
+      });
+
+      it("valid xml document with no SubjectConfirmation should validate", async () => {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-no-subjectconfirmation.xml",
@@ -744,9 +866,8 @@ describe("node-saml /", function () {
 
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
-        assert.rejects(samlObj.validatePostResponseAsync(container), {
-          message: "InResponseTo does not match subjectInResponseTo",
-        });
+        const { profile } = await samlObj.validatePostResponseAsync(container);
+        assertRequired(profile, "profile must exist");
       });
 
       it("valid xml document with only empty SubjectConfirmation should not validate", async () => {
@@ -769,8 +890,9 @@ describe("node-saml /", function () {
 
         // Prime cache so we can validate InResponseTo
         await samlObj.cacheProvider.saveAsync("_e8df3fe5f04237d25670", new Date().toISOString());
-        assert.rejects(samlObj.validatePostResponseAsync(container), {
-          message: "InResponseTo does not match subjectInResponseTo",
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message:
+            "No valid subject confirmation found among those available in the SAML assertion",
         });
       });
 
@@ -1303,7 +1425,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
-        const qry = querystring.parse(url.parse(authorizeUrl).query || "");
+        const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
         expect(qry.Signature).to.equal(
           "D161m5GVbOfRHk85GvhmQ48OoFZ6n8mJuddzCe0g1Zlh9cb3b4oMMk5RCsoaOBsA3ndRnCWF3YQb78rO/MRQ+HIxIt0JDrhBoyT7GXPIUvbM/B4cJEgbfFAYouKQIy1sPunlLaTNkRL4tArKK7r4W2WF6R0hydcN8aln8/+TlTUfIengvVuXGLdtW0wSt+1HK1PiwrhLtqFHxxq2XL0X6jBqMEYYjByLfZme3Sk6x6uPIW7zhJn6OXzXlLuH9ILxusexu7GaLpw7C5EUQW43R6vlTGw+bBmx+tC0fqaMLOUWHX/uISAAeWYCAGYA8cbRuqIWh/vnVifxF0CP2sf5Vg=="
@@ -1353,7 +1475,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
-        const qry = querystring.parse(url.parse(authorizeUrl).query || "");
+        const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
           "br4UPzZ/Oy/hvG7zMGZ041Lba5WDl/JqwDDf40yxxnYXWLdDY77RD5aE8+YK6BY7BbSkvQSNXFbBXPAITcRhyNCT+3JDfwXLDgOf3xvJOzkWHRO3DUi5IOJ9IdKT/Ted+HC0J9L/4W+VA0n+5v6Lrw83UDib57ICytLvW5jamFQE8pO/Z8fQzOpSbzTwf+Q8u5KYkXeg1+H2u6OJYBFVDYOWxOTuuujW8JccqlCleX9tXDJvx/I0tOkwwnIioh1X2xVHGPy1k1wndpf1eUZtjZ4uUMcwRyxt7YuAnV433DohO3WOm2sNehwOy2AO1DUlbFi6/zbqkRK3TrmD9Q+ZUQ=="
@@ -1379,7 +1501,7 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
-        const qry = querystring.parse(url.parse(authorizeUrl).query || "");
+        const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
           "FL5f9hUYxXaCvr/HJOIKXvDlmWIQilsfcmETqwp8bXCnjEBS44uvEY+FhkYgrFOfaMXkAY+kd8rZ7CkP4SWnPxzhmHqdbBIyAdPpIOOHq7/VTqQXrprijtRBHTxrtOtxi3yOjskRz6ad8igokr9Ut3nlorvelZwtskJP/YsAE3v1CrL/bX3EGbepE3Bq5ehdHaNHxP+dwwhMJ6s5jxKLt5YU+vXohonM8fTBEPzbnQ1+0LK9GL3c6JfqNjjBvdWRXdyReRu+gCHisnrI68vBgCwy4VC9E4tg9JNLggtFkxNbhM8Bgu7eWlyhVLdWKKc1vwaDUOrYOimx6CfTXrAQvg=="

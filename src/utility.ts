@@ -7,6 +7,15 @@ export function assertRequired<T>(value: T | null | undefined, error?: string): 
   }
 }
 
+export function assertBooleanIfPresent<T>(
+  value: T | null | undefined,
+  error?: string
+): asserts value {
+  if (value != null && typeof value != "boolean") {
+    throw new TypeError(error ?? "value is set but not boolean");
+  }
+}
+
 export function signXmlResponse(samlMessage: string, options: SamlSigningOptions): string {
   const responseXpath =
     '//*[local-name(.)="Response" and namespace-uri(.)="urn:oasis:names:tc:SAML:2.0:protocol"]';
