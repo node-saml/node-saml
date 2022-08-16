@@ -50,8 +50,6 @@ passport.use(
       // other authn contexts are available e.g. windows single sign-on
       authnContext:
         "http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/password",
-      // not sure if this is necessary?
-      acceptedClockSkewMs: -1,
       identifierFormat: null,
       // this is configured under the Advanced tab in AD FS relying party
       signatureAlgorithm: "sha256",
