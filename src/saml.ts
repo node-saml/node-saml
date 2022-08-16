@@ -19,30 +19,30 @@ import {
   SamlConfig,
   XMLOutput,
   ValidateInResponseTo,
+  AuthorizeRequestXML,
+  XMLInput,
+  SamlIDPListConfig,
+  SamlIDPEntryConfig,
+  LogoutRequestXML,
+  XMLObject,
+  XMLValue,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
 import {
   buildXml2JsObject,
+  buildXmlBuilderObject,
   decryptXml,
+  getNameIdAsync,
   parseDomFromString,
   parseXml2JsFromString,
   validateSignature,
   xpath,
 } from "./xml";
 import { certToPEM, generateUniqueId, keyToPEM } from "./crypto";
-import { dateStringToTimestamp } from "./datetime";
-import {
-  generateAuthorizeRequestAsync,
-  generateServiceProviderMetadata,
-  _generateLogoutRequest,
-  _generateLogoutResponse,
-} from "./saml/generate";
-import {
-  processValidlySignedAssertionAsync,
-  processValidlySignedPostRequestAsync,
-  processValidlySignedSamlLogoutAsync,
-} from "./saml/process";
+import { dateStringToTimestamp, generateInstant } from "./datetime";
+import { signAuthnRequestPost } from "./saml-post-signing";
+import { generateServiceProviderMetadata } from "./metadata";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
@@ -176,11 +176,251 @@ class SAML {
     samlMessage.Signature = signer.sign(keyToPEM(this.options.privateKey), "base64");
   }
 
-  protected generateAuthorizeRequestAsync = generateAuthorizeRequestAsync;
+  protected async generateAuthorizeRequestAsync(
+    this: SAML,
+    isPassive: boolean,
+    isHttpPostBinding: boolean,
+    host: string | undefined
+  ): Promise<string> {
+    assertRequired(this.options.entryPoint, "entryPoint is required");
 
-  _generateLogoutRequest = _generateLogoutRequest;
+    const id = this.options.generateUniqueId();
+    const instant = generateInstant();
 
-  _generateLogoutResponse = _generateLogoutResponse;
+    if (this.mustValidateInResponseTo(true)) {
+      await this.cacheProvider.saveAsync(id, instant);
+    }
+    const request: AuthorizeRequestXML = {
+      "samlp:AuthnRequest": {
+        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+        "@ID": id,
+        "@Version": "2.0",
+        "@IssueInstant": instant,
+        "@ProtocolBinding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
+        "@Destination": this.options.entryPoint,
+        "saml:Issuer": {
+          "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
+          "#text": this.options.issuer,
+        },
+      },
+    };
+
+    if (isPassive) request["samlp:AuthnRequest"]["@IsPassive"] = true;
+
+    if (this.options.forceAuthn === true) {
+      request["samlp:AuthnRequest"]["@ForceAuthn"] = true;
+    }
+
+    if (!this.options.disableRequestAcsUrl) {
+      request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = this.getCallbackUrl(host);
+    }
+
+    const samlAuthnRequestExtensions = this.options.samlAuthnRequestExtensions;
+    if (samlAuthnRequestExtensions != null) {
+      if (typeof samlAuthnRequestExtensions != "object") {
+        throw new TypeError("samlAuthnRequestExtensions should be Object");
+      }
+      request["samlp:AuthnRequest"]["samlp:Extensions"] = {
+        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+        ...samlAuthnRequestExtensions,
+      };
+    }
+
+    const nameIDPolicy: XMLInput = {
+      "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+      "@AllowCreate": this.options.allowCreate,
+    };
+
+    if (this.options.identifierFormat != null) {
+      nameIDPolicy["@Format"] = this.options.identifierFormat;
+    }
+
+    if (this.options.spNameQualifier != null) {
+      nameIDPolicy["@SPNameQualifier"] = this.options.spNameQualifier;
+    }
+
+    request["samlp:AuthnRequest"]["samlp:NameIDPolicy"] = nameIDPolicy;
+
+    if (!this.options.disableRequestedAuthnContext) {
+      const authnContextClassRefs: XMLInput[] = [];
+      (this.options.authnContext as string[]).forEach(function (value) {
+        authnContextClassRefs.push({
+          "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
+          "#text": value,
+        });
+      });
+
+      request["samlp:AuthnRequest"]["samlp:RequestedAuthnContext"] = {
+        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+        "@Comparison": this.options.racComparison,
+        "saml:AuthnContextClassRef": authnContextClassRefs,
+      };
+    }
+
+    if (this.options.attributeConsumingServiceIndex != null) {
+      request["samlp:AuthnRequest"]["@AttributeConsumingServiceIndex"] =
+        this.options.attributeConsumingServiceIndex;
+    }
+
+    if (this.options.providerName != null) {
+      request["samlp:AuthnRequest"]["@ProviderName"] = this.options.providerName;
+    }
+
+    if (this.options.scoping != null) {
+      const scoping: XMLInput = {
+        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+      };
+
+      if (typeof this.options.scoping.proxyCount === "number") {
+        scoping["@ProxyCount"] = this.options.scoping.proxyCount;
+      }
+
+      if (this.options.scoping.idpList) {
+        scoping["samlp:IDPList"] = this.options.scoping.idpList.map(
+          (idpListItem: SamlIDPListConfig) => {
+            const formattedIdpListItem: XMLInput = {
+              "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+            };
+
+            if (idpListItem.entries) {
+              formattedIdpListItem["samlp:IDPEntry"] = idpListItem.entries.map(
+                (entry: SamlIDPEntryConfig) => {
+                  const formattedEntry: XMLInput = {
+                    "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+                  };
+
+                  formattedEntry["@ProviderID"] = entry.providerId;
+
+                  if (entry.name) {
+                    formattedEntry["@Name"] = entry.name;
+                  }
+
+                  if (entry.loc) {
+                    formattedEntry["@Loc"] = entry.loc;
+                  }
+
+                  return formattedEntry;
+                }
+              );
+            }
+
+            if (idpListItem.getComplete) {
+              formattedIdpListItem["samlp:GetComplete"] = idpListItem.getComplete;
+            }
+
+            return formattedIdpListItem;
+          }
+        );
+      }
+
+      if (this.options.scoping.requesterId) {
+        scoping["samlp:RequesterID"] = this.options.scoping.requesterId;
+      }
+
+      request["samlp:AuthnRequest"]["samlp:Scoping"] = scoping;
+    }
+
+    let stringRequest = buildXmlBuilderObject(request, false);
+    // TODO: maybe we should always sign here
+    if (isHttpPostBinding && isValidSamlSigningOptions(this.options)) {
+      stringRequest = signAuthnRequestPost(stringRequest, this.options);
+    }
+    return stringRequest;
+  }
+
+  async _generateLogoutRequest(this: SAML, user: Profile): Promise<string> {
+    const id = this.options.generateUniqueId();
+    const instant = generateInstant();
+
+    const request = {
+      "samlp:LogoutRequest": {
+        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+        "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
+        "@ID": id,
+        "@Version": "2.0",
+        "@IssueInstant": instant,
+        "@Destination": this.options.logoutUrl,
+        "saml:Issuer": {
+          "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
+          "#text": this.options.issuer,
+        },
+        "samlp:Extensions": {},
+        "saml:NameID": {
+          "@Format": user.nameIDFormat,
+          "#text": user.nameID,
+        },
+      },
+    } as LogoutRequestXML;
+
+    const samlLogoutRequestExtensions = this.options.samlLogoutRequestExtensions;
+    if (samlLogoutRequestExtensions != null) {
+      if (typeof samlLogoutRequestExtensions != "object") {
+        throw new TypeError("samlLogoutRequestExtensions should be Object");
+      }
+      request["samlp:LogoutRequest"]["samlp:Extensions"] = {
+        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+        ...samlLogoutRequestExtensions,
+      };
+    } else {
+      delete request["samlp:LogoutRequest"]["samlp:Extensions"];
+    }
+
+    if (user.nameQualifier != null) {
+      request["samlp:LogoutRequest"]["saml:NameID"]["@NameQualifier"] = user.nameQualifier;
+    }
+
+    if (user.spNameQualifier != null) {
+      request["samlp:LogoutRequest"]["saml:NameID"]["@SPNameQualifier"] = user.spNameQualifier;
+    }
+
+    if (user.sessionIndex) {
+      request["samlp:LogoutRequest"]["saml2p:SessionIndex"] = {
+        "@xmlns:saml2p": "urn:oasis:names:tc:SAML:2.0:protocol",
+        "#text": user.sessionIndex,
+      };
+    }
+
+    await this.cacheProvider.saveAsync(id, instant);
+    return buildXmlBuilderObject(request, false);
+  }
+
+  _generateLogoutResponse(this: SAML, logoutRequest: Profile, success: boolean): string {
+    const id = this.options.generateUniqueId();
+    const instant = generateInstant();
+
+    const successStatus = {
+      "samlp:StatusCode": {
+        "@Value": "urn:oasis:names:tc:SAML:2.0:status:Success",
+      },
+    };
+
+    const failStatus = {
+      "samlp:StatusCode": {
+        "@Value": "urn:oasis:names:tc:SAML:2.0:status:Requester",
+        "samlp:StatusCode": {
+          "@Value": "urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal",
+        },
+      },
+    };
+
+    const request = {
+      "samlp:LogoutResponse": {
+        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
+        "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",
+        "@ID": id,
+        "@Version": "2.0",
+        "@IssueInstant": instant,
+        "@Destination": this.options.logoutUrl,
+        "@InResponseTo": logoutRequest.ID,
+        "saml:Issuer": {
+          "#text": this.options.issuer,
+        },
+        "samlp:Status": success ? successStatus : failStatus,
+      },
+    };
+
+    return buildXmlBuilderObject(request, false);
+  }
 
   async _requestToUrlAsync(
     request: string | null | undefined,
@@ -715,7 +955,213 @@ class SAML {
     }
   }
 
-  protected processValidlySignedAssertionAsync = processValidlySignedAssertionAsync;
+  protected async processValidlySignedAssertionAsync(
+    this: SAML,
+    xml: string,
+    samlResponseXml: string,
+    inResponseTo: string | null
+  ): Promise<{ profile: Profile; loggedOut: boolean }> {
+    let msg;
+    const nowMs = new Date().getTime();
+    const profile = {} as Profile;
+    const doc: XMLOutput = await parseXml2JsFromString(xml);
+    const parsedAssertion: XMLOutput = doc;
+    const assertion: XMLOutput = doc.Assertion;
+    getInResponseTo: {
+      const issuer = assertion.Issuer;
+      if (issuer && issuer[0]._) {
+        profile.issuer = issuer[0]._;
+      }
+
+      if (inResponseTo != null) {
+        profile.inResponseTo = inResponseTo;
+      }
+
+      const authnStatement = assertion.AuthnStatement;
+      if (authnStatement) {
+        if (authnStatement[0].$ && authnStatement[0].$.SessionIndex) {
+          profile.sessionIndex = authnStatement[0].$.SessionIndex;
+        }
+      }
+
+      const subject = assertion.Subject;
+      let subjectConfirmation: XMLOutput | null | undefined;
+      let confirmData: XMLOutput | null = null;
+      let subjectConfirmations: XMLOutput[] | null = null;
+      if (subject) {
+        const nameID = subject[0].NameID;
+        if (nameID && nameID[0]._) {
+          profile.nameID = nameID[0]._;
+
+          if (nameID[0].$ && nameID[0].$.Format) {
+            profile.nameIDFormat = nameID[0].$.Format;
+            profile.nameQualifier = nameID[0].$.NameQualifier;
+            profile.spNameQualifier = nameID[0].$.SPNameQualifier;
+          }
+        }
+        subjectConfirmations = subject[0].SubjectConfirmation;
+        subjectConfirmation = subjectConfirmations?.find((_subjectConfirmation: XMLOutput) => {
+          const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
+          if (_confirmData?.$) {
+            const subjectNotBefore = _confirmData.$.NotBefore;
+            const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
+            const maxTimeLimitMs = this.calcMaxAgeAssertionTime(
+              this.options.maxAssertionAgeMs,
+              subjectNotOnOrAfter,
+              assertion.$.IssueInstant
+            );
+
+            const subjErr = this.checkTimestampsValidityError(
+              nowMs,
+              subjectNotBefore,
+              subjectNotOnOrAfter,
+              maxTimeLimitMs
+            );
+            if (subjErr === null) return true;
+          }
+
+          return false;
+        });
+
+        if (subjectConfirmation != null) {
+          confirmData = subjectConfirmation.SubjectConfirmationData[0];
+        }
+      }
+
+      /**
+       * Test to see that if we have a SubjectConfirmation InResponseTo that it matches
+       * the 'InResponseTo' attribute set in the Response
+       */
+      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+        if (subjectConfirmation) {
+          if (confirmData?.$) {
+            const subjectInResponseTo = confirmData.$.InResponseTo;
+
+            if (inResponseTo && subjectInResponseTo && subjectInResponseTo != inResponseTo) {
+              await this.cacheProvider.removeAsync(inResponseTo);
+              throw new Error("InResponseTo does not match subjectInResponseTo");
+            } else if (subjectInResponseTo) {
+              let foundValidInResponseTo = false;
+              const result = await this.cacheProvider.getAsync(subjectInResponseTo);
+              if (result) {
+                const createdAt = new Date(result);
+                if (nowMs < createdAt.getTime() + this.options.requestIdExpirationPeriodMs)
+                  foundValidInResponseTo = true;
+              }
+              await this.cacheProvider.removeAsync(inResponseTo);
+              if (!foundValidInResponseTo) {
+                throw new Error("SubjectInResponseTo is not valid");
+              }
+              break getInResponseTo;
+            }
+          }
+        } else {
+          if (subjectConfirmations != null && subjectConfirmation == null) {
+            msg = "No valid subject confirmation found among those available in the SAML assertion";
+            throw new Error(msg);
+          } else {
+            await this.cacheProvider.removeAsync(inResponseTo);
+            break getInResponseTo;
+          }
+        }
+      } else {
+        break getInResponseTo;
+      }
+    }
+    const conditions = assertion.Conditions ? assertion.Conditions[0] : null;
+    if (assertion.Conditions && assertion.Conditions.length > 1) {
+      msg = "Unable to process multiple conditions in SAML assertion";
+      throw new Error(msg);
+    }
+    if (conditions && conditions.$) {
+      const maxTimeLimitMs = this.calcMaxAgeAssertionTime(
+        this.options.maxAssertionAgeMs,
+        conditions.$.NotOnOrAfter,
+        assertion.$.IssueInstant
+      );
+      const conErr = this.checkTimestampsValidityError(
+        nowMs,
+        conditions.$.NotBefore,
+        conditions.$.NotOnOrAfter,
+        maxTimeLimitMs
+      );
+      if (conErr) throw conErr;
+    }
+
+    if (this.options.audience !== false) {
+      const audienceErr = this.checkAudienceValidityError(
+        this.options.audience,
+        conditions.AudienceRestriction
+      );
+      if (audienceErr) throw audienceErr;
+    }
+
+    const attributeStatement = assertion.AttributeStatement;
+    if (attributeStatement) {
+      const attributes: XMLOutput[] = [].concat(
+        ...attributeStatement
+          .filter((attr: XMLObject) => Array.isArray(attr.Attribute))
+          .map((attr: XMLObject) => attr.Attribute)
+      );
+
+      const attrValueMapper = (value: XMLObject) => {
+        const hasChildren = Object.keys(value).some((cur) => {
+          return cur !== "_" && cur !== "$";
+        });
+        return hasChildren ? value : value._;
+      };
+
+      if (attributes.length > 0) {
+        const profileAttributes: Record<string, XMLValue | XMLValue[]> = {};
+
+        attributes.forEach((attribute) => {
+          if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
+            // if attributes has no AttributeValue child, continue
+            return;
+          }
+
+          const name: string = attribute.$.Name;
+          const value: XMLValue | XMLValue[] =
+            attribute.AttributeValue.length === 1
+              ? attrValueMapper(attribute.AttributeValue[0])
+              : attribute.AttributeValue.map(attrValueMapper);
+
+          profileAttributes[name] = value;
+
+          /**
+           * If any property is already present in profile and is also present
+           * in attributes, then skip the one from attributes. Handle this
+           * conflict gracefully without returning any error
+           */
+          if (Object.prototype.hasOwnProperty.call(profile, name)) {
+            return;
+          }
+
+          profile[name] = value;
+        });
+
+        profile.attributes = profileAttributes;
+      }
+    }
+
+    if (!profile.mail && profile["urn:oid:0.9.2342.19200300.100.1.3"]) {
+      /**
+       * See https://spaces.internet2.edu/display/InCFederation/Supported+Attribute+Summary
+       * for definition of attribute OIDs
+       */
+      profile.mail = profile["urn:oid:0.9.2342.19200300.100.1.3"];
+    }
+
+    if (!profile.email && profile.mail) {
+      profile.email = profile.mail;
+    }
+
+    profile.getAssertionXml = () => xml.toString();
+    profile.getAssertion = () => parsedAssertion;
+    profile.getSamlResponseXml = () => samlResponseXml;
+
+    return { profile, loggedOut: false };
+  }
 
   protected checkTimestampsValidityError(
     nowMs: number,
@@ -782,11 +1228,75 @@ class SAML {
     return await this.processValidlySignedPostRequestAsync(doc, dom);
   }
 
-  protected processValidlySignedPostRequestAsync = processValidlySignedPostRequestAsync;
+  protected async processValidlySignedPostRequestAsync(
+    this: SAML,
+    doc: XMLOutput,
+    dom: Document
+  ): Promise<{ profile: Profile; loggedOut: boolean }> {
+    const request = doc.LogoutRequest;
+    if (request) {
+      const profile = {} as Profile;
+      if (request.$.ID) {
+        profile.ID = request.$.ID;
+      } else {
+        throw new Error("Missing SAML LogoutRequest ID");
+      }
+      const issuer = request.Issuer;
+      if (issuer && issuer[0]._) {
+        profile.issuer = issuer[0]._;
+      } else {
+        throw new Error("Missing SAML issuer");
+      }
+      const nameID = await getNameIdAsync(dom, this.options.decryptionPvk ?? null);
+      if (nameID.value) {
+        profile.nameID = nameID.value;
+        if (nameID.format) {
+          profile.nameIDFormat = nameID.format;
+        }
+      } else {
+        throw new Error("Missing SAML NameID");
+      }
+      const sessionIndex = request.SessionIndex;
+      if (sessionIndex) {
+        profile.sessionIndex = sessionIndex[0]._;
+      }
+      return { profile, loggedOut: true };
+    } else {
+      throw new Error("Unknown SAML request message");
+    }
+  }
 
-  protected processValidlySignedSamlLogoutAsync = processValidlySignedSamlLogoutAsync;
+  protected async processValidlySignedSamlLogoutAsync(
+    this: SAML,
+    doc: XMLOutput,
+    dom: Document
+  ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
+    const response = doc.LogoutResponse;
+    const request = doc.LogoutRequest;
 
-  generateServiceProviderMetadata = generateServiceProviderMetadata;
+    if (response) {
+      return { profile: null, loggedOut: true };
+    } else if (request) {
+      return await this.processValidlySignedPostRequestAsync(doc, dom);
+    } else {
+      throw new Error("Unknown SAML response message");
+    }
+  }
+
+  generateServiceProviderMetadata(
+    this: SAML,
+    decryptionCert: string | null,
+    signingCerts?: string | string[] | null
+  ): string {
+    const callbackUrl = this.getCallbackUrl(); // TODO it would probably be useful to have a host parameter here
+
+    return generateServiceProviderMetadata({
+      ...this.options,
+      callbackUrl,
+      decryptionCert,
+      signingCerts,
+    });
+  }
 
   /**
    * Process max age assertion and use it if it is more restrictive than the NotOnOrAfter age
