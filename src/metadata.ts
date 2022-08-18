@@ -46,13 +46,17 @@ export const generateServiceProviderMetadata = (
   } else {
     signingCerts = null;
   }
+  const ID = metadataID ? metadataID.replace(/"|:/g, "") : issuer.replace(/\W/g, "_");
+  if (ID.match(/^[0-9]/)) {
+    throw new TypeError(`${metadataID ? "metadataID" : "issuer"} cannot start with a number`);
+  }
 
   const metadata: ServiceMetadataXML = {
     EntityDescriptor: {
       "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
       "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
       "@entityID": issuer,
-      "@ID": metadataID ? metadataID.replace(/"/g, "") : issuer.replace(/\W/g, "_"),
+      "@ID": ID,
       SPSSODescriptor: {
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
         "@AuthnRequestsSigned": "false",

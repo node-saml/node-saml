@@ -713,6 +713,70 @@ describe("node-saml /", function () {
 
         testMetadata(samlConfig, expectedMetadata);
       });
+      it("generateServiceProviderMetadata contains custom ID - bad ID", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          cert: FAKE_CERT,
+          metadataID: 'test"t:est',
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_custom_bad_ID.xml",
+          "utf-8"
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
+      });
+      it("generateServiceProviderMetadata contains custom ID - incorrect metadataID", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          cert: FAKE_CERT,
+          metadataID: "123test",
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_custom_bad_ID.xml",
+          "utf-8"
+        );
+        try {
+          testMetadata(samlConfig, expectedMetadata);
+        } catch (e) {
+          if (e instanceof TypeError) {
+            expect(e.toString()).to.be.equal("TypeError: metadataID cannot start with a number");
+          } else {
+            expect(true).to.not.exist;
+          }
+        }
+      });
+      it("generateServiceProviderMetadata contains custom ID - incorrect issuer", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "123.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          cert: FAKE_CERT,
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_custom_bad_ID.xml",
+          "utf-8"
+        );
+        try {
+          testMetadata(samlConfig, expectedMetadata);
+        } catch (e) {
+          if (e instanceof TypeError) {
+            expect(e.toString()).to.be.equal("TypeError: issuer cannot start with a number");
+          } else {
+            expect(true).to.not.exist;
+          }
+        }
+      });
     });
 
     describe("validatePostResponse checks /", function () {
