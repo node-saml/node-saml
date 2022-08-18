@@ -176,6 +176,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
       "#text": string;
     }[];
   };
+  metadataID?: string;
 }
 
 export interface GenerateServiceProviderMetadataParams {
@@ -194,6 +195,7 @@ export interface GenerateServiceProviderMetadataParams {
   signMetadata?: SamlOptions["signMetadata"];
   metadataContactPerson?: SamlOptions["metadataContactPerson"];
   metadataOrganization?: SamlOptions["metadataOrganization"];
+  metadataID?: SamlOptions["metadataID"];
 }
 
 export interface StrategyOptions {

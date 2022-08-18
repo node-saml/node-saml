@@ -678,6 +678,41 @@ describe("node-saml /", function () {
 
         testMetadata(samlConfig, expectedMetadata);
       });
+
+      it("generateServiceProviderMetadata contains custom ID", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          cert: FAKE_CERT,
+          metadataID: "test",
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_custom_ID.xml",
+          "utf-8"
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
+      });
+      it("generateServiceProviderMetadata contains custom ID - bad ID", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          cert: FAKE_CERT,
+          metadataID: 'test"test',
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_custom_bad_ID.xml",
+          "utf-8"
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
+      });
     });
 
     describe("validatePostResponse checks /", function () {

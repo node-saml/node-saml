@@ -46,6 +46,7 @@ const saml = new SAML(options);
 - `host`: host for callback; will be combined with path and protocol to construct callback url if `callbackUrl` is not specified (default: `localhost`)
 - `entryPoint`: identity provider entrypoint (is required to be spec-compliant when the request is signed)
 - `issuer`: issuer string to supply to identity provider
+- `metadataID`: string to supply for the field `ID` in the xml metadata file
 - `audience`: expected saml response Audience, defaults to value of Issuer (if `false`, Audience won't be verified)
 - `cert`: the IDP's public signing certificate used to validate the signatures of the incoming SAML Responses, see [Security and signatures](#security-and-signatures)
 - `privateKey`: see [Security and signatures](#security-and-signatures).

@@ -13,6 +13,7 @@ export const generateServiceProviderMetadata = (
 ): string => {
   const {
     issuer,
+    metadataID,
     callbackUrl,
     logoutCallbackUrl,
     identifierFormat,
@@ -51,7 +52,7 @@ export const generateServiceProviderMetadata = (
       "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
       "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
       "@entityID": issuer,
-      "@ID": issuer.replace(/\W/g, "_"),
+      "@ID": metadataID ? metadataID.replace(/"/, "") : issuer.replace(/\W/g, "_"),
       SPSSODescriptor: {
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
         "@AuthnRequestsSigned": "false",
