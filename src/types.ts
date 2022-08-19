@@ -194,6 +194,7 @@ export interface GenerateServiceProviderMetadataParams {
   signMetadata?: SamlOptions["signMetadata"];
   metadataContactPerson?: SamlOptions["metadataContactPerson"];
   metadataOrganization?: SamlOptions["metadataOrganization"];
+  generateUniqueId: SamlOptions["generateUniqueId"];
 }
 
 export interface StrategyOptions {
