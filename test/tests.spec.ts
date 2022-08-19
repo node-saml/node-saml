@@ -711,7 +711,15 @@ describe("node-saml /", function () {
           "utf-8"
         );
 
-        testMetadata(samlConfig, expectedMetadata);
+        try {
+          testMetadata(samlConfig, expectedMetadata);
+        } catch (e) {
+          if (e instanceof TypeError) {
+            expect(e.toString()).to.be.equal('TypeError: metadataID cannot have " or : character');
+          } else {
+            expect(true).to.not.exist;
+          }
+        }
       });
       it("generateServiceProviderMetadata contains custom ID - bad ID", function () {
         const samlConfig: SamlConfig = {
@@ -727,8 +735,15 @@ describe("node-saml /", function () {
           __dirname + "/static/expected_metadata_custom_bad_ID.xml",
           "utf-8"
         );
-
-        testMetadata(samlConfig, expectedMetadata);
+        try {
+          testMetadata(samlConfig, expectedMetadata);
+        } catch (e) {
+          if (e instanceof TypeError) {
+            expect(e.toString()).to.be.equal('TypeError: metadataID cannot have " or : character');
+          } else {
+            expect(true).to.not.exist;
+          }
+        }
       });
       it("generateServiceProviderMetadata contains custom ID - incorrect metadataID", function () {
         const samlConfig: SamlConfig = {
@@ -754,7 +769,7 @@ describe("node-saml /", function () {
           }
         }
       });
-      it("generateServiceProviderMetadata contains custom ID - incorrect issuer", function () {
+      it("generateServiceProviderMetadata contains custom ID - number issuer", function () {
         const samlConfig: SamlConfig = {
           issuer: "123.com",
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
@@ -764,7 +779,7 @@ describe("node-saml /", function () {
         };
 
         const expectedMetadata = fs.readFileSync(
-          __dirname + "/static/expected_metadata_custom_bad_ID.xml",
+          __dirname + "/static/expected_metadata_custom_number_issuer.xml",
           "utf-8"
         );
         try {

@@ -46,10 +46,15 @@ export const generateServiceProviderMetadata = (
   } else {
     signingCerts = null;
   }
-  const ID = metadataID ? metadataID.replace(/"|:/g, "") : issuer.replace(/\W/g, "_");
-  if (ID.match(/^[0-9]/)) {
-    throw new TypeError(`${metadataID ? "metadataID" : "issuer"} cannot start with a number`);
+  if (metadataID?.match(/"|:/)) {
+    throw new TypeError('metadataID cannot have " or : character');
   }
+  if (metadataID?.match(/^[0-9]/)) {
+    throw new TypeError("metadataID cannot start with a number");
+  }
+  const ID =
+    metadataID ||
+    (issuer.match(/^[0-9]/) ? `_${issuer}`.replace(/\W/g, "_") : issuer.replace(/\W/g, "_"));
 
   const metadata: ServiceMetadataXML = {
     EntityDescriptor: {
