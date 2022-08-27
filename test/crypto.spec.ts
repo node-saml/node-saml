@@ -36,7 +36,7 @@ describe("crypto.ts", function () {
   describe("generateUniqueID", function () {
     it("should generate 21 char IDs", function () {
       for (let i = 0; i < 200; i++) {
-        expect(generateUniqueId().length).to.equal(21);
+        expect(generateUniqueId().length).to.equal(41);
       }
     });
   });
