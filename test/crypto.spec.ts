@@ -34,9 +34,11 @@ describe("crypto.ts", function () {
   });
 
   describe("generateUniqueID", function () {
-    it("should generate 21 char IDs", function () {
+    it("should generate 41 char IDs, 160 bits of entropy plus leading _", function () {
       for (let i = 0; i < 200; i++) {
-        expect(generateUniqueId().length).to.equal(21);
+        let id = generateUniqueId();
+        expect(id.startsWith('_'));
+        expect(id.length).to.equal(41);
       }
     });
   });
