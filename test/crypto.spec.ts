@@ -36,7 +36,7 @@ describe("crypto.ts", function () {
   describe("generateUniqueID", function () {
     it("should generate 41 char IDs, 160 bits of entropy plus leading _", function () {
       for (let i = 0; i < 200; i++) {
-        let id = generateUniqueId();
+        const id = generateUniqueId();
         expect(id.startsWith("_"));
         expect(id.length).to.equal(41);
       }
