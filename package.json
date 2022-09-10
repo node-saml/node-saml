@@ -1,6 +1,6 @@
 {
   "name": "@node-saml/node-saml",
-  "version": "4.0.0-beta.3",
+  "version": "4.0.0-beta.4",
   "description": "SAML 2.0 implementation for Node.js",
   "keywords": [
     "saml",
@@ -35,7 +35,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "changelog": "gren changelog --override --generate",
+    "changelog": "gren changelog --override --generate --head master",
     "lint": "eslint --ext .ts \"**/*.ts\" --cache",
     "lint-watch": "onchange -k -p 100 \"**/*.ts\" -- eslint {{file}}",
     "lint:fix": "eslint --ext .ts --fix src",
@@ -43,6 +43,7 @@
     "prettier-check": "prettier --config .prettierrc.json --check .",
     "prettier-format": "prettier --config .prettierrc.json --write .",
     "prettier-watch": "onchange -k -p 100 \".\" -- prettier --config .prettierrc.json --write {{file}}",
+    "prerelease": "npm ci && npm test && npm run build",
     "release": "release-it",
     "test": "npm run prettier-check && npm run lint && npm run tsc && nyc mocha",
     "test-watch": "mocha --watch",
@@ -58,29 +59,29 @@
     "@types/xml2js": "^0.4.11",
     "@xmldom/xmldom": "^0.8.2",
     "debug": "^4.3.4",
-    "express": "^4.18.1",
     "xml-crypto": "^2.1.4",
     "xml-encryption": "^2.0.0",
     "xml2js": "^0.4.23",
     "xmlbuilder": "^15.1.1"
   },
   "devDependencies": {
-    "@cjbarth/github-release-notes": "^1.0.1",
+    "@cjbarth/github-release-notes": "^2.0.0",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
-    "@types/chai": "^4.3.1",
+    "@types/chai": "^4.3.3",
     "@types/mocha": "^9.1.1",
     "@types/node": "^14.18.22",
-    "@types/sinon": "^10.0.12",
-    "@typescript-eslint/eslint-plugin": "^5.30.7",
-    "@typescript-eslint/parser": "^5.30.7",
+    "@types/sinon": "^10.0.13",
+    "@typescript-eslint/eslint-plugin": "^5.36.2",
+    "@typescript-eslint/parser": "^5.36.2",
     "body-parser": "^1.20.0",
     "chai": "^4.3.6",
     "choma": "^1.2.1",
-    "concurrently": "^7.1.0",
-    "eslint": "^8.19.0",
+    "concurrently": "^7.3.0",
+    "eslint": "^8.23.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-deprecation": "^1.3.2",
     "eslint-plugin-prettier": "^4.2.1",
+    "express": "^4.18.1",
     "mocha": "^10.0.0",
     "nyc": "^15.1.0",
     "onchange": "^7.1.0",
@@ -89,7 +90,7 @@
     "release-it": "^15.1.2",
     "sinon": "^14.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^4.7.4"
+    "typescript": "^4.8.3"
   },
   "engines": {
     "node": ">= 14"
