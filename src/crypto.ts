@@ -36,7 +36,7 @@ export const certToPEM = (cert: string): string => {
 };
 
 export const generateUniqueId = (): string => {
-  return "_" + crypto.randomBytes(10).toString("hex");
+  return "_" + crypto.randomBytes(20).toString("hex");
 };
 
 export const removeCertPEMHeaderAndFooter = (certificate: string): string => {
