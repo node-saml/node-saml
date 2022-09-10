@@ -1,14 +1,24 @@
 # Changelog
 
-## master (2022-08-26)
+## master (2022-09-10)
 
 #### 🚀 Minor Changes:
 
+- fix generate unique metadata ID [#158](https://github.com/node-saml/node-saml/pull/158)
 - Include AuthnRequestsSigned attribute in all metadata [#143](https://github.com/node-saml/node-saml/pull/143)
 - Add support for metadata ContactPerson and Organization [#140](https://github.com/node-saml/node-saml/pull/140)
 
 #### 🔗 Dependencies:
 
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.7 to 5.36.2 [#171](https://github.com/node-saml/node-saml/pull/171)
+- [**javascript**] Bump @types/chai from 4.3.1 to 4.3.3 [#172](https://github.com/node-saml/node-saml/pull/172)
+- [**javascript**] Bump @typescript-eslint/parser from 5.30.7 to 5.36.2 [#170](https://github.com/node-saml/node-saml/pull/170)
+- [**javascript**] Bump eslint from 8.19.0 to 8.23.0 [#163](https://github.com/node-saml/node-saml/pull/163)
+- [**javascript**] Bump typescript from 4.7.4 to 4.8.3 [#169](https://github.com/node-saml/node-saml/pull/169)
+- [**javascript**] Bump concurrently from 7.2.2 to 7.3.0 [#136](https://github.com/node-saml/node-saml/pull/136)
+- [**javascript**] Bump @types/sinon from 10.0.12 to 10.0.13 [#134](https://github.com/node-saml/node-saml/pull/134)
+- deps: move express to devDependencies because it is only used in a test. [#161](https://github.com/node-saml/node-saml/pull/161)
+- Update changelog [#162](https://github.com/node-saml/node-saml/pull/162)
 - [**javascript**] Bump @typescript-eslint/parser from 5.30.5 to 5.30.7 [#125](https://github.com/node-saml/node-saml/pull/125)
 - [**javascript**] Bump @types/node from 14.18.16 to 14.18.22 [#124](https://github.com/node-saml/node-saml/pull/124)
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.6 to 5.30.7 [#123](https://github.com/node-saml/node-saml/pull/123)
@@ -57,10 +67,10 @@
 
 #### 💣 Major Changes:
 
+- Make Audience a required setting [#25](https://github.com/node-saml/node-saml/pull/25)
 - Make `issuer` required; remove OneLogin default [#61](https://github.com/node-saml/node-saml/pull/61)
 - Allow to validate InReponseTo only if provided, to support IDP-initiated login [#40](https://github.com/node-saml/node-saml/pull/40)
 - Update packages; bump minimum node to 14 [#45](https://github.com/node-saml/node-saml/pull/45)
-- Make Audience a required setting [#25](https://github.com/node-saml/node-saml/pull/25)
 
 #### 🚀 Minor Changes:
 
@@ -70,6 +80,7 @@
 
 #### 🔗 Dependencies:
 
+- Support Node 18 [#68](https://github.com/node-saml/node-saml/pull/68)
 - [**security**] Upgrade xml-encryption to 2.0.0 (fixes audit issue) [#44](https://github.com/node-saml/node-saml/pull/44)
 - Bump npm from 8.6.0 to 8.11.0 [#88](https://github.com/node-saml/node-saml/pull/88)
 - Update dependencies [#81](https://github.com/node-saml/node-saml/pull/81)
@@ -77,17 +88,16 @@
 - Move dependency types next to dependencies [#73](https://github.com/node-saml/node-saml/pull/73)
 - Remove unused `qs` types [#72](https://github.com/node-saml/node-saml/pull/72)
 - Remove unused request dependency [#71](https://github.com/node-saml/node-saml/pull/71)
-- Support Node 18 [#68](https://github.com/node-saml/node-saml/pull/68)
 
 #### 🐛 Bug Fixes:
 
+- Correctly reset Sinon fake timers [#60](https://github.com/node-saml/node-saml/pull/60)
 - Correct carriage-return entity handling [#38](https://github.com/node-saml/node-saml/pull/38)
 - Make Issuer Required in the Types Too (like it is at runtime) [#90](https://github.com/node-saml/node-saml/pull/90)
 - Bypass for InResponseTo [#87](https://github.com/node-saml/node-saml/pull/87)
 - Fix broken request tests [#86](https://github.com/node-saml/node-saml/pull/86)
 - [**security**] Address polynomial regular expression used on uncontrolled data [#79](https://github.com/node-saml/node-saml/pull/79)
 - Fix issues with cache provider potentially returning expired keys [#59](https://github.com/node-saml/node-saml/pull/59)
-- Correctly reset Sinon fake timers [#60](https://github.com/node-saml/node-saml/pull/60)
 
 #### 📚 Documentation:
 
@@ -96,16 +106,6 @@
 
 #### ⚙️ Technical Tasks:
 
-- remove warnings related to loggedOut in tests [#55](https://github.com/node-saml/node-saml/pull/55)
-- fix a linting warning by adding a return type [#56](https://github.com/node-saml/node-saml/pull/56)
-- Enable `assertRequired` to type narrow [#62](https://github.com/node-saml/node-saml/pull/62)
-- Simplify configs for compilation and release [#92](https://github.com/node-saml/node-saml/pull/92)
-- [Split saml.ts #1] Move getAdditionalParams out of saml.ts [#32](https://github.com/node-saml/node-saml/pull/32)
-- Move to NPM organization [#91](https://github.com/node-saml/node-saml/pull/91)
-- Factor out metadata routines [#78](https://github.com/node-saml/node-saml/pull/78)
-- Clear up ambiguous branch [#80](https://github.com/node-saml/node-saml/pull/80)
-- Tighten `any` type [#77](https://github.com/node-saml/node-saml/pull/77)
-- Add code coverage [#74](https://github.com/node-saml/node-saml/pull/74)
 - Clean up exception messages and related tests [#69](https://github.com/node-saml/node-saml/pull/69)
 - Saml options typing [#66](https://github.com/node-saml/node-saml/pull/66)
 - Stop using import assignments [#65](https://github.com/node-saml/node-saml/pull/65)
@@ -120,6 +120,16 @@
 - removes an unused variable in a test [#52](https://github.com/node-saml/node-saml/pull/52)
 - remove useless any type declaration [#53](https://github.com/node-saml/node-saml/pull/53)
 - Remove useless not null assertions [#54](https://github.com/node-saml/node-saml/pull/54)
+- remove warnings related to loggedOut in tests [#55](https://github.com/node-saml/node-saml/pull/55)
+- fix a linting warning by adding a return type [#56](https://github.com/node-saml/node-saml/pull/56)
+- Enable `assertRequired` to type narrow [#62](https://github.com/node-saml/node-saml/pull/62)
+- Simplify configs for compilation and release [#92](https://github.com/node-saml/node-saml/pull/92)
+- [Split saml.ts #1] Move getAdditionalParams out of saml.ts [#32](https://github.com/node-saml/node-saml/pull/32)
+- Move to NPM organization [#91](https://github.com/node-saml/node-saml/pull/91)
+- Factor out metadata routines [#78](https://github.com/node-saml/node-saml/pull/78)
+- Clear up ambiguous branch [#80](https://github.com/node-saml/node-saml/pull/80)
+- Tighten `any` type [#77](https://github.com/node-saml/node-saml/pull/77)
+- Add code coverage [#74](https://github.com/node-saml/node-saml/pull/74)
 
 ---
 
