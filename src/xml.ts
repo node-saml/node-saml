@@ -8,6 +8,7 @@ import {
   isValidSamlSigningOptions,
   NameID,
   SamlSigningOptions,
+  XMLOutput,
   XmlSignatureLocation,
 } from "./types";
 import * as algorithms from "./algorithms";
@@ -186,7 +187,7 @@ export const parseDomFromString = (xml: string): Document => {
   return new xmldom.DOMParser().parseFromString(xml);
 };
 
-export const parseXml2JsFromString = async (xml: string | Buffer): Promise<any> => {
+export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XMLOutput> => {
   const parserConfig = {
     explicitRoot: true,
     explicitCharkey: true,
@@ -196,7 +197,7 @@ export const parseXml2JsFromString = async (xml: string | Buffer): Promise<any> 
   return parser.parseStringPromise(xml);
 };
 
-export const buildXml2JsObject = (rootName: string, xml: any): string => {
+export const buildXml2JsObject = (rootName: string, xml: XMLOutput): string => {
   const builderOpts = {
     rootName,
     headless: true,
@@ -204,7 +205,7 @@ export const buildXml2JsObject = (rootName: string, xml: any): string => {
   return new xml2js.Builder(builderOpts).buildObject(xml);
 };
 
-export const buildXmlBuilderObject = (xml: Record<string, any>, pretty: boolean): string => {
+export const buildXmlBuilderObject = (xml: XMLOutput, pretty: boolean): string => {
   const options = pretty ? { pretty: true, indent: "  ", newline: "\n" } : {};
   return xmlbuilder.create(xml).end(options);
 };
