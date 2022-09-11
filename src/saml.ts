@@ -103,7 +103,7 @@ class SAML {
       allowCreate: ctorOptions.allowCreate ?? true,
       spNameQualifier: ctorOptions.spNameQualifier,
       wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? false,
-      wantAuthenticationResponseSigned: ctorOptions.wantAuthenticationResponseSigned ?? false,
+      wantAuthenticationResponseSigned: ctorOptions.wantAuthenticationResponseSigned ?? true,
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],

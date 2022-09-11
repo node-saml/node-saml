@@ -23,7 +23,12 @@ describe("Signatures", function () {
       options: Partial<SamlConfig> = {}
     ) => {
       //== Instantiate new instance before every test
-      const samlObj = new SAML({ cert, issuer: options.issuer ?? "onesaml_login", ...options });
+      const samlObj = new SAML({
+        cert,
+        issuer: options.issuer ?? "onesaml_login",
+        wantAuthenticationResponseSigned: false,
+        ...options,
+      });
       //== Spy on `validateSignature` to be able to count how many times it has been called
       const validateSignatureSpy = sinon.spy(xml, "validateSignature");
 
