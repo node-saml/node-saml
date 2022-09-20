@@ -26,7 +26,7 @@ describe("Signatures", function () {
       const samlObj = new SAML({
         cert,
         issuer: options.issuer ?? "onesaml_login",
-        wantAuthenticationResponseSigned: false,
+        wantAuthnResponseSigned: false,
         ...options,
       });
 
@@ -89,7 +89,7 @@ describe("Signatures", function () {
         INVALID_DOCUMENT_SIGNATURE,
         1,
         {
-          wantAuthenticationResponseSigned: true,
+          wantAuthnResponseSigned: true,
           issuer: "onesaml_login",
         }
       )

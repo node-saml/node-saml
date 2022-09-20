@@ -700,7 +700,7 @@ describe("node-saml /", function () {
         const samlObj = new SAML({
           cert: "-----BEGIN CERTIFICATE-----" + TEST_CERT + "-----END CERTIFICATE-----",
           issuer: "onesaml_login",
-          wantAuthenticationResponseSigned: false,
+          wantAuthnResponseSigned: false,
         });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: /Responder.*Required NameID format not supported/,
@@ -715,7 +715,7 @@ describe("node-saml /", function () {
         const samlObj = new SAML({
           cert: FAKE_CERT,
           issuer: "onesaml_login",
-          wantAuthenticationResponseSigned: false,
+          wantAuthnResponseSigned: false,
         });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: /Responder.*InvalidNameIDPolicy/,
@@ -916,7 +916,7 @@ describe("node-saml /", function () {
                 cert: TEST_CERT,
                 validateInResponseTo,
                 issuer: "onesaml_login",
-                wantAuthenticationResponseSigned: false,
+                wantAuthnResponseSigned: false,
               };
               const samlObj = new SAML(samlConfig);
 
@@ -954,13 +954,13 @@ describe("node-saml /", function () {
           cert: TEST_CERT,
           audience: false,
           issuer: "onesaml_login",
-          wantAuthenticationResponseSigned: false,
+          wantAuthnResponseSigned: false,
         };
         const noAudienceSamlConfig: SamlConfig = {
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: TEST_CERT,
           issuer: "onesaml_login",
-          wantAuthenticationResponseSigned: false,
+          wantAuthnResponseSigned: false,
         };
         const noCertSamlConfig: SamlConfig = {
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
@@ -1207,7 +1207,7 @@ describe("node-saml /", function () {
             cert: [ALT_TEST_CERT, TEST_CERT],
             audience: false,
             issuer: "onesaml_login",
-            wantAuthenticationResponseSigned: false,
+            wantAuthnResponseSigned: false,
           };
           const xml =
             '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
@@ -1231,7 +1231,7 @@ describe("node-saml /", function () {
             },
             audience: false,
             issuer: "onesaml_login",
-            wantAuthenticationResponseSigned: false,
+            wantAuthnResponseSigned: false,
           };
           const xml =
             '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
@@ -1255,7 +1255,7 @@ describe("node-saml /", function () {
             },
             audience: false,
             issuer: "onesaml_login",
-            wantAuthenticationResponseSigned: false,
+            wantAuthnResponseSigned: false,
           };
           const xml =
             '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
@@ -1371,7 +1371,7 @@ describe("node-saml /", function () {
           const samlObj = new SAML({
             cert: TEST_CERT,
             issuer: "onesaml_login",
-            wantAuthenticationResponseSigned: false,
+            wantAuthnResponseSigned: false,
           });
           await assert.rejects(samlObj.validatePostResponseAsync(container), {
             message: "Invalid signature",
@@ -1835,7 +1835,7 @@ describe("node-saml /", function () {
                 validateInResponseTo,
                 audience: false,
                 issuer: "onesaml_login",
-                wantAuthenticationResponseSigned: false,
+                wantAuthnResponseSigned: false,
               };
               const samlObj = new SAML(samlConfig);
 
@@ -1955,7 +1955,7 @@ describe("node-saml /", function () {
                 validateInResponseTo,
                 audience: false,
                 issuer: "onesaml_login",
-                wantAuthenticationResponseSigned: false,
+                wantAuthnResponseSigned: false,
               };
               const samlObj = new SAML(samlConfig);
 
@@ -2016,7 +2016,7 @@ describe("node-saml /", function () {
           validateInResponseTo: ValidateInResponseTo.never,
           audience: false,
           issuer: "onesaml_login",
-          wantAuthenticationResponseSigned: false,
+          wantAuthnResponseSigned: false,
         };
         const samlObj = new SAML(samlConfig);
 
@@ -2069,7 +2069,7 @@ describe("node-saml /", function () {
         cert: TEST_CERT,
         audience: false,
         issuer: "onesaml_login",
-        wantAuthenticationResponseSigned: false,
+        wantAuthnResponseSigned: false,
       };
       let fakeClock: sinon.SinonFakeTimers;
 
@@ -2216,7 +2216,7 @@ describe("node-saml /", function () {
           acceptedClockSkewMs: -1,
           audience: false,
           issuer: "onesaml_login",
-          wantAuthenticationResponseSigned: false,
+          wantAuthnResponseSigned: false,
         };
         const samlObj = new SAML(samlConfig);
 
