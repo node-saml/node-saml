@@ -77,6 +77,7 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.disableRequestAcsUrl);
     assertBooleanIfPresent(ctorOptions.allowCreate);
     assertBooleanIfPresent(ctorOptions.wantAssertionsSigned);
+    assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
 
     const options: SamlOptions = {
@@ -102,6 +103,7 @@ class SAML {
       allowCreate: ctorOptions.allowCreate ?? true,
       spNameQualifier: ctorOptions.spNameQualifier,
       wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? false,
+      wantAuthnResponseSigned: ctorOptions.wantAuthnResponseSigned ?? true,
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],
@@ -690,6 +692,10 @@ class SAML {
       let validSignature = false;
       if (validateSignature(xml, doc.documentElement, certs)) {
         validSignature = true;
+      }
+
+      if (this.options.wantAuthnResponseSigned === true && validSignature === false) {
+        throw new Error("Invalid document signature");
       }
 
       const assertions = xpath.selectElements(

@@ -10,6 +10,7 @@ const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
 describe("Signatures", function () {
   const INVALID_SIGNATURE = "Invalid signature",
+    INVALID_DOCUMENT_SIGNATURE = "Invalid document signature",
     INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion",
     INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms",
     createBody = (pathToXml: string) => ({
@@ -22,18 +23,26 @@ describe("Signatures", function () {
       options: Partial<SamlConfig> = {}
     ) => {
       //== Instantiate new instance before every test
-      const samlObj = new SAML({ cert, issuer: options.issuer ?? "onesaml_login", ...options });
+      const samlObj = new SAML({
+        cert,
+        issuer: options.issuer ?? "onesaml_login",
+        wantAuthnResponseSigned: false,
+        ...options,
+      });
+
       //== Spy on `validateSignature` to be able to count how many times it has been called
       const validateSignatureSpy = sinon.spy(xml, "validateSignature");
 
-      //== Run the test in `func`
-      await assert.rejects(samlObj.validatePostResponseAsync(samlResponseBody), {
-        message: shouldErrorWith || "SAML assertion expired: clocks skewed too much",
-      });
-      //== Assert times `validateSignature` was called
-      expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
-
-      validateSignatureSpy.restore();
+      try {
+        //== Run the test in `func`
+        await assert.rejects(samlObj.validatePostResponseAsync(samlResponseBody), {
+          message: shouldErrorWith || "SAML assertion expired: clocks skewed too much",
+        });
+        //== Assert times `validateSignature` was called
+        expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
+      } finally {
+        validateSignatureSpy.restore();
+      }
     },
     testOneResponse = (
       pathToXml: string,
@@ -58,6 +67,12 @@ describe("Signatures", function () {
       testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 1)
     );
     it(
+      "R1A - root signed, root signiture required => valid",
+      testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", false, 1, {
+        issuer: "onesaml_login",
+      })
+    );
+    it(
       "R1A - root signed => valid",
       testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", false, 1)
     );
@@ -67,6 +82,18 @@ describe("Signatures", function () {
     );
 
     //== INVALID
+    it(
+      "R1A - root not signed, but required, asrt signed => error",
+      testOneResponse(
+        "/valid/response.root-unsigned.assertion-signed.xml",
+        INVALID_DOCUMENT_SIGNATURE,
+        1,
+        {
+          wantAuthnResponseSigned: true,
+          issuer: "onesaml_login",
+        }
+      )
+    );
     it(
       "R1A - none signed => error",
       testOneResponse(
