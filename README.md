@@ -59,7 +59,7 @@ const saml = new SAML(options);
 - `identifierFormat`: optional name identifier format to request from identity provider (default: `urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`)
 - `allowCreate`: grants permission to the identity provider to create a new subject identifier (default: `true`)
 - `spNameQualifier`: optionally specifies that the assertion subject's identifier be returned (or created) in the namespace of another service provider, or in the namespace of an affiliation of service providers
-- `wantAssertionsSigned`: if truthy, add `WantAssertionsSigned="true"` to the metadata, to specify that the IdP should always sign the assertions.
+- `wantAssertionsSigned`: if true, add `WantAssertionsSigned="true"` to the metadata, to specify that the IdP should always sign the assertions. It is on by default.
 - `wantAuthnResponseSigned`: if true, require that all incoming authentication response messages be signed at the top level, not just at the assertions. It is on by default.
 - `acceptedClockSkewMs`: Time in milliseconds of skew that is acceptable between client and server when checking `OnBefore` and `NotOnOrAfter` assertion condition validity timestamps. Setting to `-1` will disable checking these conditions entirely. Default is `0`.
 - `maxAssertionAgeMs`: Amount of time after which the framework should consider an assertion expired. If the limit imposed by this variable is stricter than the limit imposed by `NotOnOrAfter`, this limit will be used when determining if an assertion is expired.

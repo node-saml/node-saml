@@ -26,6 +26,7 @@ describe("Signatures", function () {
       const samlObj = new SAML({
         cert,
         issuer: options.issuer ?? "onesaml_login",
+        wantAssertionsSigned: false,
         wantAuthnResponseSigned: false,
         ...options,
       });
