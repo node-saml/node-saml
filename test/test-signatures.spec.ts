@@ -9,59 +9,77 @@ import { expect } from "chai";
 const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
 describe("Signatures", function () {
-  const INVALID_SIGNATURE = "Invalid signature",
-    INVALID_DOCUMENT_SIGNATURE = "Invalid document signature",
-    INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion",
-    INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms",
-    createBody = (pathToXml: string) => ({
-      SAMLResponse: fs.readFileSync(__dirname + "/static/signatures" + pathToXml, "base64"),
-    }),
-    testOneResponseBody = async (
-      samlResponseBody: Record<string, string>,
-      shouldErrorWith: string | false | undefined,
-      amountOfSignatureChecks = 1,
-      options: Partial<SamlConfig> = {}
-    ) => {
-      //== Instantiate new instance before every test
-      const samlObj = new SAML({
-        cert,
-        issuer: options.issuer ?? "onesaml_login",
-        wantAssertionsSigned: false,
-        wantAuthnResponseSigned: false,
-        ...options,
-      });
+  const INVALID_SIGNATURE = "Invalid signature";
+  const INVALID_DOCUMENT_SIGNATURE = "Invalid document signature";
+  const INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion";
+  const INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms";
 
-      //== Spy on `validateSignature` to be able to count how many times it has been called
-      const validateSignatureSpy = sinon.spy(xml, "validateSignature");
+  const createBody = (pathToXml: string) => ({
+    SAMLResponse: fs.readFileSync(__dirname + "/static/signatures" + pathToXml, "base64"),
+  });
 
-      try {
-        //== Run the test in `func`
+  const testOneResponseBody = async (
+    samlResponseBody: Record<string, string>,
+    shouldErrorWith: string | false | undefined,
+    amountOfSignatureChecks = 1,
+    options: Partial<SamlConfig> = {}
+  ) => {
+    //== Instantiate new instance before every test
+    const samlObj = new SAML({
+      cert,
+      issuer: options.issuer ?? "onesaml_login",
+      audience: false,
+      wantAssertionsSigned: false,
+      wantAuthnResponseSigned: false,
+      ...options,
+    });
+
+    //== Spy on `validateSignature` to be able to count how many times it has been called
+    const validateSignatureSpy = sinon.spy(xml, "validateSignature");
+
+    try {
+      //== Run the test in `func`
+      if (shouldErrorWith === false) {
+        await assert.doesNotReject(samlObj.validatePostResponseAsync(samlResponseBody));
+      } else {
         await assert.rejects(samlObj.validatePostResponseAsync(samlResponseBody), {
-          message: shouldErrorWith || "SAML assertion expired: clocks skewed too much",
+          message: shouldErrorWith,
         });
-        //== Assert times `validateSignature` was called
-        expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
-      } finally {
-        validateSignatureSpy.restore();
       }
-    },
-    testOneResponse = (
-      pathToXml: string,
-      shouldErrorWith: string | false,
-      amountOfSignaturesChecks: number | undefined,
-      options?: Partial<SamlConfig>
-    ) => {
-      //== Create a body based on an XML and run the test
-      return async () =>
-        await testOneResponseBody(
-          createBody(pathToXml),
-          shouldErrorWith,
-          amountOfSignaturesChecks,
-          options
-        );
-    };
+      //== Assert times `validateSignature` was called
+      expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
+    } finally {
+      validateSignatureSpy.restore();
+    }
+  };
+
+  const testOneResponse = (
+    pathToXml: string,
+    shouldErrorWith: string | false,
+    amountOfSignaturesChecks: number | undefined,
+    options?: Partial<SamlConfig>
+  ) => {
+    //== Create a body based on an XML and run the test
+    return async () =>
+      await testOneResponseBody(
+        createBody(pathToXml),
+        shouldErrorWith,
+        amountOfSignaturesChecks,
+        options
+      );
+  };
 
   describe("Signatures on saml:Response - Only 1 saml:Assertion", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
     //== VALID
     it(
       "R1A - both signed => valid",
@@ -70,7 +88,7 @@ describe("Signatures", function () {
     it(
       "R1A - root signed, root signiture required => valid",
       testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", false, 1, {
-        issuer: "onesaml_login",
+        wantAuthnResponseSigned: true,
       })
     );
     it(
@@ -91,7 +109,6 @@ describe("Signatures", function () {
         1,
         {
           wantAuthnResponseSigned: true,
-          issuer: "onesaml_login",
         }
       )
     );
@@ -119,7 +136,6 @@ describe("Signatures", function () {
       "R1A - root signed - wantAssertionsSigned=true => error",
       testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", INVALID_SIGNATURE, 2, {
         wantAssertionsSigned: true,
-        issuer: "onesaml_login",
       })
     );
     it(
@@ -131,7 +147,6 @@ describe("Signatures", function () {
         {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           wantAssertionsSigned: true,
-          issuer: "onesaml_login",
         }
       )
     );
@@ -143,7 +158,6 @@ describe("Signatures", function () {
         2,
         {
           wantAssertionsSigned: true,
-          issuer: "onesaml_login",
         }
       )
     );
@@ -156,7 +170,6 @@ describe("Signatures", function () {
         {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           wantAssertionsSigned: true,
-          issuer: "onesaml_login",
         }
       )
     );
@@ -179,6 +192,16 @@ describe("Signatures", function () {
   });
 
   describe("Signatures on saml:Response - 1 saml:Assertion + 1 saml:Advice containing 1 saml:Assertion", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
     //== VALID
     it(
       "R1A1Ad - signed root+asrt+advi => valid",
@@ -261,6 +284,16 @@ describe("Signatures", function () {
   });
 
   describe("Signatures on saml:Response - 1 saml:Assertion + 1 saml:Advice containing 2 saml:Assertion", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
     //== VALID
     it(
       "R1A2Ad - signed root+asrt+advi => valid",
@@ -315,6 +348,16 @@ describe("Signatures", function () {
   });
 
   describe("Signature on saml:Response with non-LF line endings", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
     const samlResponseXml = fs
       .readFileSync(
         __dirname + "/static/signatures/valid/response.root-signed.assertion-signed.xml"
@@ -334,6 +377,16 @@ describe("Signatures", function () {
   });
 
   describe("Signature on saml:Response with XML-encoded carriage returns", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
     it(
       "Attribute with with &#13;",
       testOneResponse("/valid/response.root-signed.assertion-unsigned-13.xml", false, 1)
