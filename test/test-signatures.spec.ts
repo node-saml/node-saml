@@ -95,6 +95,13 @@ describe("Signatures", function () {
         wantAuthnResponseSigned: false,
       })
     );
+    it(
+      "R1A - asrt signed, neither wanted => valid",
+      testOneResponse("/valid/response.root-unsigned.assertion-signed.xml", false, 2, {
+        wantAuthnResponseSigned: false,
+        wantAssertionsSigned: false,
+      })
+    );
 
     //== INVALID
     it(
@@ -111,6 +118,18 @@ describe("Signatures", function () {
         "/invalid/response.root-unsigned.assertion-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1
+      )
+    );
+    it(
+      "R1A - none signed, none wanted => error",
+      testOneResponse(
+        "/invalid/response.root-unsigned.assertion-unsigned.xml",
+        INVALID_SIGNATURE,
+        2,
+        {
+          wantAuthnResponseSigned: false,
+          wantAssertionsSigned: false,
+        }
       )
     );
     it(
