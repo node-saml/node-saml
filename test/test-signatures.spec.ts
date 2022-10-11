@@ -67,6 +67,17 @@ describe("Signatures", function () {
       );
   };
 
+  describe("Signatures - multiple roots are considered invalid", () => {
+    it(
+      "multiple roots => invalid",
+      testOneResponse(
+        "/invalid/response.root-signed.multiple-root-elements.xml",
+        INVALID_DOCUMENT_SIGNATURE,
+        1
+      )
+    );
+  });
+
   describe("Signatures on saml:Response - Only 1 saml:Assertion", () => {
     let fakeClock: sinon.SinonFakeTimers;
 
