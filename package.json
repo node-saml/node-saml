@@ -65,7 +65,7 @@
     "xmlbuilder": "^15.1.1"
   },
   "devDependencies": {
-    "@cjbarth/github-release-notes": "^2.0.0",
+    "@cjbarth/github-release-notes": "^2.1.0",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@types/chai": "^4.3.3",
     "@types/mocha": "^9.1.1",
