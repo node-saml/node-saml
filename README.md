@@ -64,7 +64,7 @@ const saml = new SAML(options);
 - `acceptedClockSkewMs`: Time in milliseconds of skew that is acceptable between client and server when checking `OnBefore` and `NotOnOrAfter` assertion condition validity timestamps. Setting to `-1` will disable checking these conditions entirely. Default is `0`.
 - `maxAssertionAgeMs`: Amount of time after which the framework should consider an assertion expired. If the limit imposed by this variable is stricter than the limit imposed by `NotOnOrAfter`, this limit will be used when determining if an assertion is expired.
 - `attributeConsumingServiceIndex`: optional `AttributeConsumingServiceIndex` attribute to add to AuthnRequest to instruct the IDP which attribute set to attach to the response ([link](http://blog.aniljohn.com/2014/01/data-minimization-front-channel-saml-attribute-requests.html))
-- `disableRequestedAuthnContext`: if truthy, do not request a specific authentication context. This is [known to help when authenticating against Active Directory](https://github.com/node-saml/passport-saml/issues/226) (AD FS) servers.
+- `disableRequestedAuthnContext`: if truthy, do not request a specific authentication context.
 - `authnContext`: if truthy, name identifier format to request auth context (default: `urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport`); array of values is also supported
 - `racComparison`: Requested Authentication Context comparison type. Possible values are 'exact','minimum','maximum','better'. Default is 'exact'.
 
@@ -175,9 +175,9 @@ The `signingCert` argument should be a public certificate matching the `privateK
 
 ## Security and signatures
 
-Passport-SAML uses the HTTP Redirect Binding for its `AuthnRequest`s (unless overridden with the `authnRequestBinding` parameter), and expects to receive the messages back via the HTTP POST binding.
+Node-SAML uses the HTTP Redirect Binding for its `AuthnRequest`s (unless overridden with the `authnRequestBinding` parameter), and expects to receive the messages back via the HTTP POST binding.
 
-Authentication requests sent by Passport-SAML can be signed using RSA signature with SHA1, SHA256 or SHA512 hashing algorithms.
+Authentication requests sent by Node-SAML can be signed using RSA signature with SHA1, SHA256 or SHA512 hashing algorithms.
 
 To select hashing algorithm, use:
 
@@ -246,44 +246,25 @@ The `cert` configuration key can also be a function that receives a callback as 
     cert: function(callback) { callback(null,polledCertificates); }
 ```
 
-## Usage with Active Directory Federation Services
-
-Here is a configuration that has been proven to work with ADFS:
-
-```javascript
-  {
-    entryPoint: 'https://ad.example.net/adfs/ls/',
-    issuer: 'https://your-app.example.net/login/callback',
-    callbackUrl: 'https://your-app.example.net/login/callback',
-    cert: 'MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==',
-    authnContext: 'http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/windows',
-    identifierFormat: null
-  }
-```
-
-Please note that ADFS needs to have a trust established to your service in order for this to work.
-
-For more detailed instructions, see [ADFS documentation](docs/adfs/README.md).
-
 ## SAML Response Validation - NotBefore and NotOnOrAfter
 
-If the `NotBefore` or the `NotOnOrAfter` attributes are returned in the SAML response, Passport-SAML will validate them
+If the `NotBefore` or the `NotOnOrAfter` attributes are returned in the SAML response, Node-SAML will validate them
 against the current time +/- a configurable clock skew value. The default for the skew is 0s. This is to account for
-differences between the clock time on the client (Node server with Passport-SAML) and the server (Identity provider).
+differences between the clock time on the client (Node server with Node-SAML) and the server (Identity provider).
 
 `NotBefore` and `NotOnOrAfter` can be part of either the `SubjectConfirmation` element, or within in the `Assertion/Conditions` element
 in the SAML response.
 
 ## Subject confirmation validation
 
-When configured (turn `validateInResponseTo` to `always` in the Passport-SAML config), the `InResponseTo` attribute will be validated.
-Validation will succeed if Passport-SAML previously generated a SAML request with an id that matches the value of `InResponseTo`.
+When configured (turn `validateInResponseTo` to `always` in the Node-SAML config), the `InResponseTo` attribute will be validated.
+Validation will succeed if Node-SAML previously generated a SAML request with an id that matches the value of `InResponseTo`.
 
 Also note that `InResponseTo` is validated as an attribute of the top level `Response` element in the SAML response, as well
 as part of the `SubjectConfirmation` element.
 
 Previous request id's generated for SAML requests will eventually expire. This is controlled with the `requestIdExpirationPeriodMs` option
-passed into the Passport-SAML config. The default is 28,800,000 ms (8 hours). Once expired, a subsequent SAML response
+passed into the Node-SAML config. The default is 28,800,000 ms (8 hours). Once expired, a subsequent SAML response
 received with an `InResponseTo` equal to the expired id will not validate and an error will be returned.
 
 ## Cache Provider
@@ -310,7 +291,7 @@ interface CacheProvider {
 
 ## SLO (single logout)
 
-Passport-SAML has built in support for SLO including
+Node-SAML has built in support for SLO including
 
 - Signature validation
 - IdP initiated and SP initiated logouts
