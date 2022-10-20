@@ -1,4 +1,5 @@
 "use strict";
+import * as sinon from "sinon";
 import { URL } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
@@ -18,6 +19,7 @@ describe("SAML.js", function () {
         logoutUrl: "https://exampleidp.com/path?key=value",
         cert: FAKE_CERT,
         issuer: "onesaml_login",
+        generateUniqueId: () => "uniqueId",
       });
       req = {
         protocol: "https",
@@ -186,6 +188,32 @@ describe("SAML.js", function () {
             assertRequired(target);
             const parsed = new URL(target);
             expect(parsed.searchParams.get("SAMLResponse")).to.not.be.empty;
+            done();
+          } catch (err2) {
+            done(err2);
+          }
+        });
+      });
+    });
+
+    describe("getLogoutResponseUrlAsync", function () {
+      let fakeClock: sinon.SinonFakeTimers;
+
+      beforeEach(function () {
+        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      });
+
+      afterEach(function () {
+        fakeClock.restore();
+      });
+
+      it("resolves with the same target as getLogoutResponseUrl", function (done) {
+        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, async function (err, cbTarget) {
+          try {
+            const asyncTarget = await saml.getLogoutResponseUrlAsync(req.samlLogoutRequest, "", {}, true);
+            assertRequired(cbTarget);
+            assertRequired(asyncTarget);
+            assert.strictEqual(asyncTarget, cbTarget);
             done();
           } catch (err2) {
             done(err2);
