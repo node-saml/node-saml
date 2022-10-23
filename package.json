@@ -57,7 +57,7 @@
     "@types/xml-crypto": "^1.4.2",
     "@types/xml-encryption": "^1.2.1",
     "@types/xml2js": "^0.4.11",
-    "@xmldom/xmldom": "^0.8.2",
+    "@xmldom/xmldom": "^0.8.3",
     "debug": "^4.3.4",
     "xml-crypto": "^2.1.4",
     "xml-encryption": "^2.0.0",
