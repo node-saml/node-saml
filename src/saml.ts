@@ -677,6 +677,14 @@ class SAML {
       if (!Object.prototype.hasOwnProperty.call(doc, "documentElement"))
         throw new Error("SAMLResponse is not valid base64-encoded XML");
 
+      if (
+        Array.from(doc.childNodes as NodeListOf<Element>).filter(
+          (n) => n.tagName != null && n.childNodes != null
+        ).length !== 1
+      ) {
+        throw new Error("Malformed XML; multiple roots detected");
+      }
+
       const inResponseToNodes = xpath.selectAttributes(
         doc,
         "/*[local-name()='Response']/@InResponseTo"
@@ -690,12 +698,7 @@ class SAML {
       const certs = await this.certsToCheck();
       // Check if this document has a valid top-level signature which applies to the entire XML document
       let validSignature = false;
-      if (
-        validateSignature(xml, doc.documentElement, certs) &&
-        Array.from(doc.childNodes as NodeListOf<Element>).filter(
-          (n) => n.tagName != null && n.childNodes != null
-        ).length === 1
-      ) {
+      if (validateSignature(xml, doc.documentElement, certs)) {
         validSignature = true;
       }
 

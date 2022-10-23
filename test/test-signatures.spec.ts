@@ -10,6 +10,7 @@ const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
 describe("Signatures", function () {
   const INVALID_SIGNATURE = "Invalid signature";
+  const INVALID_DOCUMENT = "Malformed XML; multiple roots detected";
   const INVALID_DOCUMENT_SIGNATURE = "Invalid document signature";
   const INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion";
   const INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms";
@@ -72,8 +73,8 @@ describe("Signatures", function () {
       "multiple roots => invalid",
       testOneResponse(
         "/invalid/response.root-signed.multiple-root-elements.xml",
-        INVALID_DOCUMENT_SIGNATURE,
-        1
+        INVALID_DOCUMENT,
+        0
       )
     );
   });
