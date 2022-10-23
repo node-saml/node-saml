@@ -620,7 +620,7 @@ class SAML {
     )(callback);
   }
 
-  protected async getLogoutResponseUrlAsync(
+  async getLogoutResponseUrlAsync(
     samlLogoutRequest: Profile,
     RelayState: string,
     options: AuthenticateOptions & AuthorizeOptions,
