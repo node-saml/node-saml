@@ -612,7 +612,7 @@ describe("node-saml /", function () {
         expect(metadata).to.contain('AuthnRequestsSigned="true"');
       });
 
-      it("signMetadata creates a valid signature", function () {
+      it("signMetadata creates a valid signature", async function () {
         const samlConfig: SamlConfig = {
           cert: TEST_CERT,
           issuer: "http://example.serviceprovider.com",
@@ -629,7 +629,7 @@ describe("node-saml /", function () {
 
         const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
 
-        const dom = parseDomFromString(metadata);
+        const dom = await parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
       });
 
@@ -692,7 +692,7 @@ describe("node-saml /", function () {
       it("response with junk content should explain the XML or base64 is not valid", async () => {
         const samlObj = new SAML({ cert: TEST_CERT, issuer: "onesaml_login" });
         await assert.rejects(samlObj.validatePostResponseAsync({ SAMLResponse: "BOOM" }), {
-          message: "SAMLResponse is not valid base64-encoded XML",
+          message: "Not a valid XML document",
         });
       });
       it("response with error status message should generate appropriate error", async () => {
@@ -2526,14 +2526,28 @@ describe("node-saml /", function () {
       });
     });
 
-    it("errors if bad xml", async function () {
+    it("errors if not xml", async function () {
       const body = {
         SAMLRequest: "asdf",
       };
       await assert.rejects(samlObj.validatePostRequestAsync(body), {
-        message: /^Non-whitespace before first tag.\n/,
+        message: "Not a valid XML document",
       });
     });
+
+    it("errors if bad xml", async function () {
+      const badXml =
+        '<xml xmlns="a" xmlns:c="./lite">\n' +
+        "\t<child>test</child>\n" +
+        "\t<child22><<</child>\n" +
+        "\t<child/>\n" +
+        "</xml>";
+      await assert.rejects(parseDomFromString(badXml), {
+        message:
+          "[xmldom error]\telement parse error: Error: invalid tagName:<<\n" + "@#[line:3,col:11]",
+      });
+    });
+
     it("errors if bad signature", async () => {
       const body = {
         SAMLRequest: fs.readFileSync(
@@ -2545,6 +2559,7 @@ describe("node-saml /", function () {
         message: "Invalid signature on documentElement",
       });
     });
+
     it("returns profile for valid signature", async () => {
       const body = {
         SAMLRequest: fs.readFileSync(
