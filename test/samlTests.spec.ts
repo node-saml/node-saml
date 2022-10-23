@@ -208,17 +208,28 @@ describe("SAML.js", function () {
       });
 
       it("resolves with the same target as getLogoutResponseUrl", function (done) {
-        saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, async function (err, cbTarget) {
-          try {
-            const asyncTarget = await saml.getLogoutResponseUrlAsync(req.samlLogoutRequest, "", {}, true);
-            assertRequired(cbTarget);
-            assertRequired(asyncTarget);
-            assert.strictEqual(asyncTarget, cbTarget);
-            done();
-          } catch (err2) {
-            done(err2);
+        saml.getLogoutResponseUrl(
+          req.samlLogoutRequest,
+          "",
+          {},
+          true,
+          async function (err, cbTarget) {
+            try {
+              const asyncTarget = await saml.getLogoutResponseUrlAsync(
+                req.samlLogoutRequest,
+                "",
+                {},
+                true
+              );
+              assertRequired(cbTarget);
+              assertRequired(asyncTarget);
+              assert.strictEqual(asyncTarget, cbTarget);
+              done();
+            } catch (err2) {
+              done(err2);
+            }
           }
-        });
+        );
       });
     });
   });
