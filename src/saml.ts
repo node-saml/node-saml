@@ -672,10 +672,7 @@ class SAML {
 
     try {
       xml = Buffer.from(container.SAMLResponse, "base64").toString("utf8");
-      doc = parseDomFromString(xml);
-
-      if (!Object.prototype.hasOwnProperty.call(doc, "documentElement"))
-        throw new Error("SAMLResponse is not valid base64-encoded XML");
+      doc = await parseDomFromString(xml);
 
       const inResponseToNodes = xpath.selectAttributes(
         doc,
@@ -690,12 +687,7 @@ class SAML {
       const certs = await this.certsToCheck();
       // Check if this document has a valid top-level signature which applies to the entire XML document
       let validSignature = false;
-      if (
-        validateSignature(xml, doc.documentElement, certs) &&
-        Array.from(doc.childNodes as NodeListOf<Element>).filter(
-          (n) => n.tagName != null && n.childNodes != null
-        ).length === 1
-      ) {
+      if (validateSignature(xml, doc.documentElement, certs)) {
         validSignature = true;
       }
 
@@ -739,7 +731,7 @@ class SAML {
         const encryptedAssertionXml = encryptedAssertions[0].toString();
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
-        const decryptedDoc = parseDomFromString(decryptedXml);
+        const decryptedDoc = await parseDomFromString(decryptedXml);
         const decryptedAssertions = xpath.selectElements(
           decryptedDoc,
           "/*[local-name()='Assertion']"
@@ -850,7 +842,7 @@ class SAML {
     const data = Buffer.from(container[samlMessageType] as string, "base64");
     const inflated = await inflateRawAsync(data);
 
-    const dom = parseDomFromString(inflated.toString());
+    const dom = await parseDomFromString(inflated.toString());
     const doc: XMLOutput = await parseXml2JsFromString(inflated);
     samlMessageType === "SAMLResponse"
       ? await this.verifyLogoutResponse(doc)
@@ -1230,7 +1222,7 @@ class SAML {
     container: Record<string, string>
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
-    const dom = parseDomFromString(xml);
+    const dom = await parseDomFromString(xml);
     const doc = await parseXml2JsFromString(xml);
     const certs = await this.certsToCheck();
     if (!validateSignature(xml, dom.documentElement, certs)) {
