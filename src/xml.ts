@@ -186,7 +186,7 @@ export const signXml = (
 export const parseDomFromString = (xml: string): Promise<Document> => {
   return new Promise(function (resolve, reject) {
     function errHandler(msg: string) {
-      reject(new Error(msg));
+      return reject(new Error(msg));
     }
 
     const dom = new xmldom.DOMParser({
@@ -206,7 +206,7 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
     }).parseFromString(xml, "text/xml");
 
     if (!Object.prototype.hasOwnProperty.call(dom, "documentElement")) {
-      reject(new Error("Not a valid XML document"));
+      return reject(new Error("Not a valid XML document"));
     }
 
     if (
@@ -214,10 +214,10 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
         (n) => n.tagName != null && n.childNodes != null
       ).length !== 1
     ) {
-      reject(new Error("Malformed XML; multiple roots detected"));
+      return reject(new Error("Malformed XML; multiple roots detected"));
     }
 
-    resolve(dom);
+    return resolve(dom);
   });
 };
 
