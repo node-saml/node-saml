@@ -26,6 +26,7 @@ import {
   LogoutRequestXML,
   XMLObject,
   XMLValue,
+  SamlResponseXmlJs,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
@@ -755,22 +756,21 @@ class SAML {
       // If there's no assertion, fall back on xml2js response parsing for the status &
       //   LogoutResponse code.
 
-      const xmljsDoc = await parseXml2JsFromString(xml);
+      const xmljsDoc = (await parseXml2JsFromString(xml)) as SamlResponseXmlJs;
       const response = xmljsDoc.Response;
       if (response) {
-        const assertion = response.Assertion;
-        if (!assertion) {
+        if (!("Assertion" in response)) {
           const status = response.Status;
           if (status) {
             const statusCode = status[0].StatusCode;
             if (
               statusCode &&
-              statusCode[0].$.Value === "urn:oasis:names:tc:SAML:2.0:status:Responder"
+              statusCode[0].$?.Value === "urn:oasis:names:tc:SAML:2.0:status:Responder"
             ) {
               const nestedStatusCode = statusCode[0].StatusCode;
               if (
                 nestedStatusCode &&
-                nestedStatusCode[0].$.Value === "urn:oasis:names:tc:SAML:2.0:status:NoPassive"
+                nestedStatusCode[0].$?.Value === "urn:oasis:names:tc:SAML:2.0:status:NoPassive"
               ) {
                 if (!validSignature) {
                   throw new Error("Invalid signature: NoPassive");
@@ -782,14 +782,15 @@ class SAML {
             // Note that we're not requiring a valid signature before this logic -- since we are
             //   throwing an error in any case, and some providers don't sign error results,
             //   let's go ahead and give the potentially more helpful error.
-            if (statusCode && statusCode[0].$.Value) {
-              const msgType = statusCode[0].$.Value.match(/[^:]*$/)[0];
-              if (msgType != "Success") {
+            if (statusCode && statusCode[0].$?.Value) {
+              const msgType = statusCode[0].$.Value.match(/[^:]*$/);
+              if (msgType && msgType[0] != "Success") {
                 let msg = "unspecified";
                 if (status[0].StatusMessage) {
-                  msg = status[0].StatusMessage[0]._;
+                  msg = status[0].StatusMessage[0]._ || msg;
                 } else if (statusCode[0].StatusCode) {
-                  msg = statusCode[0].StatusCode[0].$.Value.match(/[^:]*$/)[0];
+                  const msgValues = statusCode[0].StatusCode[0].$?.Value.match(/[^:]*$/);
+                  msg = msgValues ? msgValues[0] : msg;
                 }
                 const statusXml = buildXml2JsObject("Status", status[0]);
                 throw new ErrorWithXmlStatus(
