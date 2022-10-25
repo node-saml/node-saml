@@ -37,9 +37,34 @@ export type XMLInput = XMLObject;
 
 export type XMLOutput = Record<string, any>;
 
-export interface AuthorizeRequestXML {
+export type AuthorizeRequestXML = {
   "samlp:AuthnRequest": XMLInput;
-}
+};
+
+export type XmlJsObject = {
+  [key: string]: string | XmlJsObject | XmlJsObject[] | undefined;
+  $?: { Value: string };
+  _?: string;
+};
+
+export type SamlResponseXmlJs = XmlJsObject & {
+  Response?: SamlAssertionXmlJs | SamlStatusXmlJs;
+  LogoutResponse?: unknown;
+};
+
+export type SamlRequestXmlJs = {
+  Request: unknown;
+};
+
+export type SamlAssertionXmlJs = {
+  Assertion: unknown;
+};
+
+export type SamlStatusXmlJs = {
+  Status: [
+    { StatusCode: [XmlJsObject & { StatusCode: [XmlJsObject] }]; StatusMessage: [XmlJsObject] }
+  ];
+};
 
 export type CertCallback = (
   callback: (err: Error | null, cert?: string | string[]) => void
@@ -64,19 +89,19 @@ export interface SamlIDPEntryConfig {
   loc?: string;
 }
 
-export interface LogoutRequestXML {
+export type LogoutRequestXML = {
   "samlp:LogoutRequest": {
     "saml:NameID": XMLInput;
     [key: string]: XMLValue;
   };
-}
+};
 
-export interface ServiceMetadataXML {
+export type ServiceMetadataXML = {
   EntityDescriptor: {
     [key: string]: XMLValue;
     SPSSODescriptor: XMLObject;
   };
-}
+};
 
 export interface NameID {
   value: string | null;

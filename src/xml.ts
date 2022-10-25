@@ -8,6 +8,7 @@ import {
   isValidSamlSigningOptions,
   NameID,
   SamlSigningOptions,
+  XmlJsObject,
   XMLOutput,
   XmlSignatureLocation,
 } from "./types";
@@ -199,7 +200,6 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
        * @link http://www.saxproject.org/apidoc/org/xml/sax/ErrorHandler.html
        */
       errorHandler: {
-        warning: console.warn,
         error: errHandler,
         fatalError: errHandler,
       },
@@ -221,7 +221,7 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
   });
 };
 
-export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XMLOutput> => {
+export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJsObject> => {
   const parserConfig = {
     explicitRoot: true,
     explicitCharkey: true,
@@ -231,7 +231,7 @@ export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XMLOu
   return parser.parseStringPromise(xml);
 };
 
-export const buildXml2JsObject = (rootName: string, xml: XMLOutput): string => {
+export const buildXml2JsObject = (rootName: string, xml: XmlJsObject): string => {
   const builderOpts = {
     rootName,
     headless: true,
