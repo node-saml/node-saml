@@ -1,6 +1,33 @@
 # Changelog
 
-## 4.0.0-beta.6 (2022-10-13)
+## v4.0.0 (2022-10-28)
+
+#### 🚀 Minor Changes:
+
+- feat: expose getLogoutResponseUrlAsync publicly [#194](https://github.com/node-saml/node-saml/pull/194)
+
+#### 🔗 Dependencies:
+
+- Update dependencies, including locked ones [#198](https://github.com/node-saml/node-saml/pull/198)
+- Update Dependencies [#197](https://github.com/node-saml/node-saml/pull/197)
+- Bump @xmldom/xmldom from 0.7.5 to 0.7.6 [#196](https://github.com/node-saml/node-saml/pull/196)
+- [**javascript**] Bump @xmldom/xmldom from 0.8.2 to 0.8.3 [#188](https://github.com/node-saml/node-saml/pull/188)
+
+#### 🐛 Bug Fixes:
+
+- [**security**] Throw if multiple XML roots detected [#195](https://github.com/node-saml/node-saml/pull/195)
+
+#### 📚 Documentation:
+
+- Update documentation to remove ADFS references; rename passport-saml [#190](https://github.com/node-saml/node-saml/pull/190)
+
+#### ⚙️ Technical Tasks:
+
+- Update types [#199](https://github.com/node-saml/node-saml/pull/199)
+
+---
+
+## v4.0.0-beta.6 (2022-10-13)
 
 #### ⚙️ Technical Tasks:
 
@@ -49,6 +76,11 @@
 
 #### 🔗 Dependencies:
 
+- [**javascript**] Bump concurrently from 7.1.0 to 7.2.2 [#100](https://github.com/node-saml/node-saml/pull/100)
+- [**javascript**] Bump prettier-plugin-packagejson from 2.2.17 to 2.2.18 [#103](https://github.com/node-saml/node-saml/pull/103)
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.22.0 to 5.30.3 [#99](https://github.com/node-saml/node-saml/pull/99)
+- [**github_actions**] Bump actions/checkout from 2 to 3 [#97](https://github.com/node-saml/node-saml/pull/97)
+- Update CodeQL to v2 [#95](https://github.com/node-saml/node-saml/pull/95)
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.7 to 5.36.2 [#171](https://github.com/node-saml/node-saml/pull/171)
 - [**javascript**] Bump @types/chai from 4.3.1 to 4.3.3 [#172](https://github.com/node-saml/node-saml/pull/172)
 - [**javascript**] Bump @typescript-eslint/parser from 5.30.7 to 5.36.2 [#170](https://github.com/node-saml/node-saml/pull/170)
@@ -77,11 +109,6 @@
 - [**javascript**] Bump @types/sinon from 10.0.11 to 10.0.12 [#106](https://github.com/node-saml/node-saml/pull/106)
 - [**javascript**] Bump typescript from 4.6.4 to 4.7.4 [#105](https://github.com/node-saml/node-saml/pull/105)
 - [**javascript**] Bump sinon from 13.0.2 to 14.0.0 [#102](https://github.com/node-saml/node-saml/pull/102)
-- [**javascript**] Bump concurrently from 7.1.0 to 7.2.2 [#100](https://github.com/node-saml/node-saml/pull/100)
-- [**javascript**] Bump prettier-plugin-packagejson from 2.2.17 to 2.2.18 [#103](https://github.com/node-saml/node-saml/pull/103)
-- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.22.0 to 5.30.3 [#99](https://github.com/node-saml/node-saml/pull/99)
-- [**github_actions**] Bump actions/checkout from 2 to 3 [#97](https://github.com/node-saml/node-saml/pull/97)
-- Update CodeQL to v2 [#95](https://github.com/node-saml/node-saml/pull/95)
 
 #### 📚 Documentation:
 
@@ -91,6 +118,7 @@
 
 #### ⚙️ Technical Tasks:
 
+- Add dependabot config file [#96](https://github.com/node-saml/node-saml/pull/96)
 - Have dependabot update package.json too [#109](https://github.com/node-saml/node-saml/pull/109)
 - Reduce frequency of dependabot updates [#152](https://github.com/node-saml/node-saml/pull/152)
 - Consolidate all SAML class code to single file [#147](https://github.com/node-saml/node-saml/pull/147)
@@ -99,7 +127,6 @@
 - Refactor process routines out of saml.ts [#130](https://github.com/node-saml/node-saml/pull/130)
 - Refactor code for better functional grouping [#128](https://github.com/node-saml/node-saml/pull/128)
 - Coerce booleans when constructing options object [#85](https://github.com/node-saml/node-saml/pull/85)
-- Add dependabot config file [#96](https://github.com/node-saml/node-saml/pull/96)
 
 ---
 
