@@ -189,7 +189,6 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
     function errHandler(msg: string) {
       return reject(new Error(msg));
     }
-
     const dom = new xmldom.DOMParser({
       /**
        * locator is always need for error position info
@@ -207,14 +206,6 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
 
     if (!Object.prototype.hasOwnProperty.call(dom, "documentElement")) {
       return reject(new Error("Not a valid XML document"));
-    }
-
-    if (
-      Array.from(dom.childNodes as NodeListOf<Element>).filter(
-        (n) => n.tagName != null && n.childNodes != null
-      ).length !== 1
-    ) {
-      return reject(new Error("Malformed XML; multiple roots detected"));
     }
 
     return resolve(dom);
