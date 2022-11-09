@@ -8,9 +8,7 @@
 
 [![NPM](https://nodei.co/npm/@node-saml/node-saml.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/@node-saml/node-saml)
 
-This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provider for Node.js. This was forked from `passport-saml` at v3.0.0 and will become the SAML implementation for `passport-saml`. When this is mature, `passport-saml` will have code removed and replaced by a dependency on this library.
-
-The code was originally based on Michael Bosworth's [express-saml](https://github.com/bozzltron/express-saml) library.
+This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provider for Node.js.
 
 ## Installation
 
@@ -20,7 +18,7 @@ For now
 
 Once the first release is done, this will be available at
 
-    $ npm install node-saml
+    $ npm install @node-saml/node-saml
 
 ## Usage
 
@@ -31,7 +29,7 @@ The examples utilize the [Feide OpenIdp identity provider](https://openidp.feide
 The SAML identity provider will redirect you to the URL provided by the `path` configuration.
 
 ```javascript
-const { SAML } = require("node-saml");
+const { SAML } = require("@node-saml/node-saml");
 
 const options = {};
 const saml = new SAML(options);
