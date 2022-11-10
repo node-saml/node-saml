@@ -1,11 +1,29 @@
 import * as fs from "fs";
 import { expect } from "chai";
 import * as assert from "assert";
-import { certToPEM, generateUniqueId, keyToPEM } from "../src/crypto";
-import { TEST_CERT } from "./types";
+import {
+  certToPEM,
+  generateUniqueId,
+  keyToPEM,
+  stripPEMHeaderAndFooter,
+  normalizeBase64Data,
+} from "../src/crypto";
+import { TEST_CERT_SINGLELINE, TEST_CERT_MULTILINE } from "./types";
 import { assertRequired } from "../src/utility";
 
 describe("crypto.ts", function () {
+  describe("normalizeBase64Data", function () {
+    it("normalizes singleline base64 data properly", function () {
+      const normalizedData = normalizeBase64Data(TEST_CERT_SINGLELINE);
+      expect(normalizedData).to.equal(TEST_CERT_MULTILINE);
+    });
+
+    it("normalizes multiline base64 data properly", function () {
+      const normalizedData = normalizeBase64Data(TEST_CERT_MULTILINE);
+      expect(normalizedData).to.equal(TEST_CERT_MULTILINE);
+    });
+  });
+
   describe("keyToPEM", function () {
     const [regular, singleline] = ["acme_tools_com.key", "singleline_acme_tools_com.key"].map(
       keyFromFile
@@ -45,7 +63,7 @@ describe("crypto.ts", function () {
 
   describe("certToPEM", function () {
     it("should generate valid certificate", function () {
-      const cert = "-----BEGIN CERTIFICATE-----" + TEST_CERT + "-----END CERTIFICATE-----";
+      const cert = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`;
       const certificate = certToPEM(cert.toString());
       const certificateBegin = certificate.match(/BEGIN/g);
       const certificateEnd = certificate.match(/END/g);
@@ -55,6 +73,22 @@ describe("crypto.ts", function () {
       if (!(certificateBegin.length == 1 && certificateEnd.length == 1)) {
         throw Error("Certificate should have only 1 BEGIN and 1 END block");
       }
+    });
+  });
+
+  describe("stripPEMHeaderAndFooter", function () {
+    it("removes PEM header and footer from singleline certificate", function () {
+      const cert = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_SINGLELINE}\n-----END CERTIFICATE-----`;
+      const plainBase64Data = stripPEMHeaderAndFooter(cert);
+
+      expect(plainBase64Data.trimEnd()).to.equal(TEST_CERT_SINGLELINE);
+    });
+
+    it("removes PEM header and footer from multiline certificate", function () {
+      const cert = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`;
+      const plainBase64Data = stripPEMHeaderAndFooter(cert);
+
+      expect(plainBase64Data.trimEnd()).to.equal(TEST_CERT_MULTILINE);
     });
   });
 });
