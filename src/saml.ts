@@ -143,7 +143,7 @@ class SAML {
     if (this.options.callbackUrl) {
       return this.options.callbackUrl;
     } else {
-      const url = new URL("http://localhost");
+      const url = new URL("https://localhost");
       if (host) {
         url.host = host;
       } else {
