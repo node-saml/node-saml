@@ -40,7 +40,7 @@ import {
   validateSignature,
   xpath,
 } from "./xml";
-import { certToPEM, generateUniqueId, keyToPEM } from "./crypto";
+import { keyInfoToPem, generateUniqueId, keyToPEM } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
@@ -914,7 +914,7 @@ class SAML {
     const verifier = crypto.createVerify(matchingAlgo);
     verifier.update(urlString);
 
-    return verifier.verify(certToPEM(cert), signature, "base64");
+    return verifier.verify(keyInfoToPem(cert), signature, "base64");
   }
 
   protected verifyLogoutRequest(doc: XMLOutput): void {

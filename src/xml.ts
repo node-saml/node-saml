@@ -14,7 +14,7 @@ import {
 } from "./types";
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
-import { certToPEM } from "./crypto";
+import { keyInfoToPem } from "./crypto";
 
 type SelectedValue = string | number | boolean | Node;
 
@@ -110,7 +110,7 @@ export const validateSignature = (
 
   const signature = signatures[0];
   return certs.some((certToCheck) => {
-    return validateXmlSignatureForCert(signature, certToPEM(certToCheck), fullXml, currentNode);
+    return validateXmlSignatureForCert(signature, keyInfoToPem(certToCheck), fullXml, currentNode);
   });
 };
 
