@@ -209,14 +209,6 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
       return reject(new Error("Not a valid XML document"));
     }
 
-    if (
-      Array.from(dom.childNodes as NodeListOf<Element>).filter(
-        (n) => n.tagName != null && n.childNodes != null
-      ).length !== 1
-    ) {
-      return reject(new Error("Malformed XML; multiple roots detected"));
-    }
-
     return resolve(dom);
   });
 };
