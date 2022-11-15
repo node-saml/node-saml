@@ -25,7 +25,7 @@ that you found no references in the spec concerning your issue.
 
 ** Community development model **
 
-node-saml is maintained by a number of current users. There is no author or primary maintainer
+@node-saml/node-saml is maintained by a number of current users. There is no author or primary maintainer
 waiting to write your tests and documentation for you. To increase the odds that your issue
 is promptly dealt with, consider a pull request to address the issue that includes test coverage
 and updated documentation.
@@ -40,4 +40,4 @@ A clear and concise description of what you expected to happen.
 **Environment**
 
 - Node.js version:
-- node-saml version:
+- @node-saml/node-saml version:
