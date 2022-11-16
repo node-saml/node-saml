@@ -1,5 +1,26 @@
 # Changelog
 
+## v4.0.1 (2022-11-16)
+
+#### 🔗 Dependencies:
+
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.41.0 to 5.43.0 [#216](https://github.com/node-saml/node-saml/pull/216)
+- [**javascript**] Bump @typescript-eslint/parser from 5.41.0 to 5.43.0 [#217](https://github.com/node-saml/node-saml/pull/217)
+- Lock to TypeScript <4.9.0 due to a regression in 4.9.3 [#219](https://github.com/node-saml/node-saml/pull/219)
+- [**javascript**] Bump @types/node from 14.18.32 to 14.18.33 [#201](https://github.com/node-saml/node-saml/pull/201)
+- [**javascript**] Bump xml-crypto from 3.0.0 to 3.0.1 [#205](https://github.com/node-saml/node-saml/pull/205)
+- Update @xmldom/xmldom [#213](https://github.com/node-saml/node-saml/pull/213)
+
+#### 📚 Documentation:
+
+- Fixes #208, updated readme by updating package names. [#210](https://github.com/node-saml/node-saml/pull/210)
+
+#### ⚙️ Technical Tasks:
+
+- Remove check now covered by dependency [#215](https://github.com/node-saml/node-saml/pull/215)
+
+---
+
 ## v4.0.0 (2022-10-28)
 
 #### 🚀 Minor Changes:
@@ -76,6 +97,16 @@
 
 #### 🔗 Dependencies:
 
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.3 to 5.30.5 [#114](https://github.com/node-saml/node-saml/pull/114)
+- [**javascript**] Bump parse-url from 6.0.0 to 6.0.2 [#115](https://github.com/node-saml/node-saml/pull/115)
+- [**javascript**] Bump @typescript-eslint/parser from 5.22.0 to 5.30.5 [#113](https://github.com/node-saml/node-saml/pull/113)
+- [**javascript**] Bump @types/passport from 1.0.7 to 1.0.9 [#112](https://github.com/node-saml/node-saml/pull/112)
+- [**javascript**] Bump eslint from 8.14.0 to 8.19.0 [#111](https://github.com/node-saml/node-saml/pull/111)
+- [**javascript**] Bump eslint-plugin-prettier from 4.0.0 to 4.2.1 [#104](https://github.com/node-saml/node-saml/pull/104)
+- [**javascript**] Bump prettier from 2.6.2 to 2.7.1 [#107](https://github.com/node-saml/node-saml/pull/107)
+- [**javascript**] Bump @types/sinon from 10.0.11 to 10.0.12 [#106](https://github.com/node-saml/node-saml/pull/106)
+- [**javascript**] Bump typescript from 4.6.4 to 4.7.4 [#105](https://github.com/node-saml/node-saml/pull/105)
+- [**javascript**] Bump sinon from 13.0.2 to 14.0.0 [#102](https://github.com/node-saml/node-saml/pull/102)
 - [**javascript**] Bump concurrently from 7.1.0 to 7.2.2 [#100](https://github.com/node-saml/node-saml/pull/100)
 - [**javascript**] Bump prettier-plugin-packagejson from 2.2.17 to 2.2.18 [#103](https://github.com/node-saml/node-saml/pull/103)
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.22.0 to 5.30.3 [#99](https://github.com/node-saml/node-saml/pull/99)
@@ -99,21 +130,11 @@
 - [**javascript**] Bump xml-crypto from 2.1.3 to 2.1.4 [#118](https://github.com/node-saml/node-saml/pull/118)
 - [**javascript**] Bump ts-node from 10.7.0 to 10.8.2 [#119](https://github.com/node-saml/node-saml/pull/119)
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.5 to 5.30.6 [#120](https://github.com/node-saml/node-saml/pull/120)
-- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.3 to 5.30.5 [#114](https://github.com/node-saml/node-saml/pull/114)
-- [**javascript**] Bump parse-url from 6.0.0 to 6.0.2 [#115](https://github.com/node-saml/node-saml/pull/115)
-- [**javascript**] Bump @typescript-eslint/parser from 5.22.0 to 5.30.5 [#113](https://github.com/node-saml/node-saml/pull/113)
-- [**javascript**] Bump @types/passport from 1.0.7 to 1.0.9 [#112](https://github.com/node-saml/node-saml/pull/112)
-- [**javascript**] Bump eslint from 8.14.0 to 8.19.0 [#111](https://github.com/node-saml/node-saml/pull/111)
-- [**javascript**] Bump eslint-plugin-prettier from 4.0.0 to 4.2.1 [#104](https://github.com/node-saml/node-saml/pull/104)
-- [**javascript**] Bump prettier from 2.6.2 to 2.7.1 [#107](https://github.com/node-saml/node-saml/pull/107)
-- [**javascript**] Bump @types/sinon from 10.0.11 to 10.0.12 [#106](https://github.com/node-saml/node-saml/pull/106)
-- [**javascript**] Bump typescript from 4.6.4 to 4.7.4 [#105](https://github.com/node-saml/node-saml/pull/105)
-- [**javascript**] Bump sinon from 13.0.2 to 14.0.0 [#102](https://github.com/node-saml/node-saml/pull/102)
 
 #### 📚 Documentation:
 
-- Changelog [#173](https://github.com/node-saml/node-saml/pull/173)
 - Remove insecure clockSkew recommendation [#151](https://github.com/node-saml/node-saml/pull/151)
+- Changelog [#173](https://github.com/node-saml/node-saml/pull/173)
 - Update badges for scoped package [#93](https://github.com/node-saml/node-saml/pull/93)
 
 #### ⚙️ Technical Tasks:
