@@ -14,7 +14,6 @@ import {
 } from "./types";
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
-import { keyInfoToPem } from "./crypto";
 
 type SelectedValue = string | number | boolean | Node;
 
@@ -77,7 +76,7 @@ const normalizeNewlines = (xml: string): string => {
 export const validateSignature = (
   fullXml: string,
   currentNode: Element,
-  certs: string[]
+  pemFiles: string[]
 ): boolean => {
   const xpathSigQuery =
     ".//*[" +
@@ -109,17 +108,17 @@ export const validateSignature = (
   }
 
   const signature = signatures[0];
-  return certs.some((certToCheck) => {
-    return validateXmlSignatureForCert(signature, keyInfoToPem(certToCheck), fullXml, currentNode);
+  return pemFiles.some((pemFile) => {
+    return validateXmlSignatureWithPemFile(signature, pemFile, fullXml, currentNode);
   });
 };
 
 /**
- * This function checks that the |signature| is signed with a given |cert|.
+ * This function checks that the |signature| is signed with a given |pemFile|.
  */
-export const validateXmlSignatureForCert = (
+const validateXmlSignatureWithPemFile = (
   signature: Node,
-  certPem: string,
+  pemFile: string,
   fullXml: string,
   currentNode: Element
 ): boolean => {
@@ -127,7 +126,7 @@ export const validateXmlSignatureForCert = (
   sig.keyInfoProvider = {
     file: "",
     getKeyInfo: () => "<X509Data></X509Data>",
-    getKey: () => Buffer.from(certPem),
+    getKey: () => Buffer.from(pemFile),
   };
   sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we

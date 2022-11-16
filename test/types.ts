@@ -41,7 +41,7 @@ ZQIDAQAB`;
 
 export const TEST_CERT = TEST_CERT_SINGLELINE;
 
-export const FAKE_CERT = "fake cert";
+export const FAKE_CERT = "ZmFrZSBjZXJ0Cg=="; // text "fake cert" in base64 format
 export interface CapturedCheck {
   samlRequest?: unknown;
   result?: unknown;
