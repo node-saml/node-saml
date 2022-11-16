@@ -40,7 +40,7 @@ import {
   validateSignature,
   xpath,
 } from "./xml";
-import { keyInfoToPem, generateUniqueId, keyToPEM } from "./crypto";
+import { keyInfoToPem, generateUniqueId, PemLabel } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
@@ -176,7 +176,10 @@ class SAML {
       samlMessageToSign.SigAlg = samlMessage.SigAlg;
     }
     signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(keyToPEM(this.options.privateKey), "base64");
+    samlMessage.Signature = signer.sign(
+      keyInfoToPem(this.options.privateKey, PemLabel.PRIVATE_KEY),
+      "base64"
+    );
   }
 
   protected async generateAuthorizeRequestAsync(

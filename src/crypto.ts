@@ -5,28 +5,13 @@ const PEM_FORMAT_REGEX = /(-----BEGIN .*-----\s+.*\s+-----END .*-----)/s;
 const BASE64_REGEX =
   /^(?:[A-Za-z0-9\+\/]{4})*(?:[A-Za-z0-9\+\/]{2}==|[A-Za-z0-9\+\/]{3}=|[A-Za-z0-9\+\/]{4})$/m; // eslint-disable-line no-useless-escape
 
-export const keyToPEM = (
-  key: string | Buffer
-): typeof key extends string | Buffer ? string | Buffer : Error => {
-  assertRequired(key, "key is required");
-
-  if (typeof key !== "string") return key;
-  if (key.split(/\r?\n/).length !== 1) return key;
-
-  const matchedKey = key.match(/.{1,64}/g);
-
-  if (matchedKey) {
-    const wrappedKey = [
-      "-----BEGIN PRIVATE KEY-----",
-      ...matchedKey,
-      "-----END PRIVATE KEY-----",
-      "",
-    ].join("\n");
-    return wrappedKey;
-  }
-
-  throw new Error("Invalid key");
+export const PemLabel = {
+  CERTIFICATE: "CERTIFICATE" as const,
+  PUBLIC_KEY: "PUBLIC KEY" as const,
+  PRIVATE_KEY: "PRIVATE KEY" as const,
 };
+
+type PemLabelId = typeof PemLabel[keyof typeof PemLabel];
 
 /**
  * Base64 data may be formated into 64 character line length
@@ -67,15 +52,21 @@ export const normalizePemFile = (pem: string): string => {
 /**
  * This function currently expects to get data in PEM format or in base64 format.
  */
-export const keyInfoToPem = (keyInfo: string, pemHeaderLabel = "CERTIFICATE"): string => {
-  if (PEM_FORMAT_REGEX.test(keyInfo)) {
-    return normalizePemFile(keyInfo);
+export const keyInfoToPem = (
+  keyInfo: string | Buffer,
+  pemLabel = PemLabel.CERTIFICATE as PemLabelId
+): string => {
+  const keyData = Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
+  assertRequired(keyData, "keyInfo is not provided");
+
+  if (PEM_FORMAT_REGEX.test(keyData)) {
+    return normalizePemFile(keyData);
   }
 
-  const isBase64 = BASE64_REGEX.test(keyInfo);
+  const isBase64 = BASE64_REGEX.test(keyData);
   assertRequired(isBase64 || undefined, "keyInfo is not in base64 format");
 
-  const pem = `-----BEGIN ${pemHeaderLabel}-----\n${keyInfo}\n-----END ${pemHeaderLabel}-----`;
+  const pem = `-----BEGIN ${pemLabel}-----\n${keyInfo}\n-----END ${pemLabel}-----`;
 
   return normalizePemFile(pem);
 };

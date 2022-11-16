@@ -4,7 +4,7 @@ import * as assert from "assert";
 import {
   keyInfoToPem,
   generateUniqueId,
-  keyToPEM,
+  PemLabel,
   stripPemHeaderAndFooter,
   normalizeBase64Data,
   normalizePemFile,
@@ -19,6 +19,7 @@ import {
 describe("crypto.ts", function () {
   const expectedCert = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n`;
   const expectedPublicKey = `-----BEGIN PUBLIC KEY-----\n${TEST_PUBLIC_KEY_MULTILINE}\n-----END PUBLIC KEY-----\n`;
+  const expectedPrivateKey = fs.readFileSync(`./test/static/acme_tools_com.key`).toString();
 
   describe("normalizeBase64Data", function () {
     it("normalizes singleline base64 data properly", function () {
@@ -56,32 +57,14 @@ describe("crypto.ts", function () {
       const normalizedPem = normalizePemFile(publicKey);
       expect(normalizedPem).to.equal(expectedPublicKey);
     });
-  });
 
-  describe("keyToPEM", function () {
-    const [regular, singleline] = ["acme_tools_com.key", "singleline_acme_tools_com.key"].map(
-      keyFromFile
-    );
-
-    it("should format singleline keys properly", function () {
-      const result = keyToPEM(singleline);
-      expect(result).to.equal(regular);
-    });
-
-    it("should pass all other multiline keys", function () {
-      const result = keyToPEM(regular);
-      expect(result).to.equal(regular);
-    });
-
-    it("should fail with falsy", function () {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      assert.throws(() => keyToPEM(null as any));
-    });
-
-    it("should do nothing to non strings", function () {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = keyToPEM(1 as any);
-      expect(result).to.equal(1);
+    it("normalizes private key PEM which has base64 data formatted into singleline", function () {
+      const privateKeyBase64Data = fs
+        .readFileSync(`./test/static/singleline_acme_tools_com.key`)
+        .toString();
+      const privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64Data}\n-----END PRIVATE KEY-----`;
+      const normalizedPem = normalizePemFile(privateKey);
+      expect(normalizedPem).to.equal(expectedPrivateKey);
     });
   });
 
@@ -96,17 +79,42 @@ describe("crypto.ts", function () {
   });
 
   describe("keyInfoToPem", function () {
+    describe("invalid values", function () {
+      it("should throw with null", function () {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        assert.throws(() => keyInfoToPem(null as any));
+      });
+
+      it("should throw with false", function () {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        assert.throws(() => keyInfoToPem(false as any));
+      });
+
+      it("should throw with empty string", function () {
+        assert.throws(() => keyInfoToPem(""));
+      });
+
+      it("should throw with empty Buffer", function () {
+        assert.throws(() => keyInfoToPem(Buffer.from("")));
+      });
+
+      it("should throw if string is not in Base64 format", function () {
+        assert.throws(() => keyInfoToPem("MI"));
+      });
+    });
     describe("when key info is provided in PEM format", function () {
       it("should return certificate in PEM format for multiline certificate", function () {
         const certificate = keyInfoToPem(
-          `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`
+          `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
+          PemLabel.CERTIFICATE
         );
         expect(certificate).to.equal(expectedCert);
       });
 
       it("should return certificate in PEM format for singleline certificate", function () {
         const certificate = keyInfoToPem(
-          `-----BEGIN CERTIFICATE-----\n${TEST_CERT_SINGLELINE}\n-----END CERTIFICATE-----`
+          `-----BEGIN CERTIFICATE-----\n${TEST_CERT_SINGLELINE}\n-----END CERTIFICATE-----`,
+          PemLabel.CERTIFICATE
         );
         expect(certificate).to.equal(expectedCert);
       });
@@ -114,39 +122,68 @@ describe("crypto.ts", function () {
       it("should return public key in PEM format for multiline pubic key", function () {
         const publicKey = keyInfoToPem(
           `-----BEGIN PUBLIC KEY-----\n${TEST_PUBLIC_KEY_MULTILINE}\n-----END PUBLIC KEY-----`,
-          "PUBLIC KEY"
+          PemLabel.PUBLIC_KEY
         );
         expect(publicKey).to.equal(expectedPublicKey);
       });
 
-      it("should return public key in PEM format for singleline public", function () {
+      it("should return public key in PEM format for singleline public key", function () {
         const publicKey = keyInfoToPem(
           `-----BEGIN PUBLIC KEY-----\n${TEST_PUBLIC_KEY_SINGLELINE}\n-----END PUBLIC KEY-----`,
-          "PUBLIC KEY"
+          PemLabel.PUBLIC_KEY
         );
         expect(publicKey).to.equal(expectedPublicKey);
+      });
+
+      it("should return private key in PEM format for multiline private key", function () {
+        const privateKeyData = fs.readFileSync(`./test/static/acme_tools_com.key`).toString();
+        const privateKey = keyInfoToPem(privateKeyData, PemLabel.PRIVATE_KEY);
+        expect(privateKey).to.equal(expectedPrivateKey);
+      });
+
+      it("should return private key in PEM format for singleline private key", function () {
+        const privateKeyBase64Data = fs
+          .readFileSync(`./test/static/singleline_acme_tools_com.key`)
+          .toString();
+        const privateKey = keyInfoToPem(
+          `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64Data}\n-----END PRIVATE KEY-----`,
+          PemLabel.PRIVATE_KEY
+        );
+        expect(privateKey).to.equal(expectedPrivateKey);
+      });
+
+      it("handles key info as Buffer properly", function () {
+        const certificateBuffer = Buffer.from(expectedCert);
+        const certificate = keyInfoToPem(certificateBuffer, PemLabel.CERTIFICATE);
+        expect(certificate).to.equal(expectedCert);
       });
     });
 
     describe("when key info is provided in Base64 format", function () {
       it("should return certificate in PEM format for multiline Base64 certificate", function () {
-        const certificate = keyInfoToPem(TEST_CERT_MULTILINE);
+        const certificate = keyInfoToPem(TEST_CERT_MULTILINE, PemLabel.CERTIFICATE);
         expect(certificate).to.equal(expectedCert);
       });
 
       it("should return certificate in PEM format for singleline Base64 certificate", function () {
-        const certificate = keyInfoToPem(TEST_CERT_SINGLELINE);
+        const certificate = keyInfoToPem(TEST_CERT_SINGLELINE, PemLabel.CERTIFICATE);
         expect(certificate).to.equal(expectedCert);
       });
 
       it("should return public key in PEM format for multiline Base64 public key", function () {
-        const publicKey = keyInfoToPem(TEST_PUBLIC_KEY_MULTILINE, "PUBLIC KEY");
+        const publicKey = keyInfoToPem(TEST_PUBLIC_KEY_MULTILINE, PemLabel.PUBLIC_KEY);
         expect(publicKey).to.equal(expectedPublicKey);
       });
 
       it("should return public key in PEM format for singleline Base64 public key", function () {
-        const publicKey = keyInfoToPem(TEST_PUBLIC_KEY_SINGLELINE, "PUBLIC KEY");
+        const publicKey = keyInfoToPem(TEST_PUBLIC_KEY_SINGLELINE, PemLabel.PUBLIC_KEY);
         expect(publicKey).to.equal(expectedPublicKey);
+      });
+
+      it("handles key info as Buffer properly", function () {
+        const base64CertificateBuffer = Buffer.from(TEST_CERT_SINGLELINE);
+        const certificate = keyInfoToPem(base64CertificateBuffer, PemLabel.CERTIFICATE);
+        expect(certificate).to.equal(expectedCert);
       });
     });
   });
@@ -181,7 +218,3 @@ describe("crypto.ts", function () {
     });
   });
 });
-
-function keyFromFile(file: string) {
-  return fs.readFileSync(`./test/static/${file}`).toString();
-}
