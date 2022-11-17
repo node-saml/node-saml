@@ -12,12 +12,6 @@ This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provi
 
 ## Installation
 
-For now
-
-    $ npm install https://github.com/node-saml/node-saml
-
-Once the first release is done, this will be available at
-
     $ npm install @node-saml/node-saml
 
 ## Usage
