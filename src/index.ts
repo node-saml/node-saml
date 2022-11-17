@@ -9,4 +9,13 @@ import {
   ValidateInResponseTo,
 } from "./types";
 
-export { SAML, CacheItem, CacheProvider, SamlOptions, MandatorySamlOptions, Profile, SamlConfig, ValidateInResponseTo };
+export {
+  SAML,
+  CacheItem,
+  CacheProvider,
+  SamlOptions,
+  MandatorySamlOptions,
+  Profile,
+  SamlConfig,
+  ValidateInResponseTo,
+};
