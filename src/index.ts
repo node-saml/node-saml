@@ -6,6 +6,7 @@ import {
   Profile,
   SamlConfig,
   SamlOptions,
+  ValidateInResponseTo,
 } from "./types";
 
-export { SAML, CacheItem, CacheProvider, SamlOptions, MandatorySamlOptions, Profile, SamlConfig };
+export { SAML, CacheItem, CacheProvider, SamlOptions, MandatorySamlOptions, Profile, SamlConfig, ValidateInResponseTo };
