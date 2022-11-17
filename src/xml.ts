@@ -129,8 +129,7 @@ export const validateXmlSignatureForCert = (
     getKeyInfo: () => "<X509Data></X509Data>",
     getKey: () => Buffer.from(certPem),
   };
-  const signatureStr = normalizeNewlines(signature.toString());
-  sig.loadSignature(signatureStr);
+  sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we
   //   are validating, so if we see anything else, reject.
   if (sig.references.length != 1) return false;

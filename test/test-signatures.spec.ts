@@ -429,15 +429,41 @@ describe("Signatures", function () {
     });
 
     it(
-      "Attribute with with &#13;",
+      "Attribute with &#13;",
       testOneResponse("/valid/response.root-signed.assertion-unsigned-13.xml", false, 1, {
         wantAssertionsSigned: false,
       })
     );
 
     it(
-      "Attribute with with &#xd;",
+      "Attribute with &#xd;",
       testOneResponse("/valid/response.root-signed.assertion-unsigned-xd.xml", false, 1, {
+        wantAssertionsSigned: false,
+      })
+    );
+  });
+
+  describe("Signature on saml:Response with XML-encoded carriage returns in signature value and certificate", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
+    it(
+      "Signature attributes with &#13;",
+      testOneResponse("/valid/response.root-signed.assertion-unsigned-13-signature.xml", false, 1, {
+        wantAssertionsSigned: false,
+      })
+    );
+
+    it(
+      "Signature attributes with &#xd;",
+      testOneResponse("/valid/response.root-signed.assertion-unsigned-xd-signature.xml", false, 1, {
         wantAssertionsSigned: false,
       })
     );
