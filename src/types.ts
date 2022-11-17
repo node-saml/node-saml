@@ -116,7 +116,7 @@ export interface XmlSignatureLocation {
 
 export type RacComparision = "exact" | "minimum" | "maximum" | "better";
 
-interface SamlScopingConfig {
+export interface SamlScopingConfig {
   idpList?: SamlIDPListConfig[];
   proxyCount?: number;
   requesterId?: string[] | string;
