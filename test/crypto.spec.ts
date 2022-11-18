@@ -6,7 +6,6 @@ import {
   generateUniqueId,
   PemLabel,
   stripPemHeaderAndFooter,
-  normalizeBase64Data,
   normalizePemFile,
 } from "../src/crypto";
 import {
@@ -20,18 +19,6 @@ describe("crypto.ts", function () {
   const expectedCert = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n`;
   const expectedPublicKey = `-----BEGIN PUBLIC KEY-----\n${TEST_PUBLIC_KEY_MULTILINE}\n-----END PUBLIC KEY-----\n`;
   const expectedPrivateKey = fs.readFileSync(`./test/static/acme_tools_com.key`).toString();
-
-  describe("normalizeBase64Data", function () {
-    it("normalizes singleline base64 data properly", function () {
-      const normalizedData = normalizeBase64Data(TEST_CERT_SINGLELINE);
-      expect(normalizedData).to.equal(TEST_CERT_MULTILINE);
-    });
-
-    it("normalizes multiline base64 data properly", function () {
-      const normalizedData = normalizeBase64Data(TEST_CERT_MULTILINE);
-      expect(normalizedData).to.equal(TEST_CERT_MULTILINE);
-    });
-  });
 
   describe("normalizePemFile", function () {
     it("normalizes certificate PEM which has base64 data formatted into singleline", function () {
