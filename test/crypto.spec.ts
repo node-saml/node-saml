@@ -21,6 +21,30 @@ describe("crypto.ts", function () {
   const expectedPrivateKey = fs.readFileSync(`./test/static/acme_tools_com.key`).toString();
 
   describe("normalizePemFile", function () {
+    describe("invalid values", function () {
+      it("should throw with null", function () {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        assert.throws(() => normalizePemFile(null as any));
+      });
+
+      it("should throw with empty string", function () {
+        assert.throws(() => normalizePemFile(""));
+      });
+
+      it("should throw if string clearly is not a pem file", function () {
+        assert.throws(() => normalizePemFile("I'm not pem file"));
+      });
+
+      it("should throw if string is not a RFC7468 pem file", function () {
+        // NOTE, no new lines
+        assert.throws(() =>
+          normalizePemFile(
+            `-----BEGIN CERTIFICATE-----${TEST_CERT_MULTILINE}-----END CERTIFICATE-----`
+          )
+        );
+      });
+    });
+
     it("normalizes certificate PEM which has base64 data formatted into singleline", function () {
       const certificate = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_SINGLELINE}\n-----END CERTIFICATE-----`;
       const normalizedPem = normalizePemFile(certificate);
@@ -31,6 +55,13 @@ describe("crypto.ts", function () {
       const certificate = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`;
       const normalizedPem = normalizePemFile(certificate);
       expect(normalizedPem).to.equal(expectedCert);
+    });
+
+    it("normalizes PEM which has multiple certificates", function () {
+      const multipleCertificates = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\n${TEST_CERT_SINGLELINE}\n-----END CERTIFICATE-----`;
+      const expectedMultipleCerts = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n`;
+      const normalizedPem = normalizePemFile(multipleCertificates);
+      expect(normalizedPem).to.equal(expectedMultipleCerts);
     });
 
     it("normalizes public key PEM which has base64 data formatted into singleline", function () {
@@ -85,10 +116,11 @@ describe("crypto.ts", function () {
         assert.throws(() => keyInfoToPem(Buffer.from("")));
       });
 
-      it("should throw if string is not in Base64 format", function () {
+      it("should throw if string is not in PEM format or not in Base64 format", function () {
         assert.throws(() => keyInfoToPem("MI"));
       });
     });
+
     describe("when key info is provided in PEM format", function () {
       it("should return certificate in PEM format for multiline certificate", function () {
         const certificate = keyInfoToPem(
