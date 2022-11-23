@@ -48,6 +48,30 @@ import { generateServiceProviderMetadata } from "./metadata";
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
+export const resolveAndParseKeyInfosToPem = async ({
+  cert,
+}: Pick<SamlOptions, "cert">): Promise<string[]> => {
+  const keyInfosToHandle: Array<string | string[]> = [];
+  const pemFiles: string[] = [];
+  if (typeof cert === "function") {
+    await util
+      .promisify(cert as CertCallback)()
+      .then((certs) => {
+        assertRequired(certs, "callback didn't return cert");
+
+        keyInfosToHandle.push(certs);
+      });
+  } else {
+    keyInfosToHandle.push(cert);
+  }
+  // Verify and normalize each PEM file.
+  keyInfosToHandle.flat().forEach((cert) => {
+    pemFiles.push(keyInfoToPem(cert, PemLabel.CERTIFICATE));
+  });
+
+  return pemFiles;
+};
+
 class SAML {
   /**
    * Note that some methods in SAML are not yet marked as protected as they are used in testing.
@@ -651,24 +675,7 @@ class SAML {
     }
 
     // Load PEM files from different sources.
-    const keyInfosToHandle: Array<string | string[]> = [];
-
-    if (typeof this.options.cert === "function") {
-      await util
-        .promisify(this.options.cert as CertCallback)()
-        .then((certs) => {
-          assertRequired(certs, "callback didn't return cert");
-
-          keyInfosToHandle.push(certs);
-        });
-    } else {
-      keyInfosToHandle.push(this.options.cert);
-    }
-
-    // Verify and normalize each PEM file.
-    keyInfosToHandle.flat().forEach((cert) => {
-      this.pemFiles.push(keyInfoToPem(cert, PemLabel.CERTIFICATE));
-    });
+    this.pemFiles = await resolveAndParseKeyInfosToPem(this.options);
 
     return this.pemFiles;
   }

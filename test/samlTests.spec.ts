@@ -1,18 +1,99 @@
 "use strict";
+import * as fs from "fs";
 import * as sinon from "sinon";
 import { URL } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
-import { SAML } from "../src/saml";
+import { SAML, resolveAndParseKeyInfosToPem } from "../src/saml";
+import { CertCallback } from "../src/types";
 import { AuthenticateOptions, AuthorizeOptions } from "../src/passport-saml-types";
 import { assertRequired } from "../src/utility";
-import { FAKE_CERT, RequestWithUser } from "./types";
+import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 
-describe("SAML.js", function () {
+describe("saml.ts", function () {
+  describe("resolveAndParseKeyInfosToPem", function () {
+    it("returns PEM files correctly if 'cert' is PEM formated certificate", async () => {
+      const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
+      const pemFiles = await resolveAndParseKeyInfosToPem({ cert: certificate });
+
+      expect(pemFiles.length).to.equal(1);
+      expect(pemFiles[0]).to.equal(certificate);
+    });
+
+    it("returns PEM files correctly if 'cert' is Base64 formated certificate", async () => {
+      const pemFiles = await resolveAndParseKeyInfosToPem({ cert: TEST_CERT_MULTILINE });
+
+      expect(pemFiles.length).to.equal(1);
+      expect(pemFiles[0]).to.equal(
+        `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n`
+      );
+    });
+
+    it("returns PEM files correctly if 'cert' is Array of PEM formated certificates", async () => {
+      const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
+      const pemFiles = await resolveAndParseKeyInfosToPem({ cert: [certificate, certificate] });
+
+      expect(pemFiles.length).to.equal(2);
+      expect(pemFiles[0]).to.equal(certificate);
+      expect(pemFiles[1]).to.equal(certificate);
+    });
+
+    it("returns PEM files correctly if 'cert' is Array of PEM formated certificate and public key", async () => {
+      const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
+      const publicKey = fs.readFileSync("./test/static/pub.pem").toString();
+      const pemFiles = await resolveAndParseKeyInfosToPem({ cert: [publicKey, certificate] });
+
+      expect(pemFiles.length).to.equal(2);
+      expect(pemFiles[0]).to.equal(publicKey);
+      expect(pemFiles[1]).to.equal(certificate);
+    });
+
+    it("returns PEM files correctly if 'cert' is a callback which returns a PEM formated certificate", async () => {
+      const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
+
+      const cert: CertCallback = (cb) => {
+        setTimeout(() => {
+          cb(null, certificate);
+        }, 50);
+      };
+      const pemFiles = await resolveAndParseKeyInfosToPem({ cert });
+
+      expect(pemFiles.length).to.equal(1);
+      expect(pemFiles[0]).to.equal(certificate);
+    });
+
+    it("returns PEM files correctly if 'cert' is a callback which returns Array of PEM formated certificates", async () => {
+      const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
+
+      const cert: CertCallback = (cb) => {
+        setTimeout(() => {
+          cb(null, [certificate, certificate]);
+        }, 50);
+      };
+      const pemFiles = await resolveAndParseKeyInfosToPem({ cert });
+
+      expect(pemFiles.length).to.equal(2);
+      expect(pemFiles[0]).to.equal(certificate);
+      expect(pemFiles[1]).to.equal(certificate);
+    });
+
+    it("returns will fail if 'cert' is a callback which returns invalid value", async () => {
+      const cert: CertCallback = (cb) => {
+        setTimeout(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          cb(null, null as any);
+        }, 50);
+      };
+
+      assert.rejects(resolveAndParseKeyInfosToPem({ cert }), "callback didn't return cert");
+    });
+  });
+
   describe("get Urls", function () {
     let saml: SAML;
     let req: RequestWithUser;
     let options: AuthenticateOptions & AuthorizeOptions;
+
     beforeEach(function () {
       saml = new SAML({
         entryPoint: "https://exampleidp.com/path?key=value",
@@ -46,18 +127,22 @@ describe("SAML.js", function () {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).host).to.equal("exampleidp.com");
       });
+
       it("calls callback with right protocol", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).protocol).to.equal("https:");
       });
+
       it("calls callback with right path", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).pathname).to.equal("/path");
       });
+
       it("calls callback with original query string", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).searchParams.get("key")).to.equal("value");
       });
+
       it("calls callback with additional run-time params in query string", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, options);
         const urlSearchParams = new URL(target).searchParams;
@@ -66,6 +151,7 @@ describe("SAML.js", function () {
         expect(urlSearchParams.get("SAMLRequest")).to.not.be.empty;
         expect(urlSearchParams.get("additionalKey")).to.equal("additionalValue");
       });
+
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml request object", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
@@ -79,22 +165,26 @@ describe("SAML.js", function () {
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
         expect(new URL(target).host).to.equal("exampleidp.com");
       });
+
       it("calls callback with right protocol", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
         expect(new URL(target).protocol).to.equal("https:");
         expect(new URL(target).protocol).to.equal("https:");
       });
+
       it("calls callback with right path", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
         expect(new URL(target).pathname).to.equal("/path");
       });
+
       it("calls callback with original query string", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
         expect(new URL(target).searchParams.get("key")).to.equal("value");
       });
+
       it("calls callback with additional run-time params in query string", async () => {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", options);
@@ -126,6 +216,7 @@ describe("SAML.js", function () {
           }
         });
       });
+
       it("calls callback with right protocol", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
           expect(err).to.not.exist;
@@ -139,6 +230,7 @@ describe("SAML.js", function () {
           }
         });
       });
+
       it("calls callback with right path", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
           expect(err).to.not.exist;
@@ -152,6 +244,7 @@ describe("SAML.js", function () {
           }
         });
       });
+
       it("calls callback with original query string", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
           expect(err).to.not.exist;
@@ -165,6 +258,7 @@ describe("SAML.js", function () {
           }
         });
       });
+
       it("calls callback with additional run-time params in query string", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", options, true, function (err, target) {
           expect(err).to.not.exist;
@@ -180,6 +274,7 @@ describe("SAML.js", function () {
           }
         });
       });
+
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml response object", function (done) {
         saml.getLogoutResponseUrl(req.samlLogoutRequest, "", {}, true, function (err, target) {
