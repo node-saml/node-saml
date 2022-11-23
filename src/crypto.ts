@@ -1,7 +1,27 @@
 import * as crypto from "crypto";
 import { assertRequired } from "./utility";
 
-const PEM_FORMAT_REGEX = /(-----BEGIN .*-----\s+.*\s+-----END .*-----)/s;
+/**
+ * PEM format has wide range of usages, but this library
+ * is enforcing RFC7468 which focuses on PKIX, PKCS and CMS.
+ *
+ * https://www.rfc-editor.org/rfc/rfc7468
+ *
+ * PEM_FORMAT_REGEX is validating given PEM file agains RFC7468 'stricttextualmsg' definition.
+ *
+ * With few exceptions;
+ *  - 'posteb' MAY have 'eol', but it is not mandatory.
+ *  - 'preeb' and 'posteb' lines are limited to 64 characters, but
+ *     should not cause any issues in context of PKIX, PKCS and CMS.
+ *
+ * normalizePemFile() -function is returning PEM files conforming
+ * RFC7468 'stricttextualmsg' definition.
+ *
+ * With couple of notes:
+ *  - 'eol' is normalized to '\n'
+ */
+const PEM_FORMAT_REGEX =
+  /^(-----BEGIN [A-Z\x20]{1,48}-----(\r\n|\r|\n){1}.*(\r\n|\r|\n){1}-----END [A-Z\x20]{1,48}-----(\r\n|\r|\n){0,1})$/s;
 const BASE64_REGEX =
   /^(?:[A-Za-z0-9\+\/]{4})*(?:[A-Za-z0-9\+\/]{2}==|[A-Za-z0-9\+\/]{3}=|[A-Za-z0-9\+\/]{4})$/m; // eslint-disable-line no-useless-escape
 
@@ -14,7 +34,6 @@ export const PemLabel = {
 type PemLabelId = typeof PemLabel[keyof typeof PemLabel];
 
 /**
- *
  * -----BEGIN [LABEL]-----
  * base64([DATA])
  * -----END [LABEL]-----
@@ -22,15 +41,22 @@ type PemLabelId = typeof PemLabel[keyof typeof PemLabel];
  * Above is shown what PEM file looks like. As can be seen, base64 data
  * can be in single line or multiple lines.
  *
- * This function normalizes PEM presentation to contain PEM header and footer
- * as they are given and formats base64 data into 64 character line length
- * and normalizes file end to contain only single new line after PEM footer.
+ * This function normalizes PEM presentation to;
+ *  - contain PEM header and footer as they are given
+ *  - normalize line endings to '\n'
+ *  - normalize line lenght to maximum of 64 characters
+ *  - ensure that 'preeb' has line ending '\n'
  */
 export const normalizePemFile = (pem: string): string => {
   const isPemFormat = PEM_FORMAT_REGEX.test(pem);
-  assertRequired(isPemFormat || undefined, "pem file has invalid headers");
+  assertRequired(isPemFormat || undefined, "pem file has invalid format");
 
-  return (pem.trim().match(/.{1,64}/g) ?? []).join("\n").replace(/\s*$/, "\n");
+  return `${(
+    pem
+      .trim()
+      .replace(/(\r\n|\r)/g, "\n")
+      .match(/.{1,64}/g) ?? []
+  ).join("\n")}\n`;
 };
 
 /**
@@ -61,7 +87,7 @@ export const generateUniqueId = (): string => {
 
 export const stripPemHeaderAndFooter = (certificate: string): string => {
   return certificate
-    .replace(/\r\n/g, "\n")
-    .replace(/-----BEGIN.*-----(\n?|)/, "")
-    .replace(/-----END.*-----(\n?|)/, "");
+    .replace(/(\r\n|\r)/g, "\n")
+    .replace(/-----BEGIN [A-Z\x20]{1,48}-----(\r\n|\r|\n){0,1}/, "")
+    .replace(/-----END [A-Z\x20]{1,48}-----(\r\n|\r|\n){0,1}/, "");
 };
