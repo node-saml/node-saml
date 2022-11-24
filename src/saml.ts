@@ -669,14 +669,16 @@ class SAML {
   }
 
   protected async getKeyInfosAsPem(): Promise<string[]> {
-    // Return already processed PEM files.
-    if (this.pemFiles.length > 0) {
+    if (typeof this.options.cert === "function") {
+      // Do not cache
+      return await resolveAndParseKeyInfosToPem(this.options);
+    } else if (this.pemFiles.length > 0) {
+      // Return already cached PEM files.
       return this.pemFiles;
     }
 
-    // Load PEM files from different sources.
+    // Load PEM files from different sources and cache.
     this.pemFiles = await resolveAndParseKeyInfosToPem(this.options);
-
     return this.pemFiles;
   }
 
