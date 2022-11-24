@@ -88,6 +88,6 @@ export const generateUniqueId = (): string => {
 export const stripPemHeaderAndFooter = (certificate: string): string => {
   return certificate
     .replace(/(\r\n|\r)/g, "\n")
-    .replace(/-----BEGIN [A-Z\x20]{1,48}-----(\r\n|\r|\n){0,1}/, "")
-    .replace(/-----END [A-Z\x20]{1,48}-----(\r\n|\r|\n){0,1}/, "");
+    .replace(/-----BEGIN [A-Z\x20]{1,48}-----\n?/, "")
+    .replace(/-----END [A-Z\x20]{1,48}-----\n?/, "");
 };
