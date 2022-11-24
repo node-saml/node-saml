@@ -169,6 +169,8 @@ The `signingCert` argument should be a public certificate matching the `privateK
 
 Node-SAML uses the HTTP Redirect Binding for its `AuthnRequest`s (unless overridden with the `authnRequestBinding` parameter), and expects to receive the messages back via the HTTP POST binding.
 
+### Configuration option `signatureAlgorithm`
+
 Authentication requests sent by Node-SAML can be signed using RSA signature with SHA1, SHA256 or SHA512 hashing algorithms.
 
 To select hashing algorithm, use:
@@ -181,11 +183,20 @@ To select hashing algorithm, use:
 ...
 ```
 
-To sign them you need to provide a private key in the PEM format via the `privateKey` configuration key.
+### Configuration option `privateKey`
 
-Formats supported for `privateKey` field are,
+To sign authentication requests, private key needs to be provide in the PEM format via the `privateKey` configuration property.
+Node-SAML is enforcing [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` format for PEM files.
 
-1. Well formatted PEM:
+Add it to strategy options like this:
+
+```javascript
+privateKey: fs.readFileSync("./privateKey.pem", "latin1");
+```
+
+Example formatings for `privateKey` field are,
+
+1. RFC7468 `stricttextualmsg` formatted PEM:
 
 ```
 -----BEGIN PRIVATE KEY-----
@@ -194,6 +205,8 @@ Formats supported for `privateKey` field are,
 
 ```
 
+or
+
 ```
 -----BEGIN RSA PRIVATE KEY-----
 <private key contents here delimited at 64 characters per row>
@@ -201,41 +214,70 @@ Formats supported for `privateKey` field are,
 
 ```
 
-(both versions work)
-See example from tests of the first version of [well formatted private key](test/static/acme_tools_com.key).
+2. Alternatively a single-line or multi-line private key in Base64 format.
+   See example from tests of [singleline private key](test/static/singleline_acme_tools_com.key).
 
-2. Alternatively a single line private key without start/end lines where all rows are joined into single line:
+### Configuration option `cert`
 
-See example from tests of [singleline private key](test/static/singleline_acme_tools_com.key).
+It is important to validate the signatures of the incoming SAML Responses.
+For this, provide the Identity Provider's public X.509 signing certificate(s) or public key(s) in [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` PEM format
+via the `cert` configuration property.
 
-Add it to strategy options like this:
+> **Important**, provided public key MUST always be in PEM format!
 
-```javascript
-privateKey: fs.readFileSync("./privateKey.pem", "utf-8");
-```
-
-It is a good idea to validate the signatures of the incoming SAML Responses. For this, you can provide the Identity Provider's public PEM-encoded X.509 signing certificate using the `cert` configuration key. The "BEGIN CERTIFICATE" and "END CERTIFICATE" lines should be stripped out and the certificate should be provided on a single line.
+Add it to options like this:
 
 ```javascript
 cert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
 ```
 
-If you have a certificate in the binary DER encoding, you can convert it to the necessary PEM encoding like this:
+or
 
-```bash
-     openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
-```
-
-If the Identity Provider has multiple signing certificates that are valid (such as during the rolling from an old key to a new key and responses signed with either key are valid) then the `cert` configuration key can be an array:
+If the Identity Provider has multiple signing certificates or public keys that are valid then the `cert` configuration property can be an array.
+This can be the case during the rolling from an old key to a new key and responses signed with either key are valid:
 
 ```javascript
 cert: ["MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==", "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g="];
 ```
 
-The `cert` configuration key can also be a function that receives a callback as argument calls back a possible error and a certificate or array of certificates. This allows the Identity Provider to be polled for valid certificates and the new certificate can be used if it is changed:
+or
+
+The `cert` configuration property can also be a function that receives a callback as argument calls back a possible error and a certificate or array of certificates
+or a public key or array of public keys.
+This allows the Identity Provider to be polled for valid certificates or public keys and the new certificate or public key can be used if it is changed:
 
 ```javascript
     cert: function(callback) { callback(null,polledCertificates); }
+```
+
+Example formatings for `cert` field are,
+
+1. RFC7468 stricttextualmsg formatted PEM:
+
+```
+-----BEGIN CERTIFICATE-----
+<certificate contents here delimited at 64 characters per row>
+-----END CERTIFICATE-----
+
+```
+
+or
+
+```
+-----BEGIN PUBLIC KEY-----
+<public key contents here delimited at 64 characters per row>
+-----END PUBLIC KEY-----
+
+```
+
+2. Alternatively a single-line or multi-line **certificate** in Base64 format.
+
+### TIP: If the certificate is in the binary DER encoding
+
+Convert it to the necessary PEM encoding like this:
+
+```bash
+     openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
 ```
 
 ## SAML Response Validation - NotBefore and NotOnOrAfter
