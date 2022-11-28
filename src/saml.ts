@@ -40,7 +40,8 @@ import {
   validateSignature,
   xpath,
 } from "./xml";
-import { keyInfoToPem, generateUniqueId, PemLabel } from "./crypto";
+import { keyInfoToPem, generateUniqueId } from "./crypto";
+import { PemLabel } from "./pem-label.enum";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
@@ -51,21 +52,20 @@ const deflateRawAsync = util.promisify(zlib.deflateRaw);
 export const resolveAndParseKeyInfosToPem = async ({
   cert,
 }: Pick<SamlOptions, "cert">): Promise<string[]> => {
-  const keyInfosToHandle: Array<string | string[]> = [];
+  const keyInfosToHandle: string[] = [];
   const pemFiles: string[] = [];
   if (typeof cert === "function") {
     await util
       .promisify(cert as CertCallback)()
       .then((certs) => {
         assertRequired(certs, "callback didn't return cert");
-
-        keyInfosToHandle.push(certs);
+        keyInfosToHandle.push(...(Array.isArray(certs) ? certs : [certs]));
       });
   } else {
-    keyInfosToHandle.push(cert);
+    keyInfosToHandle.push(...(Array.isArray(cert) ? cert : [cert]));
   }
   // Verify and normalize each PEM file.
-  keyInfosToHandle.flat().forEach((cert) => {
+  keyInfosToHandle.forEach((cert) => {
     pemFiles.push(keyInfoToPem(cert, PemLabel.CERTIFICATE));
   });
 

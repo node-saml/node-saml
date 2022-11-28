@@ -1,6 +1,6 @@
 import * as crypto from "crypto";
 import { assertRequired } from "./utility";
-
+import { PemLabel, PemLabelId } from "./pem-label.enum";
 /**
  * PEM format has wide range of usages, but this library
  * is enforcing RFC7468 which focuses on PKIX, PKCS and CMS.
@@ -24,14 +24,6 @@ const PEM_FORMAT_REGEX =
   /^(-----BEGIN [A-Z\x20]{1,48}-----(\r\n|\r|\n){1}.*(\r\n|\r|\n){1}-----END [A-Z\x20]{1,48}-----(\r\n|\r|\n){0,1})$/s;
 const BASE64_REGEX =
   /^(?:[A-Za-z0-9\+\/]{4})*(?:[A-Za-z0-9\+\/]{2}==|[A-Za-z0-9\+\/]{3}=|[A-Za-z0-9\+\/]{4})$/m; // eslint-disable-line no-useless-escape
-
-export const PemLabel = {
-  CERTIFICATE: "CERTIFICATE" as const,
-  PUBLIC_KEY: "PUBLIC KEY" as const,
-  PRIVATE_KEY: "PRIVATE KEY" as const,
-};
-
-type PemLabelId = typeof PemLabel[keyof typeof PemLabel];
 
 /**
  * -----BEGIN [LABEL]-----
