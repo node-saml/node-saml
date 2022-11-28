@@ -94,7 +94,7 @@ describe("Signatures", function () {
     );
     const publicKey = fs.readFileSync(__dirname + "/static/pub.pem", "ascii");
     it(
-      "R1A - both signed using public key => valid",
+      "R1A - both signed, verify using public key => valid",
       testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 2, {
         cert: publicKey,
       })
