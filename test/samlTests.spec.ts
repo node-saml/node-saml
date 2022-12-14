@@ -77,7 +77,7 @@ describe("saml.ts", function () {
       expect(pemFiles[1]).to.equal(certificate);
     });
 
-    it("returns will fail if 'cert' is a callback which returns invalid value", async () => {
+    it("will fail if 'cert' is a callback which returns invalid value", async () => {
       const cert: CertCallback = (cb) => {
         setTimeout(() => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,6 +86,72 @@ describe("saml.ts", function () {
       };
 
       assert.rejects(resolveAndParseKeyInfosToPem({ cert }), "callback didn't return cert");
+    });
+  });
+
+  describe("SAML protected getKeyInfosAsPem", function () {
+    const publicKey = fs.readFileSync(__dirname + "/static/pub.pem", "ascii");
+    const samlResponseBody = {
+      SAMLResponse: fs.readFileSync(
+        __dirname + "/static/signatures/valid/response.root-signed.assertion-signed.xml",
+        "base64"
+      ),
+    };
+    let fakeClock: sinon.SinonFakeTimers;
+
+    const triggerGetKeyInfosAsPemFunctionCall = async (samlObj: SAML): Promise<void> =>
+      assert.doesNotReject(samlObj.validatePostResponseAsync(samlResponseBody));
+
+    beforeEach(() => {
+      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+    });
+
+    afterEach(() => {
+      fakeClock.restore();
+    });
+
+    it("calls 'resolveAndParseKeyInfosToPem()' to get key infos if 'cert' is not a function", async () => {
+      const samlObj = new SAML({
+        cert: publicKey,
+        issuer: "onesaml_login",
+        audience: false,
+      });
+
+      await triggerGetKeyInfosAsPemFunctionCall(samlObj);
+      expect(samlObj.pemFiles.length).to.equal(1);
+    });
+
+    it("returns cached key infos", async () => {
+      const samlObj = new SAML({
+        cert: publicKey,
+        issuer: "onesaml_login",
+        audience: false,
+      });
+
+      await triggerGetKeyInfosAsPemFunctionCall(samlObj);
+      const oldPems = samlObj.pemFiles;
+      await triggerGetKeyInfosAsPemFunctionCall(samlObj);
+
+      expect(samlObj.pemFiles.length).to.equal(1);
+      expect(oldPems).to.equal(samlObj.pemFiles, "pemFiles Array has different reference");
+    });
+
+    it("does not cache key infos if 'cert' is a function", async () => {
+      const cert: CertCallback = (cb) => {
+        cb(null, [publicKey]);
+      };
+      const samlObj = new SAML({
+        cert,
+        issuer: "onesaml_login",
+        audience: false,
+      });
+
+      const oldPems = samlObj.pemFiles;
+      await triggerGetKeyInfosAsPemFunctionCall(samlObj);
+      await triggerGetKeyInfosAsPemFunctionCall(samlObj);
+
+      expect(samlObj.pemFiles.length).to.equal(0);
+      expect(oldPems).to.equal(samlObj.pemFiles, "pemFiles Array has different reference");
     });
   });
 
