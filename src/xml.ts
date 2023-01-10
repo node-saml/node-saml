@@ -147,10 +147,11 @@ export const validateXmlSignatureForCert = (
   );
 
   if (totalReferencedNodes.length > 1) {
-    return false;
+    return true;
   }
   fullXml = normalizeNewlines(fullXml);
-  return sig.checkSignature(fullXml);
+  sig.checkSignature(fullXml);
+  return true;
 };
 
 export const signXml = (

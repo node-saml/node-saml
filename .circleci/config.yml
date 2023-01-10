@@ -1,0 +1,84 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@4.8.0
+  slack: circleci/slack@4.2.1
+
+aliases:
+  - &node-install-config
+    install-yarn: true
+    node-version: '16'
+
+jobs:
+  test:
+    docker:
+      - image: cimg/base:stable
+    environment:
+      JEST_JUNIT_OUTPUT_DIR: ./reports/
+    steps:
+      - checkout
+      - node/install: *node-install-config
+      - node/install-packages:
+          cache-path: ./node_modules
+          pkg-manager: yarn
+      - run:
+          name: Lint, Build, and Test
+          command: |
+            yarn lint
+            yarn build
+            yarn test --runInBand --ci --reporters=default --reporters=jest-junit
+      - run:
+          name: Report Test Coverage
+          environment:
+            COVERALLS_SERVICE_NAME: 'circleci'
+          command: |
+            export COVERALLS_GIT_BRANCH=$CIRCLE_BRANCH
+            export COVERALLS_SERVICE_JOB_ID=$CIRCLE_BUILD_NUM
+            npx coveralls < coverage/lcov.info
+      - store_test_results:
+          path: ./reports/
+      - store_artifacts:
+          path: ./logs/
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - ./
+
+  publish:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - node/install: *node-install-config
+      - attach_workspace:
+          at: ./
+      - run:
+          name: publish
+          command: yarn publish --access restricted --new-version $CIRCLE_TAG
+
+workflows:
+  test-only:
+    jobs:
+      - test:
+          context:
+            - npm_token
+
+  test-and-publish:
+    jobs:
+      - test:
+          context:
+            - npm_token
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/ # Match version number in standard format: <major>.<minor>.<patch>
+      - publish:
+          requires:
+            - test
+          context:
+            - npm_token
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/ # Match version number in standard format: <major>.<minor>.<patch>
