@@ -22,9 +22,9 @@ jobs:
       - run:
           name: Lint, Build, and Test
           command: |
-            npm lint
-            npm build
-            npm test --runInBand --ci --reporters=default --reporters=jest-junit
+            run: npm lint
+            run: npm build
+            run: npm test 
       - run:
           name: Report Test Coverage
           environment:
