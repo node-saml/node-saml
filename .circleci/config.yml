@@ -1,224 +1,82 @@
 version: 2.1
 
 orbs:
-  aws-cli: circleci/aws-cli@3.1.1
   node: circleci/node@4.8.0
   slack: circleci/slack@4.2.1
 
 aliases:
   - &node-install-config
-    install-yarn: true
     node-version: '16'
-  - &slack_fail_msg |
-    {
-      "text": "",
-      "blocks": [
-        {
-          "type": "header",
-          "text": {
-            "type": "plain_text",
-            "text": "<<parameters.environment_name>> <<parameters.job_name>> Failed!",
-            "emoji": true
-          }
-        },
-        {
-          "type": "section",
-          "fields": [
-            {
-              "type": "mrkdwn",
-              "text": "*Project*: $CIRCLE_PROJECT_REPONAME"
-            },
-            {
-              "type": "mrkdwn",
-              "text": "*Triggered by*: $CIRCLE_USERNAME"
-            },
-            {
-              "type": "mrkdwn",
-              "text": "*When*: $(date +'%m/%d/%Y %T')"
-            },
-            {
-              "type": "mrkdwn",
-              "text": "*Last Commit*: $CIRCLE_SHA1"
-            }
-          ]
-        },
-        {
-          "type": "actions",
-          "elements": [
-            {
-              "type": "button",
-              "text": {
-                "type": "plain_text",
-                "text": "View Job"
-              },
-              "url": "${CIRCLE_BUILD_URL}"
-            }
-          ]
-        }
-      ]
-    }
-  - &slack_success_msg |
-    {
-      "text": "",
-      "blocks": [
-        {
-          "type": "header",
-          "text": {
-            "type": "plain_text",
-            "text": "<<parameters.environment_name>> <<parameters.job_name>> Successful! :tada:",
-            "emoji": true
-          }
-        },
-        {
-          "type": "section",
-          "fields": [
-            {
-              "type": "mrkdwn",
-              "text": "*Project*: $CIRCLE_PROJECT_REPONAME"
-            },
-            {
-              "type": "mrkdwn",
-              "text": "*Triggered by*: $CIRCLE_USERNAME"
-            },
-            {
-              "type": "mrkdwn",
-              "text": "*When*: $(date +'%m/%d/%Y %T')"
-            },
-            {
-              "type": "mrkdwn",
-              "text": "*Last Commit*: $CIRCLE_SHA1"
-            }
-          ]
-        },
-        {
-          "type": "actions",
-          "elements": [
-            {
-              "type": "button",
-              "text": {
-                "type": "plain_text",
-                "text": "View Job"
-              },
-              "url": "${CIRCLE_BUILD_URL}"
-            }
-          ]
-        }
-      ]
-    }
-  - &slack_notify_failure
-    slack/notify:
-      event: fail
-      branch_pattern: master
-      custom: *slack_fail_msg
-  - &slack_notify_success
-    slack/notify:
-      event: pass
-      branch_pattern: master
-      custom: *slack_success_msg
 
 jobs:
-  build-and-test:
+  test:
     docker:
       - image: cimg/base:stable
-    parameters:
-      environment_name:
-        default: ''
-        type: string
-      job_name:
-        default: 'Build and Test'
-        type: string
+    environment:
+      JEST_JUNIT_OUTPUT_DIR: ./reports/
     steps:
       - checkout
       - node/install: *node-install-config
       - node/install-packages:
           cache-path: ./node_modules
-          pkg-manager: yarn
       - run:
-          name: Lint and Test
+          name: Lint, Build, and Test
           command: |
-            yarn lint
-            yarn test
+            npm lint
+            npm build
+            npm test --runInBand --ci --reporters=default --reporters=jest-junit
+      - run:
+          name: Report Test Coverage
+          environment:
+            COVERALLS_SERVICE_NAME: 'circleci'
+          command: |
+            export COVERALLS_GIT_BRANCH=$CIRCLE_BRANCH
+            export COVERALLS_SERVICE_JOB_ID=$CIRCLE_BUILD_NUM
+            npx coveralls < coverage/lcov.info
+      - store_test_results:
+          path: ./reports/
+      - store_artifacts:
+          path: ./logs/
       - persist_to_workspace:
           root: ./
           paths:
             - ./
 
-  deploy-master:
+  publish:
     docker:
-      - image: 'cimg/base:stable'
-    parameters:
-      environment: # this defines which build script from package.json we're going to call
-        type: string
-      environment_name: # used by Slack
-        type: string
-      environment_short_name: # like dev, stage, prod
-        type: string
-      job_name:
-        default: Deploy
-        type: string
+      - image: cimg/base:stable
     steps:
+      - node/install: *node-install-config
       - attach_workspace:
           at: ./
-      - node/install: *node-install-config
-      - run: |
-          yarn deploy:<<parameters.environment>> \
-           --env <<parameters.environment_short_name>>
-      - *slack_notify_failure
-      - *slack_notify_success
+      - run:
+          name: publish
+          command: npm publish --access restricted --new-version $CIRCLE_TAG
 
 workflows:
-  build-test-and-deploy:
+  test-only:
     jobs:
-      - hold-staging-for-approval:
-          type: approval
-          requires:
-            - deploy-master-for-dev
+      - test:
+          context:
+            - npm_token
+
+  test-and-publish:
+    jobs:
+      - test:
+          context:
+            - npm_token
           filters:
             branches:
-              only:
-                - master
-      - hold-production-for-approval:
-          type: approval
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/ # Match version number in standard format: <major>.<minor>.<patch>
+      - publish:
           requires:
-            - deploy-master-for-staging
+            - test
+          context:
+            - npm_token
           filters:
             branches:
-              only:
-                - master
-      - build-and-test:
-          context:
-            - npm_token
-      - deploy-master:
-          name: deploy-master-for-dev
-          environment: development
-          environment_short_name: dev
-          environment_name: Development
-          context:
-            - foxden-node-saml
-            - npm_token
-          requires:
-            - build-and-test
-          filters:
-            branches:
-              only:
-                - master
-      - deploy-master:
-          name: deploy-master-for-staging
-          environment: staging
-          environment_short_name: stage
-          environment_name: Staging
-          context:
-            - foxden-node-saml
-            - npm_token
-          requires:
-            - hold-staging-for-approval
-      - deploy-master:
-          name: deploy-master-for-prod
-          environment: production
-          environment_short_name: prod
-          environment_name: Production
-          context:
-            - foxden-node-saml
-            - npm_token
-          requires:
-            - hold-production-for-approval
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/ # Match version number in standard format: <major>.<minor>.<patch>
