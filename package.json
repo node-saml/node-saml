@@ -19,6 +19,9 @@
   ],
   "scripts": {
     "build": "rm -rf dist/ && tsc",
+    "deploy:development": "sls deploy --stage dev",
+    "deploy:production": "sls deploy --stage prod",
+    "deploy:staging": "sls deploy --stage stage",
     "changelog": "gren changelog --override --generate --head master",
     "lint-watch": "onchange -k -p 100 \"**/*.ts\" -- eslint {{file}}",
     "lint": "eslint --cache --ext .js,.ts,.tsx, ./src ./test",
