@@ -22,7 +22,7 @@ jobs:
       - run:
           name: Lint, Build, and Test
           command: |
-            npm run lint
+            npm run lint:fix
             npm run build
             npm run test 
       - store_test_results:
