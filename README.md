@@ -1,6 +1,6 @@
-# Node SAML
+# Foxden Node saml
 
-[![Build Status](https://github.com/node-saml/node-saml/workflows/Build%20Status/badge.svg)](https://github.com/node-saml/node-saml/actions?query=workflow%3ABuild%Status)
+<!-- [![Build Status](https://github.com/node-saml/node-saml/workflows/Build%20Status/badge.svg)](https://github.com/node-saml/node-saml/actions?query=workflow%3ABuild%Status)
 [![npm version](https://badge.fury.io/js/@node-saml%2Fnode-saml.svg)](https://badge.fury.io/js/@node-saml%2Fnode-saml)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 [![codecov](https://codecov.io/gh/node-saml/node-saml/branch/master/graph/badge.svg?token=PQWCMBWBFB)](https://codecov.io/gh/node-saml/node-saml)
@@ -8,13 +8,13 @@
 
 [![NPM](https://nodei.co/npm/@node-saml/node-saml.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/@node-saml/node-saml)
 
-This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provider for Node.js.
+This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provider for Node.js. -->
 
 ## Installation
 
     $ npm install @node-saml/node-saml
 
-## Usage
+<!-- ## Usage
 
 The examples utilize the [Feide OpenIdp identity provider](https://openidp.feide.no/). You need an account there to log in with this. You also need to [register your site](https://openidp.feide.no/simplesaml/module.php/metaedit/index.php) as a service provider.
 
@@ -306,4 +306,4 @@ It's possible this package will work correctly on newer versions of Node. It may
 
 As each Node LTS version reaches its end-of-life we will remove that version from the `node` `engines` property of our package's `package.json` file. Removing a Node version is considered a breaking change and will entail the publishing of a new major version of this package. We will not accept any requests to support an end-of-life version of Node. Any merge requests or issues supporting an end-of-life version of Node will be closed.
 
-We will accept code that allows this package to run on newer, non-LTS, versions of Node.
+We will accept code that allows this package to run on newer, non-LTS, versions of Node. -->
