@@ -22,9 +22,9 @@ jobs:
       - run:
           name: Lint, Build, and Test
           command: |
-            run: npm lint
-            run: npm build
-            run: npm test 
+            npm run lint
+            npm run build
+            npm run test 
       - run:
           name: Report Test Coverage
           environment:
@@ -51,7 +51,7 @@ jobs:
           at: ./
       - run:
           name: publish
-          command: npm publish --access restricted --new-version $CIRCLE_TAG
+          command: npm run publish --access restricted --new-version $CIRCLE_TAG
 
 workflows:
   test-only:
