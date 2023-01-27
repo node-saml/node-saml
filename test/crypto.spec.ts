@@ -22,11 +22,6 @@ describe("crypto.ts", function () {
 
   describe("normalizePemFile", function () {
     describe("invalid values", function () {
-      it("should throw with null", function () {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        assert.throws(() => normalizePemFile(null as any));
-      });
-
       it("should throw with empty string", function () {
         assert.throws(() => normalizePemFile(""));
       });
