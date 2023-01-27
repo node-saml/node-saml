@@ -27,6 +27,7 @@ import {
   XMLObject,
   XMLValue,
   SamlResponseXmlJs,
+  PemLabel,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
@@ -41,7 +42,6 @@ import {
   xpath,
 } from "./xml";
 import { keyInfoToPem, generateUniqueId } from "./crypto";
-import { PemLabel } from "./pem-label.enum";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";

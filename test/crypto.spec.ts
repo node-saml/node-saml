@@ -7,7 +7,7 @@ import {
   stripPemHeaderAndFooter,
   normalizePemFile,
 } from "../src/crypto";
-import { PemLabel } from "../src/pem-label.enum";
+import { PemLabel } from "../src/types";
 import {
   TEST_CERT_SINGLELINE,
   TEST_CERT_MULTILINE,
