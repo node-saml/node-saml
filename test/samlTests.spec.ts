@@ -80,7 +80,6 @@ describe("saml.ts", function () {
     it("will fail if 'cert' is a callback which returns invalid value", async () => {
       const cert: CertCallback = (cb) => {
         setTimeout(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           cb(null, null as any);
         }, 50);
       };

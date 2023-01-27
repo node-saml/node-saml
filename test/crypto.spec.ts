@@ -94,12 +94,10 @@ describe("crypto.ts", function () {
   describe("keyInfoToPem", function () {
     describe("invalid values", function () {
       it("should throw with null", function () {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         assert.throws(() => keyInfoToPem(null as any));
       });
 
       it("should throw with false", function () {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         assert.throws(() => keyInfoToPem(false as any));
       });
 
