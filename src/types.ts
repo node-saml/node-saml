@@ -6,7 +6,8 @@ export const PemLabel = {
   PRIVATE_KEY: "PRIVATE KEY" as const,
 };
 
-export type PemLabelId = typeof PemLabel[keyof typeof PemLabel];
+// prettier-ignore
+export type PemLabelId = (typeof PemLabel)[keyof typeof PemLabel];
 
 export interface SamlSigningOptions {
   privateKey: string | Buffer;
@@ -43,6 +44,7 @@ export type XMLObject = {
 
 export type XMLInput = XMLObject;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type XMLOutput = Record<string, any>;
 
 export type AuthorizeRequestXML = {
