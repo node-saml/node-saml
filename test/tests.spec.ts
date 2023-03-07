@@ -2495,7 +2495,8 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
-          message: "SAML assertion audience mismatch",
+          message:
+            "SAML assertion audience mismatch. Expected: http://sp.example.com Received: {audience}",
         });
       });
 
