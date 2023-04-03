@@ -202,6 +202,9 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
       "#text": string;
     }[];
   };
+
+  // logger function
+  log?: any;
 }
 
 export interface GenerateServiceProviderMetadataParams {
@@ -226,6 +229,7 @@ export interface GenerateServiceProviderMetadataParams {
 export interface StrategyOptions {
   name?: string;
   passReqToCallback?: boolean;
+  log?: any;
 }
 
 /**

@@ -122,6 +122,7 @@ class SAML {
       generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
       signMetadata: ctorOptions.signMetadata ?? false,
       racComparison: ctorOptions.racComparison ?? "exact",
+      log: ctorOptions.log || undefined
     };
 
     /**
@@ -328,6 +329,11 @@ class SAML {
     if (isHttpPostBinding && isValidSamlSigningOptions(this.options)) {
       stringRequest = signAuthnRequestPost(stringRequest, this.options);
     }
+
+    if (this.options.log) {
+      this.options.log.info("SAML authorization request: '%s'", stringRequest);
+    }
+
     return stringRequest;
   }
 
@@ -384,7 +390,13 @@ class SAML {
     }
 
     await this.cacheProvider.saveAsync(id, instant);
-    return buildXmlBuilderObject(request, false);
+    const stringRequest = buildXmlBuilderObject(request, false);
+
+    if (this.options.log) {
+      this.options.log.info("SAML logout request: '%s'", stringRequest);
+    }
+
+    return stringRequest;
   }
 
   _generateLogoutResponse(this: SAML, logoutRequest: Profile, success: boolean): string {
@@ -422,7 +434,13 @@ class SAML {
       },
     };
 
-    return buildXmlBuilderObject(request, false);
+    const stringLogoutResponse = buildXmlBuilderObject(request, false);
+
+    if (this.options.log) {
+      this.options.log.info("SAML logout response: '%s'", stringLogoutResponse);
+    }
+
+    return stringLogoutResponse;
   }
 
   async _requestToUrlAsync(
@@ -673,6 +691,11 @@ class SAML {
 
     try {
       xml = Buffer.from(container.SAMLResponse, "base64").toString("utf8");
+
+      if (this.options.log) {
+        this.options.log.info("SAML authorization response: '%s'", xml);
+      }
+
       doc = await parseDomFromString(xml);
 
       const inResponseToNodes = xpath.selectAttributes(
