@@ -69,6 +69,7 @@ const saml = new SAML(options);
 - `generateUniqueId`: optional function which will be called to generate unique IDs for SAML requests.
 - `scoping`: An optional configuration which implements the functionality [explained in the SAML spec paragraph "3.4.1.2 Element <Scoping>"](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf). The config object is structured as following:
 - `signMetadata`: if true, adds a signature to the generated Service Provider metadata. `privateKey` must be set to use this option.
+- `log`: optional logger function to log SAML request and response.
 
 ```javascript
 {

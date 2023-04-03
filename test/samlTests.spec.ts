@@ -20,6 +20,9 @@ describe("SAML.js", function () {
         cert: FAKE_CERT,
         issuer: "onesaml_login",
         generateUniqueId: () => "uniqueId",
+        log: {
+          info: sinon.stub()
+        }
       });
       req = {
         protocol: "https",
@@ -71,6 +74,12 @@ describe("SAML.js", function () {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
       });
+      it("verify call with log function", async () => {
+        const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
+        expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
+        // verify stub is actually called
+        saml.options.log.info.calledOnce;
+      });
     });
 
     describe("getLogoutUrl", function () {
@@ -109,6 +118,13 @@ describe("SAML.js", function () {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
         expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
+      });
+      it("verify call with log function", async () => {
+        assertRequired(req.user);
+        const target = await saml.getLogoutUrlAsync(req.user, "", {});
+        expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
+        // verify stub is actually called
+        saml.options.log.info.calledOnce;
       });
     });
 
@@ -224,6 +240,8 @@ describe("SAML.js", function () {
               assertRequired(cbTarget);
               assertRequired(asyncTarget);
               assert.strictEqual(asyncTarget, cbTarget);
+              // verify stub call
+              saml.options.log.info.calledOnce;
               done();
             } catch (err2) {
               done(err2);
