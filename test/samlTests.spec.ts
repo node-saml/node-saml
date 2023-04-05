@@ -77,8 +77,7 @@ describe("SAML.js", function () {
       it("verify call with log function", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
-        // verify stub is actually called
-        saml.options.log.info.calledOnce;
+        sinon.assert.calledOnce(saml.options.log.info)
       });
     });
 
@@ -123,8 +122,7 @@ describe("SAML.js", function () {
         assertRequired(req.user);
         const target = await saml.getLogoutUrlAsync(req.user, "", {});
         expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
-        // verify stub is actually called
-        saml.options.log.info.calledOnce;
+        sinon.assert.calledOnce(saml.options.log.info);
       });
     });
 
@@ -136,6 +134,7 @@ describe("SAML.js", function () {
             assertRequired(target);
             const parsed = new URL(target);
             assert.strictEqual(parsed.host, "exampleidp.com");
+            sinon.assert.calledOnce(saml.options.log.info);
             done();
           } catch (err2) {
             done(err2);
@@ -149,6 +148,7 @@ describe("SAML.js", function () {
             assertRequired(target);
             const parsed = new URL(target);
             assert.strictEqual(parsed.protocol, "https:");
+            sinon.assert.calledOnce(saml.options.log.info);
             done();
           } catch (err2) {
             done(err2);
@@ -162,6 +162,7 @@ describe("SAML.js", function () {
             assertRequired(target);
             const parsed = new URL(target);
             assert.strictEqual(parsed.pathname, "/path");
+            sinon.assert.calledOnce(saml.options.log.info);
             done();
           } catch (err2) {
             done(err2);
@@ -175,6 +176,7 @@ describe("SAML.js", function () {
             assertRequired(target);
             const parsed = new URL(target);
             assert.strictEqual(parsed.searchParams.get("key"), "value");
+            sinon.assert.calledOnce(saml.options.log.info);
             done();
           } catch (err2) {
             done(err2);
@@ -190,6 +192,7 @@ describe("SAML.js", function () {
             assert.strictEqual(parsed.searchParams.get("key"), "value");
             expect(parsed.searchParams.get("SAMLResponse")).to.exist;
             assert.strictEqual(parsed.searchParams.get("additionalKey"), "additionalValue");
+            sinon.assert.calledOnce(saml.options.log.info);
             done();
           } catch (err2) {
             done(err2);
@@ -204,6 +207,7 @@ describe("SAML.js", function () {
             assertRequired(target);
             const parsed = new URL(target);
             expect(parsed.searchParams.get("SAMLResponse")).to.not.be.empty;
+            sinon.assert.calledOnce(saml.options.log.info);
             done();
           } catch (err2) {
             done(err2);
@@ -240,8 +244,7 @@ describe("SAML.js", function () {
               assertRequired(cbTarget);
               assertRequired(asyncTarget);
               assert.strictEqual(asyncTarget, cbTarget);
-              // verify stub call
-              saml.options.log.info.calledOnce;
+              sinon.assert.calledTwice(saml.options.log.info);
               done();
             } catch (err2) {
               done(err2);
