@@ -93,12 +93,15 @@ module.exports = {
   template: {
     issue: function (placeholders) {
       const parts = [
-        "-", 
+        "-",
         placeholders.labels,
         placeholders.name,
         `[${placeholders.text}](${placeholders.url})`,
       ];
-      return parts.filter((_) => _).join(" ").replace("  ", " ");
+      return parts
+        .filter((_) => _)
+        .join(" ")
+        .replace("  ", " ");
     },
     release: function (placeholders) {
       placeholders.body = placeholders.body.replace(
