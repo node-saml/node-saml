@@ -1206,7 +1206,12 @@ class SAML {
           return new Error("SAML assertion AudienceRestriction has no Audience value");
         }
         if (restriction.Audience[0]._ !== expectedAudience) {
-          return new Error("SAML assertion audience mismatch");
+          return new Error(
+            "SAML assertion audience mismatch. Expected: " +
+              expectedAudience +
+              " Received: " +
+              restriction.Audience[0]._
+          );
         }
         return null;
       })
