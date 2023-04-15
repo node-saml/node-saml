@@ -35,6 +35,7 @@ export type XMLObject = {
 
 export type XMLInput = XMLObject;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type XMLOutput = Record<string, any>;
 
 export type AuthorizeRequestXML = {
