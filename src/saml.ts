@@ -515,6 +515,33 @@ class SAML {
     );
   }
 
+  async getAuthorizeMessageAsync(
+    RelayState: string,
+    host?: string
+  ): Promise<querystring.ParsedUrlQueryInput> {
+    assertRequired(this.options.entryPoint, "entryPoint is required");
+
+    const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
+    let buffer: Buffer;
+    if (this.options.skipRequestCompression) {
+      buffer = Buffer.from(request, "utf8");
+    } else {
+      buffer = await deflateRawAsync(request);
+    }
+
+    const operation = "authorize";
+    const additionalParameters = this._getAdditionalParams(RelayState, operation);
+    const samlMessage: querystring.ParsedUrlQueryInput = {
+      SAMLRequest: buffer.toString("base64"),
+    };
+
+    Object.keys(additionalParameters).forEach((k) => {
+      samlMessage[k] = additionalParameters[k] || "";
+    });
+
+    return samlMessage;
+  }
+
   async getAuthorizeFormAsync(RelayState: string, host?: string): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -548,23 +575,7 @@ class SAML {
       );
     };
 
-    const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
-    let buffer: Buffer;
-    if (this.options.skipRequestCompression) {
-      buffer = Buffer.from(request, "utf8");
-    } else {
-      buffer = await deflateRawAsync(request);
-    }
-
-    const operation = "authorize";
-    const additionalParameters = this._getAdditionalParams(RelayState, operation);
-    const samlMessage: querystring.ParsedUrlQueryInput = {
-      SAMLRequest: buffer.toString("base64"),
-    };
-
-    Object.keys(additionalParameters).forEach((k) => {
-      samlMessage[k] = additionalParameters[k] || "";
-    });
+    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, host);
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {

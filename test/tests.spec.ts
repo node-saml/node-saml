@@ -1865,6 +1865,152 @@ describe("node-saml /", function () {
       });
     });
 
+    describe("getAuthorizeMessageAsync checks /", function () {
+      it("should not pass any additional params by default", async function () {
+        const samlConfig: SamlConfig = {
+          entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+        };
+        const samlObj = new SAML(samlConfig);
+
+        const { SAMLRequest, ...additionalParams } = await samlObj.getAuthorizeMessageAsync("");
+        assertRequired(SAMLRequest, "SAMLRequest must exist");
+        expect(Object.keys(additionalParams)).to.have.lengthOf(0);
+      });
+
+      it("should not pass any additional params by default apart from the RelayState", async function () {
+        const samlConfig: SamlConfig = {
+          entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+        };
+        const samlObj = new SAML(samlConfig);
+
+        const { SAMLRequest, ...additionalParams } = await samlObj.getAuthorizeMessageAsync("test");
+        assertRequired(SAMLRequest, "SAMLRequest must exist");
+        expect(Object.keys(additionalParams)).to.have.lengthOf(1);
+        expect(additionalParams).to.include({ RelayState: "test" });
+      });
+
+      it("should only allow RelayState to be a string", async function () {
+        const samlConfig: SamlConfig = {
+          entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+        };
+        const samlObj = new SAML(samlConfig);
+
+        const { SAMLRequest, ...additionalParams } = await samlObj.getAuthorizeMessageAsync({
+          RelayState: "test",
+        } as unknown as string);
+
+        assertRequired(SAMLRequest, "SAMLRequest must exist");
+        expect(Object.keys(additionalParams)).to.have.lengthOf(0);
+      });
+
+      it("should pass additional params with all operations if set in additionalParams", async function () {
+        const samlConfig: SamlConfig = {
+          entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
+          additionalParams: {
+            queryParam: "queryParamValue",
+          },
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+        };
+        const samlObj = new SAML(samlConfig);
+
+        const { SAMLRequest, ...additionalParams } = await samlObj.getAuthorizeMessageAsync("");
+        assertRequired(SAMLRequest, "SAMLRequest must exist");
+        expect(Object.keys(additionalParams)).to.have.lengthOf(1);
+        expect(additionalParams).to.include({ queryParam: "queryParamValue" });
+      });
+
+      it('should pass additional params with "authorize" operations if set in additionalAuthorizeParams', async function () {
+        const samlConfig: SamlConfig = {
+          entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
+          additionalAuthorizeParams: {
+            queryParam: "queryParamValue",
+          },
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+        };
+        const samlObj = new SAML(samlConfig);
+
+        const { SAMLRequest, ...additionalParams } = await samlObj.getAuthorizeMessageAsync("");
+        assertRequired(SAMLRequest, "SAMLRequest must exist");
+        expect(Object.keys(additionalParams)).to.have.lengthOf(1);
+        expect(additionalParams).to.include({ queryParam: "queryParamValue" });
+      });
+
+      it("should merge additionalAuthorizeParams with additionalParams", async function () {
+        const samlConfig: SamlConfig = {
+          entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
+          additionalParams: {
+            queryParam1: "queryParamValue",
+          },
+          additionalAuthorizeParams: {
+            queryParam2: "queryParamValueAuthorize",
+          },
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+        };
+        const samlObj = new SAML(samlConfig);
+
+        const { SAMLRequest, ...additionalParams } = await samlObj.getAuthorizeMessageAsync("");
+        assertRequired(SAMLRequest, "SAMLRequest must exist");
+        expect(Object.keys(additionalParams)).to.have.lengthOf(2);
+        expect(additionalParams).to.include({
+          queryParam1: "queryParamValue",
+          queryParam2: "queryParamValueAuthorize",
+        });
+      });
+
+      it("should merge additionalAuthorizeParams and RelayState with additionalParams", async function () {
+        const samlConfig: SamlConfig = {
+          entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
+          additionalParams: {
+            queryParam1: "queryParamValue",
+          },
+          additionalAuthorizeParams: {
+            queryParam2: "queryParamValueAuthorize",
+          },
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+        };
+        const samlObj = new SAML(samlConfig);
+
+        const { SAMLRequest, ...additionalParams } = await samlObj.getAuthorizeMessageAsync("test");
+        assertRequired(SAMLRequest, "SAMLRequest must exist");
+        expect(Object.keys(additionalParams)).to.have.lengthOf(3);
+        expect(additionalParams).to.include({
+          RelayState: "test",
+          queryParam1: "queryParamValue",
+          queryParam2: "queryParamValueAuthorize",
+        });
+      });
+
+      it("should prioritize additionalAuthorizeParams over additionalParams", async function () {
+        const samlConfig: SamlConfig = {
+          entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
+          additionalParams: {
+            queryParam: "queryParamValue",
+          },
+          additionalAuthorizeParams: {
+            queryParam: "queryParamValueAuthorize",
+          },
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+        };
+        const samlObj = new SAML(samlConfig);
+
+        const { SAMLRequest, ...additionalParams } = await samlObj.getAuthorizeMessageAsync("");
+        assertRequired(SAMLRequest, "SAMLRequest must exist");
+        expect(Object.keys(additionalParams)).to.have.lengthOf(1);
+        expect(additionalParams).to.include({ queryParam: "queryParamValueAuthorize" });
+      });
+    });
+
     describe("InResponseTo validation checks /", () => {
       let fakeClock: sinon.SinonFakeTimers;
 
