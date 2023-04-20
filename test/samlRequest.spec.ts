@@ -399,6 +399,49 @@ describe("SAML request", function () {
     });
   });
 
+  describe("With additional run-time parameters", function () {
+    const config: SamlConfig = {
+      entryPoint: "https://wwwexampleIdp.com/saml",
+      cert: FAKE_CERT,
+      issuer: "onelogin_saml",
+    };
+
+    const oSAML = new SAML(config);
+
+    it("getAuthorizeMessageAsync", async function () {
+      const samlMessage = await oSAML.getAuthorizeMessageAsync(
+        "http://localhost/saml/consume",
+        undefined,
+        { additionalParams: { foo: "bar" } }
+      );
+
+      assertRequired(samlMessage.SAMLRequest);
+      expect(samlMessage.foo).to.equal("bar");
+    });
+
+    it("getAuthorizeFormAsync", async function () {
+      const formBody = await oSAML.getAuthorizeFormAsync(
+        "http://localhost/saml/consume",
+        undefined,
+        { additionalParams: { foo: "bar" } }
+      );
+
+      expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
+      expect(formBody).to.match(/<input.*name="foo" value="bar"/);
+    });
+
+    it("getAuthorizeFormAsync with empty options", async function () {
+      const formBody = await oSAML.getAuthorizeFormAsync(
+        "http://localhost/saml/consume",
+        undefined,
+        {}
+      );
+
+      expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
+      expect(formBody).to.not.match(/<input.*name="foo" value="bar"/);
+    });
+  });
+
   describe("Config with disableRequestedAuthnContext, skipRequestCompression, disableRequestAcsUrl", function () {
     const config: SamlConfig = {
       entryPoint: "https://wwwexampleIdp.com/saml",
