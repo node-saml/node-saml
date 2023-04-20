@@ -450,10 +450,8 @@ describe("node-saml /", function () {
 
       it("config with protocol, path, host, and decryptionPvk should pass", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
           issuer: "http://example.serviceprovider.com",
-          protocol: "http://",
-          host: "example.serviceprovider.com",
-          path: "/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           cert: FAKE_CERT,
@@ -470,10 +468,8 @@ describe("node-saml /", function () {
 
       it("config with protocol, path, and host should pass", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
           issuer: "http://example.serviceprovider.com",
-          protocol: "http://",
-          host: "example.serviceprovider.com",
-          path: "/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           cert: FAKE_CERT,
           generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
@@ -489,10 +485,8 @@ describe("node-saml /", function () {
 
       it("config with protocol, path, host, decryptionPvk and privateKey should pass", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
           issuer: "http://example.serviceprovider.com",
-          protocol: "http://",
-          host: "example.serviceprovider.com",
-          path: "/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
@@ -511,10 +505,8 @@ describe("node-saml /", function () {
 
       it("config with encryption and two signing certificates should pass", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
           issuer: "http://example.serviceprovider.com",
-          protocol: "http://",
-          host: "example.serviceprovider.com",
-          path: "/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
