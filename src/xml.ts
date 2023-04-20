@@ -129,8 +129,7 @@ export const validateXmlSignatureForCert = (
     getKeyInfo: () => "<X509Data></X509Data>",
     getKey: () => Buffer.from(certPem),
   };
-  const signatureStr = normalizeNewlines(signature.toString());
-  sig.loadSignature(signatureStr);
+  sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we
   //   are validating, so if we see anything else, reject.
   if (sig.references.length != 1) return false;
@@ -207,15 +206,6 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
 
     if (!Object.prototype.hasOwnProperty.call(dom, "documentElement")) {
       return reject(new Error("Not a valid XML document"));
-    }
-
-    if (
-      Array.from(dom.childNodes as NodeListOf<Element>).filter(
-        (n) => n.tagName != null && n.childNodes != null
-      ).length !== 1
-    ) {
-      // This will never happen due to updates in @xmldom/xmldom@0.8.5
-      return reject(new Error("Malformed XML; multiple roots detected"));
     }
 
     return resolve(dom);
