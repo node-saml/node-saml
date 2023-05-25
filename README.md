@@ -13,7 +13,7 @@ This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provi
 ## Installation
 
 ```shell
-    npm install @node-saml/node-saml
+npm install @node-saml/node-saml
 ```
 
 ## Usage
@@ -174,12 +174,10 @@ Authentication requests sent by Node-SAML can be signed using RSA signature with
 
 To select hashing algorithm, use:
 
-```js
-...
-  signatureAlgorithm: 'sha1' // (default, but not recommended anymore these days)
-  signatureAlgorithm: 'sha256', // (preferred - your IDP should support it, otherwise think about upgrading it)
-  signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
-...
+```javascript
+signatureAlgorithm: 'sha1' // (default, but not recommended anymore these days)
+signatureAlgorithm: 'sha256', // (preferred - your IDP should support it, otherwise think about upgrading it)
+signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
 ```
 
 ### Configuration option `privateKey`
@@ -201,7 +199,6 @@ Example formatings for `privateKey` field are,
 -----BEGIN PRIVATE KEY-----
 <private key contents here delimited at 64 characters per row>
 -----END PRIVATE KEY-----
-
 ```
 
 or
@@ -210,7 +207,6 @@ or
 -----BEGIN RSA PRIVATE KEY-----
 <private key contents here delimited at 64 characters per row>
 -----END RSA PRIVATE KEY-----
-
 ```
 
 2. Alternatively a single-line or multi-line private key in Base64 format.
@@ -246,7 +242,9 @@ or a public key or array of public keys.
 This allows the Identity Provider to be polled for valid certificates or public keys and the new certificate or public key can be used if it is changed:
 
 ```javascript
-    cert: function(callback) { callback(null,polledCertificates); }
+cert: (callback) => {
+  callback(null, polledCertificates);
+};
 ```
 
 Example formatings for `cert` field are,
@@ -257,7 +255,6 @@ Example formatings for `cert` field are,
 -----BEGIN CERTIFICATE-----
 <certificate contents here delimited at 64 characters per row>
 -----END CERTIFICATE-----
-
 ```
 
 or
@@ -266,7 +263,6 @@ or
 -----BEGIN PUBLIC KEY-----
 <public key contents here delimited at 64 characters per row>
 -----END PUBLIC KEY-----
-
 ```
 
 2. Alternatively a single-line or multi-line **certificate** in Base64 format.
@@ -275,8 +271,8 @@ or
 
 Convert it to the necessary PEM encoding like this:
 
-```bash
-     openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
+```shell
+openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
 ```
 
 ## SAML Response Validation - NotBefore and NotOnOrAfter
