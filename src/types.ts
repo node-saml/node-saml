@@ -1,13 +1,6 @@
 export type SignatureAlgorithm = "sha1" | "sha256" | "sha512";
 
-export const PemLabel = {
-  CERTIFICATE: "CERTIFICATE" as const,
-  PUBLIC_KEY: "PUBLIC KEY" as const,
-  PRIVATE_KEY: "PRIVATE KEY" as const,
-};
-
-// prettier-ignore
-export type PemLabelId = (typeof PemLabel)[keyof typeof PemLabel];
+export type PemLabel = "CERTIFICATE" | "PUBLIC KEY" | "PRIVATE KEY";
 
 export interface SamlSigningOptions {
   privateKey: string | Buffer;

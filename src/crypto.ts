@@ -1,6 +1,6 @@
 import * as crypto from "crypto";
 import { assertRequired } from "./utility";
-import { PemLabel, PemLabelId } from "./types";
+import { PemLabel } from "./types";
 /**
  * PEM format has wide range of usages, but this library
  * is enforcing RFC7468 which focuses on PKIX, PKCS and CMS.
@@ -23,7 +23,7 @@ import { PemLabel, PemLabelId } from "./types";
 const PEM_FORMAT_REGEX =
   /^(-----BEGIN [A-Z\x20]{1,48}-----(\r\n|\r|\n){1}.*(\r\n|\r|\n){1}-----END [A-Z\x20]{1,48}-----(\r\n|\r|\n){0,1})$/s;
 const BASE64_REGEX =
-  /^(?:[A-Za-z0-9\+\/]{4})*(?:[A-Za-z0-9\+\/]{2}==|[A-Za-z0-9\+\/]{3}=|[A-Za-z0-9\+\/]{4})$/m; // eslint-disable-line no-useless-escape
+  /^(?:[A-Za-z0-9\+\/]{4}\n{0,1})*(?:[A-Za-z0-9\+\/]{2}==|[A-Za-z0-9\+\/]{3}=)?$/s; // eslint-disable-line no-useless-escape
 
 /**
  * -----BEGIN [LABEL]-----
@@ -36,13 +36,10 @@ const BASE64_REGEX =
  * This function normalizes PEM presentation to;
  *  - contain PEM header and footer as they are given
  *  - normalize line endings to '\n'
- *  - normalize line lenght to maximum of 64 characters
+ *  - normalize line length to maximum of 64 characters
  *  - ensure that 'preeb' has line ending '\n'
  */
-export const normalizePemFile = (pem: string): string => {
-  const isPemFormat = PEM_FORMAT_REGEX.test(pem);
-  assertRequired(isPemFormat || undefined, "pem file has invalid format");
-
+const normalizePemFile = (pem: string): string => {
   return `${(
     pem
       .trim()
@@ -54,10 +51,7 @@ export const normalizePemFile = (pem: string): string => {
 /**
  * This function currently expects to get data in PEM format or in base64 format.
  */
-export const keyInfoToPem = (
-  keyInfo: string | Buffer,
-  pemLabel = PemLabel.CERTIFICATE as PemLabelId
-): string => {
+export const keyInfoToPem = (keyInfo: string | Buffer, pemLabel: PemLabel): string => {
   const keyData = Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
   assertRequired(keyData, "keyInfo is not provided");
 

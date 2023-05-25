@@ -27,7 +27,6 @@ import {
   XMLObject,
   XMLValue,
   SamlResponseXmlJs,
-  PemLabel,
 } from "./types";
 import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
@@ -66,7 +65,7 @@ export const resolveAndParseKeyInfosToPem = async ({
   }
   // Verify and normalize each PEM file.
   keyInfosToHandle.forEach((cert) => {
-    pemFiles.push(keyInfoToPem(cert, PemLabel.CERTIFICATE));
+    pemFiles.push(keyInfoToPem(cert, "CERTIFICATE"));
   });
 
   return pemFiles;
@@ -185,7 +184,7 @@ class SAML {
     }
     signer.update(querystring.stringify(samlMessageToSign));
     samlMessage.Signature = signer.sign(
-      keyInfoToPem(this.options.privateKey, PemLabel.PRIVATE_KEY),
+      keyInfoToPem(this.options.privateKey, "PRIVATE KEY"),
       "base64"
     );
   }
