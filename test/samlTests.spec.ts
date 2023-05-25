@@ -4,15 +4,15 @@ import { URL } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
 import { SAML } from "../src/saml";
-import { AuthenticateOptions, AuthorizeOptions } from "../src/passport-saml-types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser } from "./types";
+import { AuthOptions } from "../src/types";
 
 describe("SAML.js", function () {
   describe("get Urls", function () {
     let saml: SAML;
     let req: RequestWithUser;
-    let options: AuthenticateOptions & AuthorizeOptions;
+    let options: AuthOptions;
     beforeEach(function () {
       saml = new SAML({
         callbackUrl: "http://localhost/saml/consume",

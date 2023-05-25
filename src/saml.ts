@@ -27,8 +27,8 @@ import {
   XMLObject,
   XMLValue,
   SamlResponseXmlJs,
+  AuthOptions,
 } from "./types";
-import { AuthenticateOptions, AuthorizeOptions } from "./passport-saml-types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
 import {
   buildXml2JsObject,
@@ -482,7 +482,7 @@ class SAML {
   async getAuthorizeUrlAsync(
     RelayState: string,
     host: string | undefined,
-    options: AuthorizeOptions
+    options: AuthOptions
   ): Promise<string> {
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
@@ -498,7 +498,7 @@ class SAML {
   async getAuthorizeMessageAsync(
     RelayState: string,
     host?: string,
-    options?: AuthorizeOptions
+    options?: AuthOptions
   ): Promise<querystring.ParsedUrlQueryInput> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -527,7 +527,7 @@ class SAML {
   async getAuthorizeFormAsync(
     RelayState: string,
     host?: string,
-    options?: AuthorizeOptions
+    options?: AuthOptions
   ): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -593,7 +593,7 @@ class SAML {
   async getLogoutUrlAsync(
     user: Profile,
     RelayState: string,
-    options: AuthenticateOptions & AuthorizeOptions
+    options: AuthOptions
   ): Promise<string> {
     const request = await this._generateLogoutRequest(user);
     const operation = "logout";
@@ -609,7 +609,7 @@ class SAML {
   getLogoutResponseUrl(
     samlLogoutRequest: Profile,
     RelayState: string,
-    options: AuthenticateOptions & AuthorizeOptions,
+    options: AuthOptions,
     success: boolean,
     callback: (err: Error | null, url?: string) => void
   ): void {
@@ -621,7 +621,7 @@ class SAML {
   async getLogoutResponseUrlAsync(
     samlLogoutRequest: Profile,
     RelayState: string,
-    options: AuthenticateOptions & AuthorizeOptions,
+    options: AuthOptions,
     success: boolean
   ): Promise<string> {
     const response = this._generateLogoutResponse(samlLogoutRequest, success);

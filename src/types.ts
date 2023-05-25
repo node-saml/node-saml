@@ -7,6 +7,11 @@ export interface SamlSigningOptions {
   digestAlgorithm?: string;
 }
 
+export interface AuthOptions {
+  samlFallback?: "login-request" | "logout-request";
+  additionalParams?: Record<string, string | string[]>;
+}
+
 export const isValidSamlSigningOptions = (
   options: Partial<SamlSigningOptions>
 ): options is SamlSigningOptions => {
