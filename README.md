@@ -12,7 +12,9 @@ This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provi
 
 ## Installation
 
-    $ npm install @node-saml/node-saml
+```shell
+    npm install @node-saml/node-saml
+```
 
 ## Usage
 
@@ -29,10 +31,10 @@ const options = {};
 const saml = new SAML(options);
 ```
 
-#### Config parameter details:
+#### Config parameter details
 
 - **Core**
-- `callbackUrl`: full callbackUrl (overrides path/protocol if supplied)
+- `callbackUrl`: full callbackUrl
 - `entryPoint`: identity provider entrypoint (is required to be spec-compliant when the request is signed)
 - `issuer`: issuer string to supply to identity provider
 - `audience`: expected saml response Audience, defaults to value of Issuer (if `false`, Audience won't be verified)
@@ -156,7 +158,7 @@ metadataContactPerson:  [{
 
 ### generateServiceProviderMetadata( decryptionCert, signingCert )
 
-As a convenience, the strategy object exposes a `generateServiceProviderMetadata` method which will generate a service provider metadata document suitable for supplying to an identity provider. This method will only work on strategies which are configured with a `callbackUrl` (since the relative path for the callback is not sufficient information to generate a complete metadata document).
+As a convenience, the strategy object exposes a `generateServiceProviderMetadata` method which will generate a service provider metadata document suitable for supplying to an identity provider.
 
 The `decryptionCert` argument should be a public certificate matching the `decryptionPvk` and is required if the strategy is configured with a `decryptionPvk`.
 
@@ -184,14 +186,14 @@ Formats supported for `privateKey` field are,
 
 1. Well formatted PEM:
 
-```
+```text
 -----BEGIN PRIVATE KEY-----
 <private key contents here delimited at 64 characters per row>
 -----END PRIVATE KEY-----
 
 ```
 
-```
+```text
 -----BEGIN RSA PRIVATE KEY-----
 <private key contents here delimited at 64 characters per row>
 -----END RSA PRIVATE KEY-----

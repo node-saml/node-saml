@@ -23,6 +23,7 @@ describe("node-saml /", function () {
     it("should throw an error if cert property is provided to saml constructor but is empty", function () {
       expect(function () {
         const strategy = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: undefined as unknown as string,
           issuer: "onelogin_saml",
         });
@@ -49,7 +50,12 @@ describe("node-saml /", function () {
           },
         };
 
-        const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT, issuer: "onelogin_saml" });
+        const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "foo",
+          cert: FAKE_CERT,
+          issuer: "onelogin_saml",
+        });
         const logoutRequestPromise = samlObj._generateLogoutRequest({
           ID: "id",
           issuer: "issuer",
@@ -106,7 +112,12 @@ describe("node-saml /", function () {
           },
         };
 
-        const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT, issuer: "onelogin_saml" });
+        const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "foo",
+          cert: FAKE_CERT,
+          issuer: "onelogin_saml",
+        });
         const logoutRequestPromise = samlObj._generateLogoutRequest({
           ID: "id",
           issuer: "issuer",
@@ -139,6 +150,7 @@ describe("node-saml /", function () {
 
     it("_generateLogoutRequest should throw error when samlLogoutRequestExtensions is not a object", async function () {
       const config: SamlConfig = {
+        callbackUrl: "http://localhost/saml/consume",
         entryPoint: "https://wwwexampleIdp.com/saml",
         cert: FAKE_CERT,
         samlLogoutRequestExtensions: "anyvalue" as unknown as Record<string, unknown>,
@@ -188,6 +200,7 @@ describe("node-saml /", function () {
         };
 
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "foo",
           cert: FAKE_CERT,
           samlLogoutRequestExtensions: {
@@ -249,7 +262,12 @@ describe("node-saml /", function () {
         },
       };
 
-      const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT, issuer: "onelogin_saml" });
+      const samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        entryPoint: "foo",
+        cert: FAKE_CERT,
+        issuer: "onelogin_saml",
+      });
       const logoutRequest = samlObj._generateLogoutResponse(
         { ID: "quux", issuer: "issuer", nameID: "nameid", nameIDFormat: "nameidformat" },
         true
@@ -294,7 +312,12 @@ describe("node-saml /", function () {
         },
       };
 
-      const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT, issuer: "onelogin_saml" });
+      const samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        entryPoint: "foo",
+        cert: FAKE_CERT,
+        issuer: "onelogin_saml",
+      });
       const logoutRequest = samlObj._generateLogoutResponse(
         { ID: "quux", issuer: "issuer", nameID: "nameid", nameIDFormat: "nameidformat" },
         false
@@ -333,7 +356,12 @@ describe("node-saml /", function () {
           },
         };
 
-        const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT, issuer: "onelogin_saml" });
+        const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "foo",
+          cert: FAKE_CERT,
+          issuer: "onelogin_saml",
+        });
         const logoutRequestPromise = samlObj._generateLogoutRequest({
           ID: "id",
           issuer: "issuer",
@@ -364,7 +392,12 @@ describe("node-saml /", function () {
     });
 
     it("_generateLogoutRequest saves id and instant to cache", function (done) {
-      const samlObj = new SAML({ entryPoint: "foo", cert: FAKE_CERT, issuer: "onelogin_saml" });
+      const samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        entryPoint: "foo",
+        cert: FAKE_CERT,
+        issuer: "onelogin_saml",
+      });
       const cacheSaveSpy = sinon.spy(samlObj.cacheProvider, "saveAsync");
       const logoutRequestPromise = samlObj._generateLogoutRequest({
         ID: "id",
@@ -682,7 +715,11 @@ describe("node-saml /", function () {
       });
 
       it("response with junk content should explain the XML or base64 is not valid", async () => {
-        const samlObj = new SAML({ cert: TEST_CERT, issuer: "onesaml_login" });
+        const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          cert: TEST_CERT,
+          issuer: "onesaml_login",
+        });
         await assert.rejects(samlObj.validatePostResponseAsync({ SAMLResponse: "BOOM" }), {
           message: "Not a valid XML document",
         });
@@ -693,6 +730,7 @@ describe("node-saml /", function () {
         const base64xml = Buffer.from(xml).toString("base64");
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: "-----BEGIN CERTIFICATE-----" + TEST_CERT + "-----END CERTIFICATE-----",
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
@@ -708,6 +746,7 @@ describe("node-saml /", function () {
         const base64xml = Buffer.from(xml).toString("base64");
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
@@ -723,6 +762,7 @@ describe("node-saml /", function () {
         const base64xml = Buffer.from(xml).toString("base64");
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
@@ -743,6 +783,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: signingCert,
           issuer: "onesaml_login",
           wantAssertionsSigned: false,
@@ -764,6 +805,7 @@ describe("node-saml /", function () {
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
 
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: signingCert,
           audience: false,
           issuer: "onesaml_login",
@@ -789,6 +831,7 @@ describe("node-saml /", function () {
         const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
 
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: signingCert,
           privateKey: privateKey,
           issuer: "onesaml_login",
@@ -816,6 +859,7 @@ describe("node-saml /", function () {
         const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
 
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: signingCert,
           privateKey: privateKey,
           issuer: "onesaml_login",
@@ -844,6 +888,7 @@ describe("node-saml /", function () {
         const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
 
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: signingCert,
           privateKey: privateKey,
           issuer: "onesaml_login",
@@ -871,6 +916,7 @@ describe("node-saml /", function () {
         const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
 
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: signingCert,
           privateKey: privateKey,
           issuer: "onesaml_login",
@@ -898,6 +944,7 @@ describe("node-saml /", function () {
         const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
 
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: signingCert,
           privateKey: privateKey,
           issuer: "onesaml_login",
@@ -923,6 +970,7 @@ describe("node-saml /", function () {
         const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
 
         const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: signingCert,
           privateKey: privateKey,
           issuer: "onesaml_login",
@@ -953,6 +1001,7 @@ describe("node-saml /", function () {
               const base64xml = Buffer.from(xml).toString("base64");
               const container = { SAMLResponse: base64xml };
               const samlConfig: SamlConfig = {
+                callbackUrl: "http://localhost/saml/consume",
                 entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
                 cert: TEST_CERT,
                 validateInResponseTo,
@@ -991,6 +1040,7 @@ describe("node-saml /", function () {
         });
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: TEST_CERT,
           audience: false,
@@ -998,17 +1048,20 @@ describe("node-saml /", function () {
           wantAuthnResponseSigned: false,
         };
         const noAudienceSamlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: TEST_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
         };
         const noCertSamlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           audience: false,
           issuer: "onesaml_login",
         } as SamlConfig;
         const badCertSamlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: BAD_TEST_CERT,
           audience: false,
@@ -1244,6 +1297,7 @@ describe("node-saml /", function () {
 
         it("multiple certs should validate with one of the certs", async () => {
           const multiCertSamlConfig: SamlConfig = {
+            callbackUrl: "http://localhost/saml/consume",
             entryPoint: samlConfig.entryPoint,
             cert: [ALT_TEST_CERT, TEST_CERT],
             audience: false,
@@ -1266,6 +1320,7 @@ describe("node-saml /", function () {
 
         it("cert as a function should validate with the returned cert", async () => {
           const functionCertSamlConfig: SamlConfig = {
+            callbackUrl: "http://localhost/saml/consume",
             entryPoint: samlConfig.entryPoint,
             cert: function (callback) {
               callback(null, TEST_CERT);
@@ -1290,6 +1345,7 @@ describe("node-saml /", function () {
 
         it("cert as a function should validate with one of the returned certs", async () => {
           const functionMultiCertSamlConfig: SamlConfig = {
+            callbackUrl: "http://localhost/saml/consume",
             entryPoint: samlConfig.entryPoint,
             cert: function (callback) {
               callback(null, [ALT_TEST_CERT, TEST_CERT]);
@@ -1315,6 +1371,7 @@ describe("node-saml /", function () {
         it("cert as a function should return an error if the cert function returns an error", async () => {
           const errorToReturn = new Error("test");
           const functionErrorCertSamlConfig: SamlConfig = {
+            callbackUrl: "http://localhost/saml/consume",
             entryPoint: samlConfig.entryPoint,
             cert: function (callback) {
               callback(errorToReturn);
@@ -1372,6 +1429,7 @@ describe("node-saml /", function () {
           const base64xml = Buffer.from(signedXml).toString("base64");
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
             cert: signingCert,
             audience: false,
             issuer: "onesaml_login",
@@ -1415,6 +1473,7 @@ describe("node-saml /", function () {
           const base64xml = Buffer.from(xml).toString("base64");
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
             cert: TEST_CERT,
             issuer: "onesaml_login",
             wantAuthnResponseSigned: false,
@@ -1446,6 +1505,7 @@ describe("node-saml /", function () {
           const base64xml = Buffer.from(signedXml).toString("base64");
           const container = { SAMLResponse: base64xml };
           const samlObj = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
             cert: signingCert,
             audience: false,
             issuer: "onesaml_login",
@@ -1576,6 +1636,7 @@ describe("node-saml /", function () {
     describe("_getAdditionalParams checks /", function () {
       it("should not pass any additional params by default", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
@@ -1590,6 +1651,7 @@ describe("node-saml /", function () {
 
       it("should not pass any additional params by default apart from the RelayState", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
@@ -1606,6 +1668,7 @@ describe("node-saml /", function () {
 
       it("should only allow RelayState to be a string", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
@@ -1624,6 +1687,7 @@ describe("node-saml /", function () {
 
       it("should pass additional params with all operations if set in additionalParams", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam: "queryParamValue",
@@ -1642,6 +1706,7 @@ describe("node-saml /", function () {
 
       it('should pass additional params with "authorize" operations if set in additionalAuthorizeParams', function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalAuthorizeParams: {
             queryParam: "queryParamValue",
@@ -1661,6 +1726,7 @@ describe("node-saml /", function () {
 
       it('should pass additional params with "logout" operations if set in additionalLogoutParams', function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalLogoutParams: {
             queryParam: "queryParamValue",
@@ -1680,6 +1746,7 @@ describe("node-saml /", function () {
 
       it("should merge additionalLogoutParams and additionalAuthorizeParams with additionalParams", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam1: "queryParamValue",
@@ -1712,6 +1779,7 @@ describe("node-saml /", function () {
 
       it("should merge run-time params additionalLogoutParams and additionalAuthorizeParams with additionalParams", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam1: "queryParamValue",
@@ -1759,6 +1827,7 @@ describe("node-saml /", function () {
 
       it("should prioritize additionalLogoutParams and additionalAuthorizeParams over additionalParams", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam: "queryParamValue",
@@ -1785,6 +1854,7 @@ describe("node-saml /", function () {
 
       it("should prioritize run-time params over all other params", function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam: "queryParamValue",
@@ -1826,6 +1896,7 @@ describe("node-saml /", function () {
         assert.throws(
           () => {
             new SAML({
+              callbackUrl: "http://localhost/saml/consume",
               racComparison: "bad_value" as RacComparision,
               cert: FAKE_CERT,
               issuer: "onesaml_login",
@@ -1835,6 +1906,7 @@ describe("node-saml /", function () {
         );
 
         const samlObjBadComparisonType = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
         });
@@ -1847,6 +1919,7 @@ describe("node-saml /", function () {
         let samlObjValidComparisonType: SAML;
         validComparisonTypes.forEach(function (racComparison) {
           samlObjValidComparisonType = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
             racComparison,
             cert: FAKE_CERT,
             issuer: "onesaml_login",
@@ -1860,6 +1933,7 @@ describe("node-saml /", function () {
     describe("getAuthorizeMessageAsync checks /", function () {
       it("should not pass any additional params by default", async function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
@@ -1873,6 +1947,7 @@ describe("node-saml /", function () {
 
       it("should not pass any additional params by default apart from the RelayState", async function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
@@ -1887,6 +1962,7 @@ describe("node-saml /", function () {
 
       it("should only allow RelayState to be a string", async function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: FAKE_CERT,
           issuer: "onesaml_login",
@@ -1903,6 +1979,7 @@ describe("node-saml /", function () {
 
       it("should pass additional params with all operations if set in additionalParams", async function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam: "queryParamValue",
@@ -1920,6 +1997,7 @@ describe("node-saml /", function () {
 
       it('should pass additional params with "authorize" operations if set in additionalAuthorizeParams', async function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalAuthorizeParams: {
             queryParam: "queryParamValue",
@@ -1937,6 +2015,7 @@ describe("node-saml /", function () {
 
       it("should merge additionalAuthorizeParams with additionalParams", async function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam1: "queryParamValue",
@@ -1960,6 +2039,7 @@ describe("node-saml /", function () {
 
       it("should merge additionalAuthorizeParams and RelayState with additionalParams", async function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam1: "queryParamValue",
@@ -1984,6 +2064,7 @@ describe("node-saml /", function () {
 
       it("should prioritize additionalAuthorizeParams over additionalParams", async function () {
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           additionalParams: {
             queryParam: "queryParamValue",
@@ -2027,6 +2108,7 @@ describe("node-saml /", function () {
               const container = { SAMLResponse: base64xml };
 
               const samlConfig: SamlConfig = {
+                callbackUrl: "http://localhost/saml/consume",
                 entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
                 cert: TEST_CERT,
                 validateInResponseTo,
@@ -2057,6 +2139,7 @@ describe("node-saml /", function () {
               const container = { SAMLResponse: base64xml };
 
               const samlConfig: SamlConfig = {
+                callbackUrl: "http://localhost/saml/consume",
                 entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
                 cert: "MIIC7TCCAdmgAwIBAgIQuIdqos+9yKBC4oygbhtdfzAJBgUrDgMCHQUAMBIxEDAOBgNVBAMTB1Rlc3RTVFMwHhcNMTQwNDE2MTIyMTEwWhcNMzkxMjMxMjM1OTU5WjASMRAwDgYDVQQDEwdUZXN0U1RTMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmhReamVYbeOWwrrAvHPvS9KKBwv4Tj7wOSGDXbNgfjhSvVyXsnpYRcuoJkvE8b9tCjFTbXCfbhnaVrpoXaWFtP1YvUIZvCJGdOOTXltMNDlNIaFmsIsomza8IyOHXe+3xHWVtxO8FG3qnteSkkVIQuAvBqpPfQtxrXCZOlbQZm7q69QIQ64JvLJfRwHN1EywMBVwbJgrV8gBdE3RITI76coSOK13OBTlGtB0kGKLDrF2JW+5mB+WnFR7GlXUj+V0R9WStBomVipJEwr6Q3fU0deKZ5lLw0+qJ0T6APInwN5TIN/AbFCHd51aaf3zEP+tZacQ9fbZqy9XBAtL2pCAJQIDAQABo0cwRTBDBgNVHQEEPDA6gBDECazhZ8Ar+ULXb0YTs5MvoRQwEjEQMA4GA1UEAxMHVGVzdFNUU4IQuIdqos+9yKBC4oygbhtdfzAJBgUrDgMCHQUAA4IBAQAioMSOU9QFw+yhVxGUNK0p/ghVsHnYdeOE3vSRhmFPsetBt8S35sI4QwnQNiuiEYqp++FabiHgePOiqq5oeY6ekJik1qbs7fgwnaQXsxxSucHvc4BU81x24aKy6jeJzxmFxo3mh6y/OI1peCMSH48iUzmhnoSulp0+oAs3gMEFI0ONbgAA/XoAHaVEsrPj10i3gkztoGdpH0DYUe9rABOJxX/3mNF+dCVJG7t7BoSlNAWlSDErKciNNax1nBskFqNWNIKzUKBIb+GVKkIB2QpATMQB6Oe7inUdT9kkZ/Q7oPBATZk+3mFsIoWr8QRFSqvToOhun7EY2/VtuiV1d932",
                 validateInResponseTo,
@@ -2092,6 +2175,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: TEST_CERT,
           validateInResponseTo: ValidateInResponseTo.always,
@@ -2113,6 +2197,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: "MIICrjCCAZYCCQDWybyUsLVkXzANBgkqhkiG9w0BAQsFADAZMRcwFQYDVQQDFA5hY21lX3Rvb2xzLmNvbTAeFw0xNTA4MTgwODQ3MzZaFw0yNTA4MTcwODQ3MzZaMBkxFzAVBgNVBAMUDmFjbWVfdG9vbHMuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlyT+OzEymhaZFNfx4+HFxZbBP3egvcUgPvGa7wWCV7vyuCauLBqwO1FQqzaRDxkEihkHqmUz63D25v2QixLxXyqaFQ8TxDFKwYATtSL7x5G2Gww56H0L1XGgYdNW1akPx90P+USmVn1Wb//7AwU+TV+u4jIgKZyTaIFWdFlwBhlp4OBEHCyYwngFgMyVoCBsSmwb4if7Mi5T746J9ZMQpC+ts+kfzley59Nz55pa5fRLwu4qxFUv2oRdXAf2ZLuxB7DPQbRH82/ewZZ8N4BUGiQyAwOsHgp0sb9JJ8uEM/qhyS1dXXxjo+kxsI5HXhxp4P5R9VADuOquaLIo8ptIrQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQBW/Y7leJnV76+6bzeqqi+buTLyWc1mASi5LVH68mdailg2WmGfKlSMLGzFkNtg8fJnfaRZ/GtxmSxhpQRHn63ZlyzqVrFcJa0qzPG21PXPHG/ny8pN+BV8fk74CIb/+YN7NvDUrV7jlsPxNT2rQk8G2fM7jsTMYvtz0MBkrZZsUzTv4rZkF/v44J/ACDirKJiE+TYArm70yQPweX6RvYHNZLSzgg4o+hoyBXo5BGQetAjmcIhC6ZOwN3iVhGjp0YpWM0pkqStPy3sIR0//LZbskWWlSRb0fX1c4632Xb+zikfec4DniYV6CxkB2U+plHpOX1rt1R+UiTEIhTSXPNt/",
           validateInResponseTo: ValidateInResponseTo.always,
@@ -2149,6 +2234,7 @@ describe("node-saml /", function () {
               const container = { SAMLResponse: base64xml };
 
               const samlConfig: SamlConfig = {
+                callbackUrl: "http://localhost/saml/consume",
                 entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
                 cert: TEST_CERT,
                 validateInResponseTo,
@@ -2175,6 +2261,7 @@ describe("node-saml /", function () {
               const container = { SAMLResponse: base64xml };
 
               const samlConfig: SamlConfig = {
+                callbackUrl: "http://localhost/saml/consume",
                 entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
                 cert: "MIICrjCCAZYCCQDWybyUsLVkXzANBgkqhkiG9w0BAQsFADAZMRcwFQYDVQQDFA5hY21lX3Rvb2xzLmNvbTAeFw0xNTA4MTgwODQ3MzZaFw0yNTA4MTcwODQ3MzZaMBkxFzAVBgNVBAMUDmFjbWVfdG9vbHMuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlyT+OzEymhaZFNfx4+HFxZbBP3egvcUgPvGa7wWCV7vyuCauLBqwO1FQqzaRDxkEihkHqmUz63D25v2QixLxXyqaFQ8TxDFKwYATtSL7x5G2Gww56H0L1XGgYdNW1akPx90P+USmVn1Wb//7AwU+TV+u4jIgKZyTaIFWdFlwBhlp4OBEHCyYwngFgMyVoCBsSmwb4if7Mi5T746J9ZMQpC+ts+kfzley59Nz55pa5fRLwu4qxFUv2oRdXAf2ZLuxB7DPQbRH82/ewZZ8N4BUGiQyAwOsHgp0sb9JJ8uEM/qhyS1dXXxjo+kxsI5HXhxp4P5R9VADuOquaLIo8ptIrQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQBW/Y7leJnV76+6bzeqqi+buTLyWc1mASi5LVH68mdailg2WmGfKlSMLGzFkNtg8fJnfaRZ/GtxmSxhpQRHn63ZlyzqVrFcJa0qzPG21PXPHG/ny8pN+BV8fk74CIb/+YN7NvDUrV7jlsPxNT2rQk8G2fM7jsTMYvtz0MBkrZZsUzTv4rZkF/v44J/ACDirKJiE+TYArm70yQPweX6RvYHNZLSzgg4o+hoyBXo5BGQetAjmcIhC6ZOwN3iVhGjp0YpWM0pkqStPy3sIR0//LZbskWWlSRb0fX1c4632Xb+zikfec4DniYV6CxkB2U+plHpOX1rt1R+UiTEIhTSXPNt/",
                 validateInResponseTo,
@@ -2212,6 +2299,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: TEST_CERT,
           validateInResponseTo: ValidateInResponseTo.never,
@@ -2237,6 +2325,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: "MIIDtTCCAp2gAwIBAgIJAKg4VeVcIDz1MA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpTb21lLVN0YXRlMSEwHwYDVQQKExhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwHhcNMTUwODEzMDE1NDIwWhcNMTUwOTEyMDE1NDIwWjBFMQswCQYDVQQGEwJVUzETMBEGA1UECBMKU29tZS1TdGF0ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxG3ouM7U+fXbJt69X1H6d4UNg/uRr06pFuU9RkfIwNC+yaXyptqB3ynXKsL7BFt4DCd0fflRvJAx3feJIDp16wN9GDVHcufWMYPhh2j5HcTW/j9JoIJzGhJyvO00YKBt+hHy83iN1SdChKv5y0iSyiPP5GnqFw+ayyHoM6hSO0PqBou1Xb0ZSIE+DHosBnvVna5w2AiPY4xrJl9yZHZ4Q7DfMiYTgstjETio4bX+6oLiBnYktn7DjdEslqhffVme4PuBxNojI+uCeg/sn4QVLd/iogMJfDWNuLD8326Mi/FE9cCRvFlvAiMSaebMI3zPaySsxTK7Zgj5TpEbmbHI9wIDAQABo4GnMIGkMB0GA1UdDgQWBBSVGgvoW4MhMuzBGce29PY8vSzHFzB1BgNVHSMEbjBsgBSVGgvoW4MhMuzBGce29PY8vSzHF6FJpEcwRTELMAkGA1UEBhMCVVMxEzARBgNVBAgTClNvbWUtU3RhdGUxITAfBgNVBAoTGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZIIJAKg4VeVcIDz1MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAJu1rqs+anD74dbdwgd3CnqnQsQDJiEXmBhG2leaGt3ve9b/9gKaJg2pyb2NyppDe1uLqh6nNXDuzg1oNZrPz5pJL/eCXPl7FhxhMUi04TtLf8LeNTCIWYZiFuO4pmhohHcv8kRvYR1+6SkLTC8j/TZerm7qvesSiTQFNapa1eNdVQ8nFwVkEtWl+JzKEM1BlRcn42sjJkijeFp7DpI7pU+PnYeiaXpRv5pJo8ogM1iFxN+SnfEs0EuQ7fhKIG9aHKi7bKZ7L6SyX7MDIGLeulEU6lf5D9BfXNmcMambiS0pXhL2QXajt96UBq8FT2KNXY8XNtR4y6MyyCzhaiZZcc8=",
           validateInResponseTo: ValidateInResponseTo.always,
@@ -2267,6 +2356,7 @@ describe("node-saml /", function () {
 
     describe("assertion condition checks /", function () {
       const samlConfig: SamlConfig = {
+        callbackUrl: "http://localhost/saml/consume",
         entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
         cert: TEST_CERT,
         audience: false,
@@ -2414,6 +2504,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: TEST_CERT,
           acceptedClockSkewMs: -1,
@@ -2576,6 +2667,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           audience: "http://sp.example.com",
           acceptedClockSkewMs: -1,
@@ -2624,6 +2716,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           audience: "http://sp.example.com",
           acceptedClockSkewMs: -1,
@@ -2673,6 +2766,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
 
         const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           audience: "http://sp.example.com",
           acceptedClockSkewMs: -1,
@@ -2695,6 +2789,7 @@ describe("node-saml /", function () {
 
     beforeEach(function () {
       samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
         cert: signingCert,
         issuer: "onesaml_login",
       });
@@ -2767,6 +2862,7 @@ describe("node-saml /", function () {
     });
     it("returns profile for valid signature with encrypted nameID", async () => {
       const samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
         cert: fs.readFileSync(__dirname + "/static/cert.pem", "ascii"),
         decryptionPvk: fs.readFileSync(__dirname + "/static/key.pem", "ascii"),
         issuer: "onelogin_saml",
@@ -2789,6 +2885,7 @@ describe("node-saml /", function () {
 
     it("check conflicting profile fields with data from attributes", async () => {
       const testSAMLObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
         cert: signingCert,
         issuer: "okta",
         audience: false,
@@ -2823,6 +2920,7 @@ describe("node-saml /", function () {
 
   it("validatePostRequest errors for encrypted nameID with wrong decryptionPvk", async () => {
     const samlObj = new SAML({
+      callbackUrl: "http://localhost/saml/consume",
       cert: fs.readFileSync(__dirname + "/static/cert.pem", "ascii"),
       decryptionPvk: fs.readFileSync(__dirname + "/static/acme_tools_com.key", "ascii"),
       issuer: "onesaml_login",
@@ -2847,6 +2945,7 @@ describe("node-saml /", function () {
 
   it("errors if bad privateKey to requestToURL", async () => {
     const samlObj = new SAML({
+      callbackUrl: "http://localhost/saml/consume",
       entryPoint: "http://localhost",
       privateKey:
         "-----BEGIN CERTIFICATE-----\n" +
@@ -2897,6 +2996,7 @@ describe("node-saml /", function () {
       let fakeClock: sinon.SinonFakeTimers;
       beforeEach(function () {
         samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "ascii"),
           idpIssuer: "http://localhost:20000/saml2/idp/metadata.php",
           issuer: "onesaml_login",
@@ -2961,6 +3061,7 @@ describe("node-saml /", function () {
 
       beforeEach(function () {
         samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
           cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "ascii"),
           idpIssuer: "http://localhost:20000/saml2/idp/metadata.php",
           validateInResponseTo: ValidateInResponseTo.always,

@@ -67,6 +67,7 @@ class SAML {
       throw new TypeError("SamlOptions required on construction");
     }
 
+    assertRequired(ctorOptions.callbackUrl, "callbackUrl is required");
     assertRequired(ctorOptions.issuer, "issuer is required");
     assertRequired(ctorOptions.cert, "cert is required");
 
@@ -93,7 +94,7 @@ class SAML {
       disableRequestAcsUrl: ctorOptions.disableRequestAcsUrl ?? false,
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
-      callbackUrl: ctorOptions.callbackUrl ?? "http://localhost/saml/consume",
+      callbackUrl: ctorOptions.callbackUrl,
       issuer: ctorOptions.issuer,
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
       identifierFormat:
