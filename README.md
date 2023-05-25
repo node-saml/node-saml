@@ -253,7 +253,7 @@ Example formatings for `cert` field are,
 
 1. RFC7468 stricttextualmsg formatted PEM:
 
-```
+```text
 -----BEGIN CERTIFICATE-----
 <certificate contents here delimited at 64 characters per row>
 -----END CERTIFICATE-----
@@ -262,7 +262,7 @@ Example formatings for `cert` field are,
 
 or
 
-```
+```text
 -----BEGIN PUBLIC KEY-----
 <public key contents here delimited at 64 characters per row>
 -----END PUBLIC KEY-----
