@@ -15,6 +15,7 @@ describe("SAML.js", function () {
     let options: AuthenticateOptions & AuthorizeOptions;
     beforeEach(function () {
       saml = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
         entryPoint: "https://exampleidp.com/path?key=value",
         logoutUrl: "https://exampleidp.com/path?key=value",
         cert: FAKE_CERT,

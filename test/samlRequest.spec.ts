@@ -10,6 +10,7 @@ import * as assert from "assert";
 describe("SAML request", function () {
   describe("Config with Extensions", function () {
     const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       samlAuthnRequestExtensions: {
@@ -132,6 +133,7 @@ describe("SAML request", function () {
 
   describe("AllowCreate defaults to true", function () {
     const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       issuer: "onelogin_saml",
@@ -219,6 +221,7 @@ describe("SAML request", function () {
 
   describe("Config with NameIDPolicy options", function () {
     const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       issuer: "onelogin_saml",
@@ -310,6 +313,7 @@ describe("SAML request", function () {
 
   describe("Config with forceAuthn and passive", function () {
     const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       issuer: "onelogin_saml",
@@ -401,6 +405,7 @@ describe("SAML request", function () {
 
   describe("With additional run-time parameters", function () {
     const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       issuer: "onelogin_saml",
@@ -444,6 +449,7 @@ describe("SAML request", function () {
 
   describe("Config with disableRequestedAuthnContext, skipRequestCompression, disableRequestAcsUrl", function () {
     const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       issuer: "onelogin_saml",
@@ -518,6 +524,7 @@ describe("SAML request", function () {
 
   describe("should throw error when samlAuthnRequestExtensions is not a object", function () {
     const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
       samlAuthnRequestExtensions: "anyvalue" as unknown as Record<string, unknown>,

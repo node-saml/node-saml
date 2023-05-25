@@ -67,6 +67,7 @@ class SAML {
       throw new TypeError("SamlOptions required on construction");
     }
 
+    assertRequired(ctorOptions.callbackUrl, "callbackUrl is required");
     assertRequired(ctorOptions.issuer, "issuer is required");
     assertRequired(ctorOptions.cert, "cert is required");
 
@@ -93,8 +94,7 @@ class SAML {
       disableRequestAcsUrl: ctorOptions.disableRequestAcsUrl ?? false,
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
-      path: ctorOptions.path ?? "/saml/consume",
-      host: ctorOptions.host ?? "localhost",
+      callbackUrl: ctorOptions.callbackUrl,
       issuer: ctorOptions.issuer,
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
       identifierFormat:
@@ -138,25 +138,6 @@ class SAML {
     return options;
   }
 
-  protected getCallbackUrl(host?: string | undefined): string {
-    // Post-auth destination
-    if (this.options.callbackUrl) {
-      return this.options.callbackUrl;
-    } else {
-      const url = new URL("http://localhost");
-      if (host) {
-        url.host = host;
-      } else {
-        url.host = this.options.host;
-      }
-      if (this.options.protocol) {
-        url.protocol = this.options.protocol;
-      }
-      url.pathname = this.options.path;
-      return url.toString();
-    }
-  }
-
   protected signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
     assertRequired(this.options.privateKey, "privateKey is required");
 
@@ -182,8 +163,7 @@ class SAML {
   protected async generateAuthorizeRequestAsync(
     this: SAML,
     isPassive: boolean,
-    isHttpPostBinding: boolean,
-    host: string | undefined
+    isHttpPostBinding: boolean
   ): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -215,7 +195,7 @@ class SAML {
     }
 
     if (!this.options.disableRequestAcsUrl) {
-      request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = this.getCallbackUrl(host);
+      request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = this.options.callbackUrl;
     }
 
     const samlAuthnRequestExtensions = this.options.samlAuthnRequestExtensions;
@@ -504,7 +484,7 @@ class SAML {
     host: string | undefined,
     options: AuthorizeOptions
   ): Promise<string> {
-    const request = await this.generateAuthorizeRequestAsync(this.options.passive, false, host);
+    const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
     const overrideParams = options ? options.additionalParams || {} : {};
     return await this._requestToUrlAsync(
@@ -522,7 +502,7 @@ class SAML {
   ): Promise<querystring.ParsedUrlQueryInput> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
-    const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
+    const request = await this.generateAuthorizeRequestAsync(this.options.passive, true);
     let buffer: Buffer;
     if (this.options.skipRequestCompression) {
       buffer = Buffer.from(request, "utf8");
@@ -1314,11 +1294,8 @@ class SAML {
     decryptionCert: string | null,
     signingCerts?: string | string[] | null
   ): string {
-    const callbackUrl = this.getCallbackUrl(); // TODO it would probably be useful to have a host parameter here
-
     return generateServiceProviderMetadata({
       ...this.options,
-      callbackUrl,
       decryptionCert,
       signingCerts,
     });
