@@ -28,6 +28,7 @@ describe("Signatures", function () {
   ) => {
     //== Instantiate new instance before every test
     const samlObj = new SAML({
+      callbackUrl: "http://localhost/saml/consume",
       cert,
       issuer: options.issuer ?? "onesaml_login",
       audience: false,

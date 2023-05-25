@@ -19,6 +19,7 @@ describe("Cache tests /", () => {
     const requestId = "_dfab47d5d46374cd4b71";
     const requestIdExpirationPeriodMs = 100;
     const samlConfig: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
       cert: FAKE_CERT,
@@ -39,6 +40,7 @@ describe("Cache tests /", () => {
     const requestId3 = "_dfab47d5d46374cd4b73";
     const requestIdExpirationPeriodMs = 100;
     const samlConfig: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
       cert: FAKE_CERT,
@@ -68,6 +70,7 @@ describe("Cache tests /", () => {
     const requestIdExpirationPeriodMs = 100;
 
     const samlConfig: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
       cert: FAKE_CERT,
@@ -96,6 +99,7 @@ describe("Cache tests /", () => {
     const requestId1 = "_dfab47d5d46374cd4b74";
     const requestIdExpirationPeriodMs = 100;
     const samlConfig: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
       cert: FAKE_CERT,
@@ -116,6 +120,7 @@ describe("Cache tests /", () => {
     const requestId2 = "_dfab47d5d46374cd4b75";
     const requestId3 = "_dfab47d5d46374cd4b76";
     const samlConfig: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       cert: FAKE_CERT,
       issuer: "onesaml_login",
@@ -139,6 +144,7 @@ describe("Cache tests /", () => {
     const requestId = "_dfab47d5d46374cd4b74";
     const requestIdExpirationPeriodMs = 100;
     const samlConfig: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
       cert: FAKE_CERT,
