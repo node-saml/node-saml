@@ -111,6 +111,7 @@ describe("saml.ts", function () {
 
     it("calls 'resolveAndParseKeyInfosToPem()' to get key infos if 'cert' is not a function", async () => {
       const samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
         cert: publicKey,
         issuer: "onesaml_login",
         audience: false,
@@ -122,6 +123,7 @@ describe("saml.ts", function () {
 
     it("returns cached key infos", async () => {
       const samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
         cert: publicKey,
         issuer: "onesaml_login",
         audience: false,
@@ -140,6 +142,7 @@ describe("saml.ts", function () {
         cb(null, [publicKey]);
       };
       const samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
         cert,
         issuer: "onesaml_login",
         audience: false,
