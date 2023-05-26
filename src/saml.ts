@@ -48,7 +48,7 @@ import { generateServiceProviderMetadata } from "./metadata";
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
-export const resolveAndParseKeyInfosToPem = async ({
+const resolveAndParseKeyInfosToPem = async ({
   cert,
 }: Pick<SamlOptions, "cert">): Promise<string[]> => {
   const keyInfosToHandle: string[] = [];
@@ -1239,13 +1239,18 @@ class SAML {
   }
 
   async validatePostRequestAsync(
-    container: Record<string, string>
+    container: Record<string, string>,
+    _ = {
+      _parseDomFromString: parseDomFromString,
+      _parseXml2JsFromString: parseXml2JsFromString,
+      _validateSignature: validateSignature,
+    }
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
-    const dom = await parseDomFromString(xml);
-    const doc = await parseXml2JsFromString(xml);
+    const dom = await _._parseDomFromString(xml);
+    const doc = await _._parseXml2JsFromString(xml);
     const pemFiles = await this.getKeyInfosAsPem();
-    if (!validateSignature(xml, dom.documentElement, pemFiles)) {
+    if (!_._validateSignature(xml, dom.documentElement, pemFiles)) {
       throw new Error("Invalid signature on documentElement");
     }
     return await this.processValidlySignedPostRequestAsync(doc, dom);

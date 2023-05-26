@@ -4,24 +4,65 @@ import * as sinon from "sinon";
 import { URL } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
-import { SAML, resolveAndParseKeyInfosToPem } from "../src/saml";
+import { SAML } from "../src/saml";
 import { CertCallback } from "../src/types";
 import { AuthenticateOptions, AuthorizeOptions } from "../src/passport-saml-types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
+import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
+
+const noop = (): void => undefined;
 
 describe("saml.ts", function () {
   describe("resolveAndParseKeyInfosToPem", function () {
-    it("returns PEM files correctly if 'cert' is PEM formated certificate", async () => {
+    let getKeyInfosAsPemSpy: sinon.SinonSpy;
+
+    beforeEach(function () {
+      getKeyInfosAsPemSpy = sinon.spy(SAML.prototype, <never>"getKeyInfosAsPem");
+      sinon.stub(SAML.prototype, <never>"processValidlySignedPostRequestAsync").resolves(null);
+    });
+
+    afterEach(function () {
+      sinon.restore();
+    });
+
+    async function testResolveAndParseKeyInfosPemAsync(
+      cert: string | string[] | CertCallback
+    ): Promise<string[]> {
+      const samlObj = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        cert,
+        issuer: "onesaml_login",
+        audience: false,
+      });
+
+      await samlObj.validatePostRequestAsync(
+        { SAMLRequest: "" },
+        {
+          _parseDomFromString: (() => {
+            return { documentElement: null };
+          }) as unknown as typeof parseDomFromString,
+          _parseXml2JsFromString: noop as unknown as typeof parseXml2JsFromString,
+          _validateSignature: (() => true) as unknown as typeof validateSignature,
+        }
+      );
+
+      const pendingResult = getKeyInfosAsPemSpy.returnValues[0];
+      const result = await pendingResult;
+
+      return result as string[];
+    }
+
+    it("returns PEM files correctly if 'cert' is PEM formatted certificate", async () => {
       const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
-      const pemFiles = await resolveAndParseKeyInfosToPem({ cert: certificate });
+      const pemFiles = await testResolveAndParseKeyInfosPemAsync(certificate);
 
       expect(pemFiles.length).to.equal(1);
       expect(pemFiles[0]).to.equal(certificate);
     });
 
-    it("returns PEM files correctly if 'cert' is Base64 formated certificate", async () => {
-      const pemFiles = await resolveAndParseKeyInfosToPem({ cert: TEST_CERT_MULTILINE });
+    it("returns PEM files correctly if 'cert' is Base64 formatted certificate", async () => {
+      const pemFiles = await testResolveAndParseKeyInfosPemAsync(TEST_CERT_MULTILINE);
 
       expect(pemFiles.length).to.equal(1);
       expect(pemFiles[0]).to.equal(
@@ -29,48 +70,48 @@ describe("saml.ts", function () {
       );
     });
 
-    it("returns PEM files correctly if 'cert' is Array of PEM formated certificates", async () => {
+    it("returns PEM files correctly if 'cert' is Array of PEM formatted certificates", async () => {
       const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
-      const pemFiles = await resolveAndParseKeyInfosToPem({ cert: [certificate, certificate] });
+      const pemFiles = await testResolveAndParseKeyInfosPemAsync([certificate, certificate]);
 
       expect(pemFiles.length).to.equal(2);
       expect(pemFiles[0]).to.equal(certificate);
       expect(pemFiles[1]).to.equal(certificate);
     });
 
-    it("returns PEM files correctly if 'cert' is Array of PEM formated certificate and public key", async () => {
+    it("returns PEM files correctly if 'cert' is Array of PEM formatted certificate and public key", async () => {
       const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
       const publicKey = fs.readFileSync("./test/static/pub.pem").toString();
-      const pemFiles = await resolveAndParseKeyInfosToPem({ cert: [publicKey, certificate] });
+      const pemFiles = await testResolveAndParseKeyInfosPemAsync([publicKey, certificate]);
 
       expect(pemFiles.length).to.equal(2);
       expect(pemFiles[0]).to.equal(publicKey);
       expect(pemFiles[1]).to.equal(certificate);
     });
 
-    it("returns PEM files correctly if 'cert' is a callback which returns a PEM formated certificate", async () => {
+    it("returns PEM files correctly if 'cert' is a callback which returns a PEM formatted certificate", async () => {
       const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
 
       const cert: CertCallback = (cb) => {
         setTimeout(() => {
           cb(null, certificate);
-        }, 50);
+        }, 0);
       };
-      const pemFiles = await resolveAndParseKeyInfosToPem({ cert });
+      const pemFiles = await testResolveAndParseKeyInfosPemAsync(cert);
 
       expect(pemFiles.length).to.equal(1);
       expect(pemFiles[0]).to.equal(certificate);
     });
 
-    it("returns PEM files correctly if 'cert' is a callback which returns Array of PEM formated certificates", async () => {
+    it("returns PEM files correctly if 'cert' is a callback which returns Array of PEM formatted certificates", async () => {
       const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
 
       const cert: CertCallback = (cb) => {
         setTimeout(() => {
           cb(null, [certificate, certificate]);
-        }, 50);
+        }, 0);
       };
-      const pemFiles = await resolveAndParseKeyInfosToPem({ cert });
+      const pemFiles = await testResolveAndParseKeyInfosPemAsync(cert);
 
       expect(pemFiles.length).to.equal(2);
       expect(pemFiles[0]).to.equal(certificate);
@@ -80,11 +121,11 @@ describe("saml.ts", function () {
     it("will fail if 'cert' is a callback which returns invalid value", async () => {
       const cert: CertCallback = (cb) => {
         setTimeout(() => {
-          cb(null, null as any);
-        }, 50);
+          cb(null, <never>null);
+        }, 0);
       };
 
-      assert.rejects(resolveAndParseKeyInfosToPem({ cert }), "callback didn't return cert");
+      assert.rejects(testResolveAndParseKeyInfosPemAsync(cert), "callback didn't return cert");
     });
   });
 
