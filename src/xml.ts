@@ -214,7 +214,7 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
 export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJsObject> => {
   const parserConfig = {
     explicitRoot: true,
-    explicitCharKey: true,
+    explicitCharkey: true,
     tagNameProcessors: [xml2js.processors.stripPrefix],
   };
   const parser = new xml2js.Parser(parserConfig);
