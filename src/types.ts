@@ -1,5 +1,7 @@
 export type SignatureAlgorithm = "sha1" | "sha256" | "sha512";
 
+export type PemLabel = "CERTIFICATE" | "PUBLIC KEY" | "PRIVATE KEY";
+
 export interface SamlSigningOptions {
   privateKey: string | Buffer;
   signatureAlgorithm?: SignatureAlgorithm;
