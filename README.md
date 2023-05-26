@@ -209,7 +209,7 @@ or
 -----END RSA PRIVATE KEY-----
 ```
 
-2. Alternatively a single-line or multi-line private key in Base64 format.
+2. Alternatively, a single-line or multi-line private key in Base64 format.
    See example from tests of [singleline private key](test/static/singleline_acme_tools_com.key).
 
 ### Configuration option `cert`
@@ -265,7 +265,7 @@ or
 -----END PUBLIC KEY-----
 ```
 
-2. Alternatively a single-line or multi-line **certificate** in Base64 format.
+2. Alternatively, a single-line or multi-line **certificate** in Base64 format.
 
 ### TIP: If the certificate is in the binary DER encoding
 
