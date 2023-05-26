@@ -2,10 +2,10 @@
 import * as xmlenc from "xml-encryption";
 import * as fs from "fs";
 import * as util from "util";
-import assert = require("assert");
+import * as assert from "assert";
 import { expect } from "chai";
 
-export const encrytpXml = util.promisify(xmlenc.encrypt);
+export const encryptXml = util.promisify(xmlenc.encrypt);
 export const decryptXml = util.promisify(xmlenc.decrypt);
 
 describe("xml /", async function () {
@@ -27,7 +27,7 @@ describe("xml /", async function () {
     };
 
     const originalPayload = "XML payload";
-    const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
+    const encryptedPayload = await encryptXml(originalPayload, encryptOptions);
     const decryptedPayload = await decryptXml(encryptedPayload, decryptOptions);
 
     expect(originalPayload).to.equal(decryptedPayload);
@@ -47,7 +47,7 @@ describe("xml /", async function () {
     };
 
     const originalPayload = "XML payload";
-    const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
+    const encryptedPayload = await encryptXml(originalPayload, encryptOptions);
     const decryptedPayload = await decryptXml(encryptedPayload, decryptOptions);
 
     expect(originalPayload).to.equal(decryptedPayload);
@@ -67,7 +67,7 @@ describe("xml /", async function () {
     };
 
     const originalPayload = "XML payload";
-    const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
+    const encryptedPayload = await encryptXml(originalPayload, encryptOptions);
     const decryptedPayload = await decryptXml(encryptedPayload, decryptOptions);
 
     expect(originalPayload).to.equal(decryptedPayload);
@@ -87,7 +87,7 @@ describe("xml /", async function () {
     };
 
     const originalPayload = "XML payload";
-    const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
+    const encryptedPayload = await encryptXml(originalPayload, encryptOptions);
     const decryptedPayload = await decryptXml(encryptedPayload, decryptOptions);
 
     expect(originalPayload).to.equal(decryptedPayload);
@@ -108,7 +108,7 @@ describe("xml /", async function () {
     };
 
     const originalPayload = "XML payload";
-    const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
+    const encryptedPayload = await encryptXml(originalPayload, encryptOptions);
     const decryptedPayload = await assert.rejects(decryptXml(encryptedPayload, decryptOptions));
 
     expect(decryptedPayload).to.be.undefined;
@@ -129,7 +129,7 @@ describe("xml /", async function () {
     };
 
     const originalPayload = "XML payload";
-    const encryptedPayload = await encrytpXml(originalPayload, encryptOptions);
+    const encryptedPayload = await encryptXml(originalPayload, encryptOptions);
     const decryptedPayload = await assert.rejects(decryptXml(encryptedPayload, decryptOptions));
 
     expect(decryptedPayload).to.be.undefined;

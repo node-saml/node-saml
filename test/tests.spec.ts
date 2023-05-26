@@ -6,7 +6,7 @@ import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
 import { Profile, SamlConfig, ValidateInResponseTo, XMLOutput } from "../src/types";
-import { RacComparision } from "../src/types.js";
+import { RacComparison } from "../src/types.js";
 import { expect } from "chai";
 import * as assert from "assert";
 import { FAKE_CERT, TEST_CERT } from "./types";
@@ -1895,7 +1895,7 @@ describe("node-saml /", function () {
           () => {
             new SAML({
               callbackUrl: "http://localhost/saml/consume",
-              racComparison: "bad_value" as RacComparision,
+              racComparison: "bad_value" as RacComparison,
               cert: FAKE_CERT,
               issuer: "onesaml_login",
             }).options;
@@ -1913,7 +1913,7 @@ describe("node-saml /", function () {
           "the default value of the option `racComparison` must be exact"
         );
 
-        const validComparisonTypes: RacComparision[] = ["exact", "minimum", "maximum", "better"];
+        const validComparisonTypes: RacComparison[] = ["exact", "minimum", "maximum", "better"];
         let samlObjValidComparisonType: SAML;
         validComparisonTypes.forEach(function (racComparison) {
           samlObjValidComparisonType = new SAML({

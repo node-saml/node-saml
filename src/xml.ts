@@ -214,7 +214,7 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
 export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJsObject> => {
   const parserConfig = {
     explicitRoot: true,
-    explicitCharkey: true,
+    explicitCharKey: true,
     tagNameProcessors: [xml2js.processors.stripPrefix],
   };
   const parser = new xml2js.Parser(parserConfig);
@@ -267,15 +267,15 @@ export const getNameIdAsync = async (
       "No decryption key found getting name ID for encrypted SAML response"
     );
 
-    const encryptedDatas = xpath.selectElements(
+    const encryptedData = xpath.selectElements(
       encryptedIds[0],
       "./*[local-name()='EncryptedData']"
     );
 
-    if (encryptedDatas.length !== 1) {
+    if (encryptedData.length !== 1) {
       throw new Error("Invalid LogoutRequest");
     }
-    const encryptedDataXml = encryptedDatas[0].toString();
+    const encryptedDataXml = encryptedData[0].toString();
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
     const decryptedDoc = await parseDomFromString(decryptedXml);

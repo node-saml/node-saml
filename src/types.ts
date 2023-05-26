@@ -116,7 +116,7 @@ export interface XmlSignatureLocation {
   action: "append" | "prepend" | "before" | "after";
 }
 
-export type RacComparision = "exact" | "minimum" | "maximum" | "better";
+export type RacComparison = "exact" | "minimum" | "maximum" | "better";
 
 interface SamlScopingConfig {
   idpList?: SamlIDPListConfig[];
@@ -153,7 +153,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   forceAuthn: boolean;
   skipRequestCompression: boolean;
   authnRequestBinding?: string;
-  racComparison: RacComparision;
+  racComparison: RacComparison;
   providerName?: string;
   passive: boolean;
   idpIssuer?: string;
@@ -229,7 +229,7 @@ export interface StrategyOptions {
 }
 
 /**
- * These options are availble for configuring a SAML strategy
+ * These options are available for configuring a SAML strategy
  */
 export type SamlConfig = Partial<SamlOptions> & StrategyOptions & MandatorySamlOptions;
 

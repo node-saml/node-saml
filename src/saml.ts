@@ -5,7 +5,7 @@ import * as crypto from "crypto";
 import { URL } from "url";
 import * as querystring from "querystring";
 import * as util from "util";
-import { InMemoryCacheProvider } from "./inmemory-cache-provider";
+import { InMemoryCacheProvider } from "./in-memory-cache-provider";
 import * as algorithms from "./algorithms";
 import { ParsedQs } from "qs";
 import {
@@ -41,7 +41,7 @@ import {
   xpath,
 } from "./xml";
 import { keyInfoToPem, generateUniqueId } from "./crypto";
-import { dateStringToTimestamp, generateInstant } from "./datetime";
+import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
 
