@@ -138,6 +138,8 @@ describe("Cache tests /", () => {
     expect(cacheRemoveSpy.calledWith(requestId1)).to.be.true;
     const removed = await samlObj.cacheProvider.getAsync(requestId1);
     expect(removed).to.not.exist;
+
+    sinon.restore();
   });
 
   it("should not update the expire time of duplicate entries", async () => {

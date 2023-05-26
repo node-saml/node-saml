@@ -20,6 +20,16 @@ describe("Signatures", function () {
     SAMLResponse: fs.readFileSync(__dirname + "/static/signatures" + pathToXml, "base64"),
   });
 
+  let validateSignatureSpy: sinon.SinonSpy;
+
+  beforeEach(() => {
+    validateSignatureSpy = sinon.spy(xml, "validateSignature");
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
   const testOneResponseBody = async (
     samlResponseBody: Record<string, string>,
     shouldErrorWith: string | false | undefined,
@@ -35,23 +45,16 @@ describe("Signatures", function () {
       ...options,
     });
 
-    //== Spy on `validateSignature` to be able to count how many times it has been called
-    const validateSignatureSpy = sinon.spy(xml, "validateSignature");
-
-    try {
-      //== Run the test in `func`
-      if (shouldErrorWith === false) {
-        await assert.doesNotReject(samlObj.validatePostResponseAsync(samlResponseBody));
-      } else {
-        await assert.rejects(samlObj.validatePostResponseAsync(samlResponseBody), {
-          message: shouldErrorWith,
-        });
-      }
-      //== Assert times `validateSignature` was called
-      expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
-    } finally {
-      validateSignatureSpy.restore();
+    //== Run the test in `func`
+    if (shouldErrorWith === false) {
+      await assert.doesNotReject(samlObj.validatePostResponseAsync(samlResponseBody));
+    } else {
+      await assert.rejects(samlObj.validatePostResponseAsync(samlResponseBody), {
+        message: shouldErrorWith,
+      });
     }
+
+    expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
   };
 
   const testOneResponse = (

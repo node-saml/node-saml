@@ -416,6 +416,8 @@ describe("node-saml /", function () {
             expect(cacheSaveSpy.called).to.be.true;
             expect(cacheSaveSpy.calledWith(id, issueInstant)).to.be.true;
 
+            sinon.restore();
+
             done();
           } catch (err2) {
             done(err2);
