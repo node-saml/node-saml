@@ -9,6 +9,11 @@ export interface SamlSigningOptions {
   digestAlgorithm?: string;
 }
 
+export interface AuthOptions {
+  samlFallback?: "login-request" | "logout-request";
+  additionalParams?: Record<string, string | string[]>;
+}
+
 export const isValidSamlSigningOptions = (
   options: Partial<SamlSigningOptions>
 ): options is SamlSigningOptions => {
@@ -118,7 +123,7 @@ export interface XmlSignatureLocation {
 
 export type RacComparison = "exact" | "minimum" | "maximum" | "better";
 
-interface SamlScopingConfig {
+export interface SamlScopingConfig {
   idpList?: SamlIDPListConfig[];
   proxyCount?: number;
   requesterId?: string[] | string;
@@ -223,15 +228,7 @@ export interface GenerateServiceProviderMetadataParams {
   generateUniqueId: SamlOptions["generateUniqueId"];
 }
 
-export interface StrategyOptions {
-  name?: string;
-  passReqToCallback?: boolean;
-}
-
-/**
- * These options are available for configuring a SAML strategy
- */
-export type SamlConfig = Partial<SamlOptions> & StrategyOptions & MandatorySamlOptions;
+export type SamlConfig = Partial<SamlOptions> & MandatorySamlOptions;
 
 export interface Profile {
   issuer: string;
