@@ -1,5 +1,7 @@
 export type SignatureAlgorithm = "sha1" | "sha256" | "sha512";
 
+export type PemLabel = "CERTIFICATE" | "PUBLIC KEY" | "PRIVATE KEY";
+
 export interface SamlSigningOptions {
   privateKey: string | Buffer;
   signatureAlgorithm?: SignatureAlgorithm;
@@ -226,15 +228,7 @@ export interface GenerateServiceProviderMetadataParams {
   generateUniqueId: SamlOptions["generateUniqueId"];
 }
 
-export interface StrategyOptions {
-  name?: string;
-  passReqToCallback?: boolean;
-}
-
-/**
- * These options are availble for configuring a SAML strategy
- */
-export type SamlConfig = Partial<SamlOptions> & StrategyOptions & MandatorySamlOptions;
+export type SamlConfig = Partial<SamlOptions> & MandatorySamlOptions;
 
 export interface Profile {
   issuer: string;

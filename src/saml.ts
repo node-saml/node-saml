@@ -40,13 +40,36 @@ import {
   validateSignature,
   xpath,
 } from "./xml";
-import { certToPEM, generateUniqueId, keyToPEM } from "./crypto";
+import { keyInfoToPem, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
+
+const resolveAndParseKeyInfosToPem = async ({
+  cert,
+}: Pick<SamlOptions, "cert">): Promise<string[]> => {
+  const keyInfosToHandle: string[] = [];
+  const pemFiles: string[] = [];
+  if (typeof cert === "function") {
+    await util
+      .promisify(cert as CertCallback)()
+      .then((certs) => {
+        assertRequired(certs, "callback didn't return cert");
+        keyInfosToHandle.push(...(Array.isArray(certs) ? certs : [certs]));
+      });
+  } else {
+    keyInfosToHandle.push(...(Array.isArray(cert) ? cert : [cert]));
+  }
+  // Verify and normalize each PEM file.
+  keyInfosToHandle.forEach((cert) => {
+    pemFiles.push(keyInfoToPem(cert, "CERTIFICATE"));
+  });
+
+  return pemFiles;
+};
 
 class SAML {
   /**
@@ -56,6 +79,9 @@ class SAML {
   options: SamlOptions;
   // This is only for testing
   cacheProvider: CacheProvider;
+
+  // Array of PEM files used to validate signatures.
+  pemFiles: string[] = [];
 
   constructor(ctorOptions: SamlConfig) {
     this.options = this.initialize(ctorOptions);
@@ -157,7 +183,10 @@ class SAML {
       samlMessageToSign.SigAlg = samlMessage.SigAlg;
     }
     signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(keyToPEM(this.options.privateKey), "base64");
+    samlMessage.Signature = signer.sign(
+      keyInfoToPem(this.options.privateKey, "PRIVATE KEY"),
+      "base64"
+    );
   }
 
   protected async generateAuthorizeRequestAsync(
@@ -635,30 +664,18 @@ class SAML {
     );
   }
 
-  protected async certsToCheck(): Promise<string[]> {
-    let checkedCerts: string[];
-
+  protected async getKeyInfosAsPem(): Promise<string[]> {
     if (typeof this.options.cert === "function") {
-      checkedCerts = await util
-        .promisify(this.options.cert as CertCallback)()
-        .then((certs) => {
-          assertRequired(certs, "callback didn't return cert");
-          if (!Array.isArray(certs)) {
-            certs = [certs];
-          }
-          return certs;
-        });
-    } else if (Array.isArray(this.options.cert)) {
-      checkedCerts = this.options.cert;
-    } else {
-      checkedCerts = [this.options.cert];
+      // Do not cache
+      return await resolveAndParseKeyInfosToPem(this.options);
+    } else if (this.pemFiles.length > 0) {
+      // Return already cached PEM files.
+      return this.pemFiles;
     }
 
-    checkedCerts.forEach((cert) => {
-      assertRequired(cert, "unknown cert found");
-    });
-
-    return checkedCerts;
+    // Load PEM files from different sources and cache.
+    this.pemFiles = await resolveAndParseKeyInfosToPem(this.options);
+    return this.pemFiles;
   }
 
   async validatePostResponseAsync(
@@ -682,10 +699,10 @@ class SAML {
 
         await this.validateInResponseTo(inResponseTo);
       }
-      const certs = await this.certsToCheck();
+      const pemFiles = await this.getKeyInfosAsPem();
       // Check if this document has a valid top-level signature which applies to the entire XML document
       let validSignature = false;
-      if (validateSignature(xml, doc.documentElement, certs)) {
+      if (validateSignature(xml, doc.documentElement, pemFiles)) {
         validSignature = true;
       }
 
@@ -711,7 +728,7 @@ class SAML {
       if (assertions.length == 1) {
         if (
           (this.options.wantAssertionsSigned || !validSignature) &&
-          !validateSignature(xml, assertions[0], certs)
+          !validateSignature(xml, assertions[0], pemFiles)
         ) {
           throw new Error("Invalid signature");
         }
@@ -738,7 +755,7 @@ class SAML {
 
         if (
           (this.options.wantAssertionsSigned || !validSignature) &&
-          !validateSignature(decryptedXml, decryptedAssertions[0], certs)
+          !validateSignature(decryptedXml, decryptedAssertions[0], pemFiles)
         ) {
           throw new Error("Invalid signature from encrypted assertion");
         }
@@ -870,13 +887,13 @@ class SAML {
 
       urlString += "&" + getParam("SigAlg");
 
-      const certs = await this.certsToCheck();
-      const hasValidQuerySignature = certs.some((cert) => {
+      const pemFiles = await this.getKeyInfosAsPem();
+      const hasValidQuerySignature = pemFiles.some((pemFile) => {
         return this.validateSignatureForRedirect(
           urlString,
           container.Signature as string,
           container.SigAlg as string,
-          cert
+          pemFile
         );
       });
       if (!hasValidQuerySignature) {
@@ -891,7 +908,7 @@ class SAML {
     urlString: crypto.BinaryLike,
     signature: string,
     alg: string,
-    cert: string
+    pemFile: string
   ): boolean {
     // See if we support a matching algorithm, case-insensitive. Otherwise, throw error.
     function hasMatch(ourAlgo: string) {
@@ -911,7 +928,7 @@ class SAML {
     const verifier = crypto.createVerify(matchingAlgo);
     verifier.update(urlString);
 
-    return verifier.verify(certToPEM(cert), signature, "base64");
+    return verifier.verify(pemFile, signature, "base64");
   }
 
   protected verifyLogoutRequest(doc: XMLOutput): void {
@@ -1222,13 +1239,18 @@ class SAML {
   }
 
   async validatePostRequestAsync(
-    container: Record<string, string>
+    container: Record<string, string>,
+    _ = {
+      _parseDomFromString: parseDomFromString,
+      _parseXml2JsFromString: parseXml2JsFromString,
+      _validateSignature: validateSignature,
+    }
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
-    const dom = await parseDomFromString(xml);
-    const doc = await parseXml2JsFromString(xml);
-    const certs = await this.certsToCheck();
-    if (!validateSignature(xml, dom.documentElement, certs)) {
+    const dom = await _._parseDomFromString(xml);
+    const doc = await _._parseXml2JsFromString(xml);
+    const pemFiles = await this.getKeyInfosAsPem();
+    if (!_._validateSignature(xml, dom.documentElement, pemFiles)) {
       throw new Error("Invalid signature on documentElement");
     }
     return await this.processValidlySignedPostRequestAsync(doc, dom);
