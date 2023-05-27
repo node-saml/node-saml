@@ -28,6 +28,7 @@ describe("Signatures", function () {
   ) => {
     //== Instantiate new instance before every test
     const samlObj = new SAML({
+      callbackUrl: "http://localhost/saml/consume",
       cert,
       issuer: options.issuer ?? "onesaml_login",
       audience: false,
@@ -91,6 +92,13 @@ describe("Signatures", function () {
     it(
       "R1A - both signed => valid",
       testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 2)
+    );
+    const publicKey = fs.readFileSync(__dirname + "/static/pub.pem", "ascii");
+    it(
+      "R1A - both signed, verify using public key => valid",
+      testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 2, {
+        cert: publicKey,
+      })
     );
     it(
       "R1A - root signed => valid",

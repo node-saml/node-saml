@@ -40,13 +40,36 @@ import {
   validateSignature,
   xpath,
 } from "./xml";
-import { certToPEM, generateUniqueId, keyToPEM } from "./crypto";
+import { keyInfoToPem, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./datetime";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
+
+const resolveAndParseKeyInfosToPem = async ({
+  cert,
+}: Pick<SamlOptions, "cert">): Promise<string[]> => {
+  const keyInfosToHandle: string[] = [];
+  const pemFiles: string[] = [];
+  if (typeof cert === "function") {
+    await util
+      .promisify(cert as CertCallback)()
+      .then((certs) => {
+        assertRequired(certs, "callback didn't return cert");
+        keyInfosToHandle.push(...(Array.isArray(certs) ? certs : [certs]));
+      });
+  } else {
+    keyInfosToHandle.push(...(Array.isArray(cert) ? cert : [cert]));
+  }
+  // Verify and normalize each PEM file.
+  keyInfosToHandle.forEach((cert) => {
+    pemFiles.push(keyInfoToPem(cert, "CERTIFICATE"));
+  });
+
+  return pemFiles;
+};
 
 class SAML {
   /**
@@ -56,6 +79,9 @@ class SAML {
   options: SamlOptions;
   // This is only for testing
   cacheProvider: CacheProvider;
+
+  // Array of PEM files used to validate signatures.
+  pemFiles: string[] = [];
 
   constructor(ctorOptions: SamlConfig) {
     this.options = this.initialize(ctorOptions);
@@ -67,6 +93,7 @@ class SAML {
       throw new TypeError("SamlOptions required on construction");
     }
 
+    assertRequired(ctorOptions.callbackUrl, "callbackUrl is required");
     assertRequired(ctorOptions.issuer, "issuer is required");
     assertRequired(ctorOptions.cert, "cert is required");
 
@@ -93,8 +120,7 @@ class SAML {
       disableRequestAcsUrl: ctorOptions.disableRequestAcsUrl ?? false,
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
-      path: ctorOptions.path ?? "/saml/consume",
-      host: ctorOptions.host ?? "localhost",
+      callbackUrl: ctorOptions.callbackUrl,
       issuer: ctorOptions.issuer,
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
       identifierFormat:
@@ -138,25 +164,6 @@ class SAML {
     return options;
   }
 
-  protected getCallbackUrl(host?: string | undefined): string {
-    // Post-auth destination
-    if (this.options.callbackUrl) {
-      return this.options.callbackUrl;
-    } else {
-      const url = new URL("http://localhost");
-      if (host) {
-        url.host = host;
-      } else {
-        url.host = this.options.host;
-      }
-      if (this.options.protocol) {
-        url.protocol = this.options.protocol;
-      }
-      url.pathname = this.options.path;
-      return url.toString();
-    }
-  }
-
   protected signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
     assertRequired(this.options.privateKey, "privateKey is required");
 
@@ -176,14 +183,16 @@ class SAML {
       samlMessageToSign.SigAlg = samlMessage.SigAlg;
     }
     signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(keyToPEM(this.options.privateKey), "base64");
+    samlMessage.Signature = signer.sign(
+      keyInfoToPem(this.options.privateKey, "PRIVATE KEY"),
+      "base64"
+    );
   }
 
   protected async generateAuthorizeRequestAsync(
     this: SAML,
     isPassive: boolean,
-    isHttpPostBinding: boolean,
-    host: string | undefined
+    isHttpPostBinding: boolean
   ): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -215,7 +224,7 @@ class SAML {
     }
 
     if (!this.options.disableRequestAcsUrl) {
-      request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = this.getCallbackUrl(host);
+      request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = this.options.callbackUrl;
     }
 
     const samlAuthnRequestExtensions = this.options.samlAuthnRequestExtensions;
@@ -504,7 +513,7 @@ class SAML {
     host: string | undefined,
     options: AuthorizeOptions
   ): Promise<string> {
-    const request = await this.generateAuthorizeRequestAsync(this.options.passive, false, host);
+    const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
     const overrideParams = options ? options.additionalParams || {} : {};
     return await this._requestToUrlAsync(
@@ -515,7 +524,40 @@ class SAML {
     );
   }
 
-  async getAuthorizeFormAsync(RelayState: string, host?: string): Promise<string> {
+  async getAuthorizeMessageAsync(
+    RelayState: string,
+    host?: string,
+    options?: AuthorizeOptions
+  ): Promise<querystring.ParsedUrlQueryInput> {
+    assertRequired(this.options.entryPoint, "entryPoint is required");
+
+    const request = await this.generateAuthorizeRequestAsync(this.options.passive, true);
+    let buffer: Buffer;
+    if (this.options.skipRequestCompression) {
+      buffer = Buffer.from(request, "utf8");
+    } else {
+      buffer = await deflateRawAsync(request);
+    }
+
+    const operation = "authorize";
+    const overrideParams = options ? options.additionalParams || {} : {};
+    const additionalParameters = this._getAdditionalParams(RelayState, operation, overrideParams);
+    const samlMessage: querystring.ParsedUrlQueryInput = {
+      SAMLRequest: buffer.toString("base64"),
+    };
+
+    Object.keys(additionalParameters).forEach((k) => {
+      samlMessage[k] = additionalParameters[k] || "";
+    });
+
+    return samlMessage;
+  }
+
+  async getAuthorizeFormAsync(
+    RelayState: string,
+    host?: string,
+    options?: AuthorizeOptions
+  ): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     // The quoteattr() function is used in a context, where the result will not be evaluated by javascript
@@ -548,23 +590,7 @@ class SAML {
       );
     };
 
-    const request = await this.generateAuthorizeRequestAsync(this.options.passive, true, host);
-    let buffer: Buffer;
-    if (this.options.skipRequestCompression) {
-      buffer = Buffer.from(request, "utf8");
-    } else {
-      buffer = await deflateRawAsync(request);
-    }
-
-    const operation = "authorize";
-    const additionalParameters = this._getAdditionalParams(RelayState, operation);
-    const samlMessage: querystring.ParsedUrlQueryInput = {
-      SAMLRequest: buffer.toString("base64"),
-    };
-
-    Object.keys(additionalParameters).forEach((k) => {
-      samlMessage[k] = additionalParameters[k] || "";
-    });
+    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, host, options);
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {
@@ -638,30 +664,18 @@ class SAML {
     );
   }
 
-  protected async certsToCheck(): Promise<string[]> {
-    let checkedCerts: string[];
-
+  protected async getKeyInfosAsPem(): Promise<string[]> {
     if (typeof this.options.cert === "function") {
-      checkedCerts = await util
-        .promisify(this.options.cert as CertCallback)()
-        .then((certs) => {
-          assertRequired(certs, "callback didn't return cert");
-          if (!Array.isArray(certs)) {
-            certs = [certs];
-          }
-          return certs;
-        });
-    } else if (Array.isArray(this.options.cert)) {
-      checkedCerts = this.options.cert;
-    } else {
-      checkedCerts = [this.options.cert];
+      // Do not cache
+      return await resolveAndParseKeyInfosToPem(this.options);
+    } else if (this.pemFiles.length > 0) {
+      // Return already cached PEM files.
+      return this.pemFiles;
     }
 
-    checkedCerts.forEach((cert) => {
-      assertRequired(cert, "unknown cert found");
-    });
-
-    return checkedCerts;
+    // Load PEM files from different sources and cache.
+    this.pemFiles = await resolveAndParseKeyInfosToPem(this.options);
+    return this.pemFiles;
   }
 
   async validatePostResponseAsync(
@@ -685,10 +699,10 @@ class SAML {
 
         await this.validateInResponseTo(inResponseTo);
       }
-      const certs = await this.certsToCheck();
+      const pemFiles = await this.getKeyInfosAsPem();
       // Check if this document has a valid top-level signature which applies to the entire XML document
       let validSignature = false;
-      if (validateSignature(xml, doc.documentElement, certs)) {
+      if (validateSignature(xml, doc.documentElement, pemFiles)) {
         validSignature = true;
       }
 
@@ -714,7 +728,7 @@ class SAML {
       if (assertions.length == 1) {
         if (
           (this.options.wantAssertionsSigned || !validSignature) &&
-          !validateSignature(xml, assertions[0], certs)
+          !validateSignature(xml, assertions[0], pemFiles)
         ) {
           throw new Error("Invalid signature");
         }
@@ -741,7 +755,7 @@ class SAML {
 
         if (
           (this.options.wantAssertionsSigned || !validSignature) &&
-          !validateSignature(decryptedXml, decryptedAssertions[0], certs)
+          !validateSignature(decryptedXml, decryptedAssertions[0], pemFiles)
         ) {
           throw new Error("Invalid signature from encrypted assertion");
         }
@@ -873,13 +887,13 @@ class SAML {
 
       urlString += "&" + getParam("SigAlg");
 
-      const certs = await this.certsToCheck();
-      const hasValidQuerySignature = certs.some((cert) => {
+      const pemFiles = await this.getKeyInfosAsPem();
+      const hasValidQuerySignature = pemFiles.some((pemFile) => {
         return this.validateSignatureForRedirect(
           urlString,
           container.Signature as string,
           container.SigAlg as string,
-          cert
+          pemFile
         );
       });
       if (!hasValidQuerySignature) {
@@ -894,7 +908,7 @@ class SAML {
     urlString: crypto.BinaryLike,
     signature: string,
     alg: string,
-    cert: string
+    pemFile: string
   ): boolean {
     // See if we support a matching algorithm, case-insensitive. Otherwise, throw error.
     function hasMatch(ourAlgo: string) {
@@ -914,7 +928,7 @@ class SAML {
     const verifier = crypto.createVerify(matchingAlgo);
     verifier.update(urlString);
 
-    return verifier.verify(certToPEM(cert), signature, "base64");
+    return verifier.verify(pemFile, signature, "base64");
   }
 
   protected verifyLogoutRequest(doc: XMLOutput): void {
@@ -1206,7 +1220,12 @@ class SAML {
           return new Error("SAML assertion AudienceRestriction has no Audience value");
         }
         if (restriction.Audience[0]._ !== expectedAudience) {
-          return new Error("SAML assertion audience mismatch");
+          return new Error(
+            "SAML assertion audience mismatch. Expected: " +
+              expectedAudience +
+              " Received: " +
+              restriction.Audience[0]._
+          );
         }
         return null;
       })
@@ -1220,13 +1239,18 @@ class SAML {
   }
 
   async validatePostRequestAsync(
-    container: Record<string, string>
+    container: Record<string, string>,
+    _ = {
+      _parseDomFromString: parseDomFromString,
+      _parseXml2JsFromString: parseXml2JsFromString,
+      _validateSignature: validateSignature,
+    }
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
-    const dom = await parseDomFromString(xml);
-    const doc = await parseXml2JsFromString(xml);
-    const certs = await this.certsToCheck();
-    if (!validateSignature(xml, dom.documentElement, certs)) {
+    const dom = await _._parseDomFromString(xml);
+    const doc = await _._parseXml2JsFromString(xml);
+    const pemFiles = await this.getKeyInfosAsPem();
+    if (!_._validateSignature(xml, dom.documentElement, pemFiles)) {
       throw new Error("Invalid signature on documentElement");
     }
     return await this.processValidlySignedPostRequestAsync(doc, dom);
@@ -1292,11 +1316,8 @@ class SAML {
     decryptionCert: string | null,
     signingCerts?: string | string[] | null
   ): string {
-    const callbackUrl = this.getCallbackUrl(); // TODO it would probably be useful to have a host parameter here
-
     return generateServiceProviderMetadata({
       ...this.options,
-      callbackUrl,
       decryptionCert,
       signingCerts,
     });

@@ -1,5 +1,7 @@
 export type SignatureAlgorithm = "sha1" | "sha256" | "sha512";
 
+export type PemLabel = "CERTIFICATE" | "PUBLIC KEY" | "PRIVATE KEY";
+
 export interface SamlSigningOptions {
   privateKey: string | Buffer;
   signatureAlgorithm?: SignatureAlgorithm;
@@ -35,6 +37,7 @@ export type XMLObject = {
 
 export type XMLInput = XMLObject;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type XMLOutput = Record<string, any>;
 
 export type AuthorizeRequestXML = {
@@ -133,10 +136,7 @@ export enum ValidateInResponseTo {
  */
 export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlOptions {
   // Core
-  callbackUrl?: string;
-  path: string;
-  protocol?: string;
-  host: string;
+  callbackUrl: string;
   entryPoint?: string;
   decryptionPvk?: string | Buffer;
 

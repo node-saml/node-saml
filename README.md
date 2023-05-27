@@ -12,7 +12,9 @@ This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provi
 
 ## Installation
 
-    $ npm install @node-saml/node-saml
+```shell
+npm install @node-saml/node-saml
+```
 
 ## Usage
 
@@ -29,13 +31,10 @@ const options = {};
 const saml = new SAML(options);
 ```
 
-#### Config parameter details:
+#### Config parameter details
 
 - **Core**
-- `callbackUrl`: full callbackUrl (overrides path/protocol if supplied)
-- `path`: path to callback; will be combined with protocol and server host information to construct callback url if `callbackUrl` is not specified (default: `/saml/consume`)
-- `protocol`: protocol for callback; will be combined with path and server host information to construct callback url if `callbackUrl` is not specified (default: `http://`)
-- `host`: host for callback; will be combined with path and protocol to construct callback url if `callbackUrl` is not specified (default: `localhost`)
+- `callbackUrl`: full callbackUrl
 - `entryPoint`: identity provider entrypoint (is required to be spec-compliant when the request is signed)
 - `issuer`: issuer string to supply to identity provider
 - `audience`: expected saml response Audience, defaults to value of Issuer (if `false`, Audience won't be verified)
@@ -159,7 +158,7 @@ metadataContactPerson:  [{
 
 ### generateServiceProviderMetadata( decryptionCert, signingCert )
 
-As a convenience, the strategy object exposes a `generateServiceProviderMetadata` method which will generate a service provider metadata document suitable for supplying to an identity provider. This method will only work on strategies which are configured with a `callbackUrl` (since the relative path for the callback is not sufficient information to generate a complete metadata document).
+As a convenience, the strategy object exposes a `generateServiceProviderMetadata` method which will generate a service provider metadata document suitable for supplying to an identity provider.
 
 The `decryptionCert` argument should be a public certificate matching the `decryptionPvk` and is required if the strategy is configured with a `decryptionPvk`.
 
@@ -169,73 +168,111 @@ The `signingCert` argument should be a public certificate matching the `privateK
 
 Node-SAML uses the HTTP Redirect Binding for its `AuthnRequest`s (unless overridden with the `authnRequestBinding` parameter), and expects to receive the messages back via the HTTP POST binding.
 
+### Configuration option `signatureAlgorithm`
+
 Authentication requests sent by Node-SAML can be signed using RSA signature with SHA1, SHA256 or SHA512 hashing algorithms.
 
 To select hashing algorithm, use:
 
-```js
-...
-  signatureAlgorithm: 'sha1' // (default, but not recommended anymore these days)
-  signatureAlgorithm: 'sha256', // (preferred - your IDP should support it, otherwise think about upgrading it)
-  signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
-...
+```javascript
+signatureAlgorithm: 'sha1' // (default, but not recommended anymore these days)
+signatureAlgorithm: 'sha256', // (preferred - your IDP should support it, otherwise think about upgrading it)
+signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
 ```
 
-To sign them you need to provide a private key in the PEM format via the `privateKey` configuration key.
+### Configuration option `privateKey`
 
-Formats supported for `privateKey` field are,
-
-1. Well formatted PEM:
-
-```
------BEGIN PRIVATE KEY-----
-<private key contents here delimited at 64 characters per row>
------END PRIVATE KEY-----
-
-```
-
-```
------BEGIN RSA PRIVATE KEY-----
-<private key contents here delimited at 64 characters per row>
------END RSA PRIVATE KEY-----
-
-```
-
-(both versions work)
-See example from tests of the first version of [well formatted private key](test/static/acme_tools_com.key).
-
-2. Alternatively a single line private key without start/end lines where all rows are joined into single line:
-
-See example from tests of [singleline private key](test/static/singleline_acme_tools_com.key).
+To sign authentication requests, private key needs to be provide in the PEM format via the `privateKey` configuration property.
+Node-SAML is enforcing [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` format for PEM files.
 
 Add it to strategy options like this:
 
 ```javascript
-privateKey: fs.readFileSync("./privateKey.pem", "utf-8");
+privateKey: fs.readFileSync("./privateKey.pem", "latin1");
 ```
 
-It is a good idea to validate the signatures of the incoming SAML Responses. For this, you can provide the Identity Provider's public PEM-encoded X.509 signing certificate using the `cert` configuration key. The "BEGIN CERTIFICATE" and "END CERTIFICATE" lines should be stripped out and the certificate should be provided on a single line.
+Example formatings for `privateKey` field are,
+
+1. RFC7468 `stricttextualmsg` formatted PEM:
+
+```text
+-----BEGIN PRIVATE KEY-----
+<private key contents here delimited at 64 characters per row>
+-----END PRIVATE KEY-----
+```
+
+or
+
+```text
+-----BEGIN RSA PRIVATE KEY-----
+<private key contents here delimited at 64 characters per row>
+-----END RSA PRIVATE KEY-----
+```
+
+2. Alternatively, a single-line or multi-line private key in Base64 format.
+   See example from tests of [singleline private key](test/static/singleline_acme_tools_com.key).
+
+### Configuration option `cert`
+
+It is important to validate the signatures of the incoming SAML Responses.
+For this, provide the Identity Provider's public X.509 signing certificate(s) or public key(s) in [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` PEM format
+via the `cert` configuration property.
+
+> **Important**, provided public key MUST always be in PEM format!
+
+Add it to options like this:
 
 ```javascript
 cert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
 ```
 
-If you have a certificate in the binary DER encoding, you can convert it to the necessary PEM encoding like this:
+or
 
-```bash
-     openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
-```
-
-If the Identity Provider has multiple signing certificates that are valid (such as during the rolling from an old key to a new key and responses signed with either key are valid) then the `cert` configuration key can be an array:
+If the Identity Provider has multiple signing certificates or public keys that are valid then the `cert` configuration property can be an array.
+This can be the case during the rolling from an old key to a new key and responses signed with either key are valid:
 
 ```javascript
 cert: ["MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==", "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g="];
 ```
 
-The `cert` configuration key can also be a function that receives a callback as argument calls back a possible error and a certificate or array of certificates. This allows the Identity Provider to be polled for valid certificates and the new certificate can be used if it is changed:
+or
+
+The `cert` configuration property can also be a function that receives a callback as argument calls back a possible error and a certificate or array of certificates
+or a public key or array of public keys.
+This allows the Identity Provider to be polled for valid certificates or public keys and the new certificate or public key can be used if it is changed:
 
 ```javascript
-    cert: function(callback) { callback(null,polledCertificates); }
+cert: (callback) => {
+  callback(null, polledCertificates);
+};
+```
+
+Example formatings for `cert` field are,
+
+1. RFC7468 stricttextualmsg formatted PEM:
+
+```text
+-----BEGIN CERTIFICATE-----
+<certificate contents here delimited at 64 characters per row>
+-----END CERTIFICATE-----
+```
+
+or
+
+```text
+-----BEGIN PUBLIC KEY-----
+<public key contents here delimited at 64 characters per row>
+-----END PUBLIC KEY-----
+```
+
+2. Alternatively, a single-line or multi-line **certificate** in Base64 format.
+
+### TIP: If the certificate is in the binary DER encoding
+
+Convert it to the necessary PEM encoding like this:
+
+```shell
+openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
 ```
 
 ## SAML Response Validation - NotBefore and NotOnOrAfter
