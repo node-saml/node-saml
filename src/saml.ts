@@ -1240,17 +1240,17 @@ class SAML {
 
   async validatePostRequestAsync(
     container: Record<string, string>,
-    _ = {
-      _parseDomFromString: parseDomFromString,
-      _parseXml2JsFromString: parseXml2JsFromString,
-      _validateSignature: validateSignature,
-    }
+    {
+      _parseDomFromString = parseDomFromString,
+      _parseXml2JsFromString = parseXml2JsFromString,
+      _validateSignature = validateSignature,
+    } = {}
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
-    const dom = await _._parseDomFromString(xml);
-    const doc = await _._parseXml2JsFromString(xml);
+    const dom = await _parseDomFromString(xml);
+    const doc = await _parseXml2JsFromString(xml);
     const pemFiles = await this.getKeyInfosAsPem();
-    if (!_._validateSignature(xml, dom.documentElement, pemFiles)) {
+    if (!_validateSignature(xml, dom.documentElement, pemFiles)) {
       throw new Error("Invalid signature on documentElement");
     }
     return await this.processValidlySignedPostRequestAsync(doc, dom);
