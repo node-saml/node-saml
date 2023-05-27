@@ -9,6 +9,11 @@ export interface SamlSigningOptions {
   digestAlgorithm?: string;
 }
 
+export interface AuthOptions {
+  samlFallback?: "login-request" | "logout-request";
+  additionalParams?: Record<string, string | string[]>;
+}
+
 export const isValidSamlSigningOptions = (
   options: Partial<SamlSigningOptions>
 ): options is SamlSigningOptions => {
@@ -118,7 +123,7 @@ export interface XmlSignatureLocation {
 
 export type RacComparision = "exact" | "minimum" | "maximum" | "better";
 
-interface SamlScopingConfig {
+export interface SamlScopingConfig {
   idpList?: SamlIDPListConfig[];
   proxyCount?: number;
   requesterId?: string[] | string;

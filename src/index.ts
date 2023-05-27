@@ -7,6 +7,13 @@ import {
   SamlConfig,
   SamlOptions,
   ValidateInResponseTo,
+  RacComparision,
+  SamlScopingConfig,
+  SamlIDPListConfig,
+  SamlIDPEntryConfig,
+  SignatureAlgorithm,
+  CertCallback,
+  AuthOptions,
 } from "./types";
 
 export {
@@ -18,4 +25,11 @@ export {
   Profile,
   SamlConfig,
   ValidateInResponseTo,
+  RacComparision,
+  SamlScopingConfig,
+  SamlIDPListConfig,
+  SamlIDPEntryConfig,
+  SignatureAlgorithm,
+  CertCallback,
+  AuthOptions,
 };

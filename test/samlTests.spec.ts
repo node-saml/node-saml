@@ -5,8 +5,7 @@ import { URL } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
 import { SAML } from "../src/saml";
-import { CertCallback } from "../src/types";
-import { AuthenticateOptions, AuthorizeOptions } from "../src/passport-saml-types";
+import { AuthOptions, CertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
@@ -201,7 +200,7 @@ describe("saml.ts", function () {
   describe("get Urls", function () {
     let saml: SAML;
     let req: RequestWithUser;
-    let options: AuthenticateOptions & AuthorizeOptions;
+    let options: AuthOptions;
 
     beforeEach(function () {
       saml = new SAML({
