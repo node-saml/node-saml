@@ -24,7 +24,8 @@ export function getDigestAlgorithm(shortName?: string): string {
   }
 }
 
-export function getSigner(shortName?: string): crypto.Sign {
+export function getSigner(shortName?: string) {
+  // The return type of `crypto.createSign` is `crypto.Sign`, but in Node@14, it fails compilation if specified; it is correct inferred if not specified
   switch (shortName) {
     case "sha256":
       return crypto.createSign("RSA-SHA256");
