@@ -16,7 +16,7 @@ describe("SAML request", function () {
       samlAuthnRequestExtensions: {
         "md:RequestedAttribute": {
           "@isRequired": "true",
-          "@Name": "Lastname",
+          "@Name": "LastName",
           "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
         },
         vetuma: {
@@ -50,7 +50,7 @@ describe("SAML request", function () {
               {
                 $: {
                   isRequired: "true",
-                  Name: "Lastname",
+                  Name: "LastName",
                   "xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
                 },
               },
@@ -527,7 +527,7 @@ describe("SAML request", function () {
       callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
       cert: FAKE_CERT,
-      samlAuthnRequestExtensions: "anyvalue" as unknown as Record<string, unknown>,
+      samlAuthnRequestExtensions: "anyValue" as unknown as Record<string, unknown>,
       issuer: "onesaml_login",
     };
 

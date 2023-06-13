@@ -27,11 +27,11 @@ describe("crypto.ts", function () {
 
     describe("invalid values", function () {
       it("should throw with null", function () {
-        assert.throws(() => keyInfoToPem(null as any, "CERTIFICATE"));
+        assert.throws(() => keyInfoToPem(null as never, "CERTIFICATE"));
       });
 
       it("should throw with false", function () {
-        assert.throws(() => keyInfoToPem(false as any, "CERTIFICATE"));
+        assert.throws(() => keyInfoToPem(false as never, "CERTIFICATE"));
       });
 
       it("should throw with empty string", function () {
@@ -120,7 +120,7 @@ describe("crypto.ts", function () {
 
       it("should return private key in PEM format for singleline private key", function () {
         const privateKeyBase64Data = fs
-          .readFileSync(`./test/static/singleline_acme_tools_com.key`)
+          .readFileSync(`./test/static/single_line_acme_tools_com.key`)
           .toString();
         const privateKey = keyInfoToPem(
           `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64Data}\n-----END PRIVATE KEY-----`,

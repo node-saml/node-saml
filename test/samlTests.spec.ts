@@ -214,7 +214,7 @@ describe("saml.ts", function () {
       req = {
         protocol: "https",
         headers: {
-          host: "examplesp.com",
+          host: "exampleSp.com",
         },
         user: {
           nameIDFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",

@@ -115,7 +115,7 @@ const saml = new SAML(options);
 samlAuthnRequestExtensions: {
   "md:RequestedAttribute": {
     "@isRequired": "true",
-    "@Name": "Lastname",
+    "@Name": "LastName",
     "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata"
   },
   vetuma: {
@@ -191,7 +191,7 @@ Add it to strategy options like this:
 privateKey: fs.readFileSync("./privateKey.pem", "latin1");
 ```
 
-Example formatings for `privateKey` field are,
+Example formats for `privateKey` field are,
 
 1. RFC7468 `stricttextualmsg` formatted PEM:
 
@@ -210,7 +210,7 @@ or
 ```
 
 2. Alternatively, a single-line or multi-line private key in Base64 format.
-   See example from tests of [singleline private key](test/static/singleline_acme_tools_com.key).
+   See example from tests of [single line private key](test/static/single_line_acme_tools_com.key).
 
 ### Configuration option `cert`
 
@@ -247,7 +247,7 @@ cert: (callback) => {
 };
 ```
 
-Example formatings for `cert` field are,
+Example formats for `cert` field are,
 
 1. RFC7468 stricttextualmsg formatted PEM:
 
