@@ -57,9 +57,33 @@
 
 ## v4.0.0 (2022-10-28)
 
+### 💣 Major Changes
+
+- Require all assertions be signed; new option wantAssertionsSigned can be set to false to enabled the older, less secure behavior. [#177](https://github.com/node-saml/node-saml/pull/177)
+- Document signatures are now required by default. Setting wantAuthenResponseSigned=false disables this feature and restores the prior, less secure behavior [#83](https://github.com/node-saml/node-saml/pull/83)
+- Make `issuer` required; remove OneLogin default [#61](https://github.com/node-saml/node-saml/pull/61)
+- Make Audience a required setting [#25](https://github.com/node-saml/node-saml/pull/25)
+- Allow to validate InResponseTo only if provided, to support IDP-initiated login [#40](https://github.com/node-saml/node-saml/pull/40)
+- Update packages; bump minimum node to 14 [#45](https://github.com/node-saml/node-saml/pull/45)
+- Add support for a failed logout response [#10](https://github.com/node-saml/node-saml/pull/10)
+- Set AuthnRequestsSigned in SP metadata if configured for signing. [#20](https://github.com/node-saml/node-saml/pull/20)
+
 ### 🚀 Minor Changes
 
 - feat: expose getLogoutResponseUrlAsync publicly [#194](https://github.com/node-saml/node-saml/pull/194)
+- fix generate unique metadata ID [#158](https://github.com/node-saml/node-saml/pull/158)
+- Include AuthnRequestsSigned attribute in all metadata [#143](https://github.com/node-saml/node-saml/pull/143)
+- Add support for metadata ContactPerson and Organization [#140](https://github.com/node-saml/node-saml/pull/140)
+- Support multiple Assertion SubjectConfirmation [#43](https://github.com/node-saml/node-saml/pull/43)
+- Extend available options for NameIDPolicy attributes [#67](https://github.com/node-saml/node-saml/pull/67)
+- Migrate from "should" to "chai" [#41](https://github.com/node-saml/node-saml/pull/41)
+- Set a unique ID value in generated metadata [#30](https://github.com/node-saml/node-saml/pull/30)
+- Add option to sign generated metadata [#24](https://github.com/node-saml/node-saml/pull/24)
+- Feature: add facility in config to add `<Extensions>` element in SAML request [#11](https://github.com/node-saml/node-saml/pull/11)
+- Add ability to publish multiple signing certs in metadata [#23](https://github.com/node-saml/node-saml/pull/23)
+- CacheProvider interface [#29](https://github.com/node-saml/node-saml/pull/29)
+- Support importing to `passport-saml` project [#9](https://github.com/node-saml/node-saml/pull/9)
+- Add assertion attributes to child object on profile (passport-saml#543) [#5](https://github.com/node-saml/node-saml/pull/5)
 
 ### 🔗 Dependencies
 
@@ -67,38 +91,6 @@
 - Update Dependencies [#197](https://github.com/node-saml/node-saml/pull/197)
 - Bump @xmldom/xmldom from 0.7.5 to 0.7.6 [#196](https://github.com/node-saml/node-saml/pull/196)
 - [**javascript**] Bump @xmldom/xmldom from 0.8.2 to 0.8.3 [#188](https://github.com/node-saml/node-saml/pull/188)
-
-### 🐛 Bug Fixes
-
-- [**security**] Throw if multiple XML roots detected [#195](https://github.com/node-saml/node-saml/pull/195)
-
-### 📚 Documentation
-
-- Update documentation to remove ADFS references; rename passport-saml [#190](https://github.com/node-saml/node-saml/pull/190)
-
-### ⚙️ Technical Tasks
-
-- Update types [#199](https://github.com/node-saml/node-saml/pull/199)
-
----
-
-## v4.0.0-beta.6 (2022-10-13)
-
-### ⚙️ Technical Tasks
-
-- Update changelog build tools [#189](https://github.com/node-saml/node-saml/pull/189)
-
----
-
-## v4.0.0-beta.5 (2022-10-11)
-
-### 💣 Major Changes
-
-- Require all assertions be signed; add option to disable [#177](https://github.com/node-saml/node-saml/pull/177)
-- Add option to require a document signature. [#83](https://github.com/node-saml/node-saml/pull/83)
-
-### 🔗 Dependencies
-
 - [**javascript**] Bump node-fetch and release-it [#187](https://github.com/node-saml/node-saml/pull/187)
 - [**javascript**] Bump parse-url and release-it [#176](https://github.com/node-saml/node-saml/pull/176)
 - [**javascript**] Bump @typescript-eslint/parser from 5.36.2 to 5.40.0 [#186](https://github.com/node-saml/node-saml/pull/186)
@@ -108,29 +100,6 @@
 - [**javascript**] Bump typescript from 4.8.3 to 4.8.4 [#181](https://github.com/node-saml/node-saml/pull/181)
 - [**github_actions**] Bump codecov/codecov-action from 3.1.0 to 3.1.1 [#180](https://github.com/node-saml/node-saml/pull/180)
 - [**javascript**] Bump vm2 from 3.9.10 to 3.9.11 [#179](https://github.com/node-saml/node-saml/pull/179)
-
-### 🐛 Bug Fixes
-
-- [**security**] Fix CVE-2022-39300 [GHSA-5p8w-2mvw-38pv](https://github.com/node-saml/passport-saml/security/advisories/ GHSA-5p8w-2mvw-38pv)
-
-### ⚙️ Technical Tasks
-
-- Clean up signature tests [#178](https://github.com/node-saml/node-saml/pull/178)
-- Remove some usage of `any` type [#175](https://github.com/node-saml/node-saml/pull/175)
-- Add prerelease script [#174](https://github.com/node-saml/node-saml/pull/174)
-
----
-
-## v4.0.0-beta.4 (2022-09-10)
-
-### 🚀 Minor Changes
-
-- fix generate unique metadata ID [#158](https://github.com/node-saml/node-saml/pull/158)
-- Include AuthnRequestsSigned attribute in all metadata [#143](https://github.com/node-saml/node-saml/pull/143)
-- Add support for metadata ContactPerson and Organization [#140](https://github.com/node-saml/node-saml/pull/140)
-
-### 🔗 Dependencies
-
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.7 to 5.36.2 [#171](https://github.com/node-saml/node-saml/pull/171)
 - [**javascript**] Bump @types/chai from 4.3.1 to 4.3.3 [#172](https://github.com/node-saml/node-saml/pull/172)
 - [**javascript**] Bump @typescript-eslint/parser from 5.30.7 to 5.36.2 [#170](https://github.com/node-saml/node-saml/pull/170)
@@ -164,15 +133,48 @@
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.22.0 to 5.30.3 [#99](https://github.com/node-saml/node-saml/pull/99)
 - [**github_actions**] Bump actions/checkout from 2 to 3 [#97](https://github.com/node-saml/node-saml/pull/97)
 - Update CodeQL to v2 [#95](https://github.com/node-saml/node-saml/pull/95)
+- Bump npm from 8.6.0 to 8.11.0 [#88](https://github.com/node-saml/node-saml/pull/88)
+- Update dependencies [#81](https://github.com/node-saml/node-saml/pull/81)
+- Update dependencies [#75](https://github.com/node-saml/node-saml/pull/75)
+- Move dependency types next to dependencies [#73](https://github.com/node-saml/node-saml/pull/73)
+- Remove unused `qs` types [#72](https://github.com/node-saml/node-saml/pull/72)
+- Remove unused request dependency [#71](https://github.com/node-saml/node-saml/pull/71)
+- Support Node 18 [#68](https://github.com/node-saml/node-saml/pull/68)
+- [**security**] Upgrade xml-encryption to 2.0.0 (fixes audit issue) [#44](https://github.com/node-saml/node-saml/pull/44)
+- Update xmldom [#17](https://github.com/node-saml/node-saml/pull/17)
+
+### 🐛 Bug Fixes
+
+- [**security**] Throw if multiple XML roots detected [#195](https://github.com/node-saml/node-saml/pull/195)
+- [**security**] Fix CVE-2022-39300 [GHSA-5p8w-2mvw-38pv](https://github.com/node-saml/passport-saml/security/advisories/ GHSA-5p8w-2mvw-38pv)
+- Make Issuer Required in the Types Too (like it is at runtime) [#90](https://github.com/node-saml/node-saml/pull/90)
+- Bypass for InResponseTo [#87](https://github.com/node-saml/node-saml/pull/87)
+- Fix broken request tests [#86](https://github.com/node-saml/node-saml/pull/86)
+- [**security**] Address polynomial regular expression used on uncontrolled data [#79](https://github.com/node-saml/node-saml/pull/79)
+- Fix issues with cache provider potentially returning expired keys [#59](https://github.com/node-saml/node-saml/pull/59)
+- Correctly reset Sinon fake timers [#60](https://github.com/node-saml/node-saml/pull/60)
+- Correct carriage-return entity handling [#38](https://github.com/node-saml/node-saml/pull/38)
+- #13 GCM EncryptionMethod [#15](https://github.com/node-saml/node-saml/pull/15)
+- [**security**] Limit transforms for signed nodes [#6](https://github.com/node-saml/node-saml/pull/6)
+- Remove duplicate calls to the cache provider [#4](https://github.com/node-saml/node-saml/pull/4)
 
 ### 📚 Documentation
 
+- Update documentation to remove ADFS references; rename passport-saml [#190](https://github.com/node-saml/node-saml/pull/190)
 - Changelog [#173](https://github.com/node-saml/node-saml/pull/173)
 - Remove insecure clockSkew recommendation [#151](https://github.com/node-saml/node-saml/pull/151)
 - Update badges for scoped package [#93](https://github.com/node-saml/node-saml/pull/93)
+- Add codecov and DeepScan badges [#76](https://github.com/node-saml/node-saml/pull/76)
+- Correct several typos in documentation [#39](https://github.com/node-saml/node-saml/pull/39)
+- Update README.md [#1](https://github.com/node-saml/node-saml/pull/1)
 
 ### ⚙️ Technical Tasks
 
+- Update types [#199](https://github.com/node-saml/node-saml/pull/199)
+- Update changelog build tools [#189](https://github.com/node-saml/node-saml/pull/189)
+- Clean up signature tests [#178](https://github.com/node-saml/node-saml/pull/178)
+- Remove some usage of `any` type [#175](https://github.com/node-saml/node-saml/pull/175)
+- Add prerelease script [#174](https://github.com/node-saml/node-saml/pull/174)
 - Reduce frequency of dependabot updates [#152](https://github.com/node-saml/node-saml/pull/152)
 - Consolidate all SAML class code to single file [#147](https://github.com/node-saml/node-saml/pull/147)
 - Improve tests [#141](https://github.com/node-saml/node-saml/pull/141)
@@ -182,52 +184,6 @@
 - Refactor code for better functional grouping [#128](https://github.com/node-saml/node-saml/pull/128)
 - Have dependabot update package.json too [#109](https://github.com/node-saml/node-saml/pull/109)
 - Add dependabot config file [#96](https://github.com/node-saml/node-saml/pull/96)
-
----
-
-## v4.0.0-beta.3 (2022-06-25)
-
-### 💣 Major Changes
-
-- Make `issuer` required; remove OneLogin default [#61](https://github.com/node-saml/node-saml/pull/61)
-- Make Audience a required setting [#25](https://github.com/node-saml/node-saml/pull/25)
-- Allow to validate InReponseTo only if provided, to support IDP-initiated login [#40](https://github.com/node-saml/node-saml/pull/40)
-- Update packages; bump minimum node to 14 [#45](https://github.com/node-saml/node-saml/pull/45)
-
-### 🚀 Minor Changes
-
-- Support multiple Assertion SubjectConfirmation [#43](https://github.com/node-saml/node-saml/pull/43)
-- Extend available options for NameIDPolicy attributes [#67](https://github.com/node-saml/node-saml/pull/67)
-- Migrate from "should" to "chai" [#41](https://github.com/node-saml/node-saml/pull/41)
-
-### 🔗 Dependencies
-
-- Bump npm from 8.6.0 to 8.11.0 [#88](https://github.com/node-saml/node-saml/pull/88)
-- Update dependencies [#81](https://github.com/node-saml/node-saml/pull/81)
-- Update dependencies [#75](https://github.com/node-saml/node-saml/pull/75)
-- Move dependency types next to dependencies [#73](https://github.com/node-saml/node-saml/pull/73)
-- Remove unused `qs` types [#72](https://github.com/node-saml/node-saml/pull/72)
-- Remove unused request dependency [#71](https://github.com/node-saml/node-saml/pull/71)
-- Support Node 18 [#68](https://github.com/node-saml/node-saml/pull/68)
-- [**security**] Upgrade xml-encryption to 2.0.0 (fixes audit issue) [#44](https://github.com/node-saml/node-saml/pull/44)
-
-### 🐛 Bug Fixes
-
-- Make Issuer Required in the Types Too (like it is at runtime) [#90](https://github.com/node-saml/node-saml/pull/90)
-- Bypass for InResponseTo [#87](https://github.com/node-saml/node-saml/pull/87)
-- Fix broken request tests [#86](https://github.com/node-saml/node-saml/pull/86)
-- [**security**] Address polynomial regular expression used on uncontrolled data [#79](https://github.com/node-saml/node-saml/pull/79)
-- Fix issues with cache provider potentially returning expired keys [#59](https://github.com/node-saml/node-saml/pull/59)
-- Correctly reset Sinon fake timers [#60](https://github.com/node-saml/node-saml/pull/60)
-- Correct carriage-return entity handling [#38](https://github.com/node-saml/node-saml/pull/38)
-
-### 📚 Documentation
-
-- Add codecov and DeepScan badges [#76](https://github.com/node-saml/node-saml/pull/76)
-- Correct several typos in documentation [#39](https://github.com/node-saml/node-saml/pull/39)
-
-### ⚙️ Technical Tasks
-
 - Simplify configs for compilation and release [#92](https://github.com/node-saml/node-saml/pull/92)
 - Move to NPM organization [#91](https://github.com/node-saml/node-saml/pull/91)
 - Factor out metadata routines [#78](https://github.com/node-saml/node-saml/pull/78)
@@ -252,63 +208,7 @@
 - remove useless not null assertions [#48](https://github.com/node-saml/node-saml/pull/48)
 - fix a linting warning by adding a return type [#46](https://github.com/node-saml/node-saml/pull/46)
 - [Split saml.ts #1] Move getAdditionalParams out of saml.ts [#32](https://github.com/node-saml/node-saml/pull/32)
-
----
-
-## v4.0.0-beta.2 (2021-11-17)
-
-### 🚀 Minor Changes
-
-- Set a unique ID value in generated metadata [#30](https://github.com/node-saml/node-saml/pull/30)
-- Add option to sign generated metadata [#24](https://github.com/node-saml/node-saml/pull/24)
-- Feature: add facility in config to add `<Extensions>` element in SAML request [#11](https://github.com/node-saml/node-saml/pull/11)
-
----
-
-## v4.0.0-beta.1 (2021-10-26)
-
-### 💣 Major Changes
-
-- Add support for a failed logout response [#10](https://github.com/node-saml/node-saml/pull/10)
-- Set AuthnRequestsSigned in SP metadata if configured for signing. [#20](https://github.com/node-saml/node-saml/pull/20)
-
-### 🚀 Minor Changes
-
-- Add ability to publish multiple signing certs in metadata [#23](https://github.com/node-saml/node-saml/pull/23)
-- CacheProvider interface [#29](https://github.com/node-saml/node-saml/pull/29)
-
-### 🔗 Dependencies
-
-- Update xmldom [#17](https://github.com/node-saml/node-saml/pull/17)
-
-### 🐛 Bug Fixes
-
-- #13 GCM EncryptionMethod [#15](https://github.com/node-saml/node-saml/pull/15)
-
-### ⚙️ Technical Tasks
-
 - Move non SAML code out of saml.ts [#18](https://github.com/node-saml/node-saml/pull/18)
-
----
-
-## v4.0.0-beta.0 (2021-06-30)
-
-### 🚀 Minor Changes
-
-- Support importing to `passport-saml` project [#9](https://github.com/node-saml/node-saml/pull/9)
-- Add assertion attributes to child object on profile (passport-saml#543) [#5](https://github.com/node-saml/node-saml/pull/5)
-
-### 🐛 Bug Fixes
-
-- [**security**] Limit transforms for signed nodes [#6](https://github.com/node-saml/node-saml/pull/6)
-- Remove duplicate calls to the cache provider [#4](https://github.com/node-saml/node-saml/pull/4)
-
-### 📚 Documentation
-
-- Update README.md [#1](https://github.com/node-saml/node-saml/pull/1)
-
-### ⚙️ Technical Tasks
-
 - Fix workflow for Node 16.x [#7](https://github.com/node-saml/node-saml/pull/7)
 - Remove passport-saml code and tests [#3](https://github.com/node-saml/node-saml/pull/3)
 
