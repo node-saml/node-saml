@@ -7,7 +7,7 @@ import { PemLabel } from "./types";
  *
  * https://www.rfc-editor.org/rfc/rfc7468
  *
- * PEM_FORMAT_REGEX is validating given PEM file agains RFC7468 'stricttextualmsg' definition.
+ * PEM_FORMAT_REGEX is validating given PEM file against RFC7468 'stricttextualmsg' definition.
  *
  * With few exceptions;
  *  - 'posteb' MAY have 'eol', but it is not mandatory.

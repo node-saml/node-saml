@@ -255,7 +255,7 @@ export const getNameIdAsync = async (
   );
 
   if (nameIds.length + encryptedIds.length > 1) {
-    throw new Error("Invalid LogoutRequest");
+    throw new Error("Invalid LogoutRequest: multiple ID elements");
   }
   if (nameIds.length === 1) {
     return promiseWithNameId(nameIds[0]);
@@ -266,21 +266,21 @@ export const getNameIdAsync = async (
       "No decryption key found getting name ID for encrypted SAML response"
     );
 
-    const encryptedDatas = xpath.selectElements(
+    const encryptedData = xpath.selectElements(
       encryptedIds[0],
       "./*[local-name()='EncryptedData']"
     );
 
-    if (encryptedDatas.length !== 1) {
-      throw new Error("Invalid LogoutRequest");
+    if (encryptedData.length !== 1) {
+      throw new Error("Invalid LogoutRequest: no EncryptedData element found");
     }
-    const encryptedDataXml = encryptedDatas[0].toString();
+    const encryptedDataXml = encryptedData[0].toString();
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
     const decryptedDoc = await parseDomFromString(decryptedXml);
     const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
     if (decryptedIds.length !== 1) {
-      throw new Error("Invalid EncryptedAssertion content");
+      throw new Error("Invalid EncryptedData content");
     }
     return await promiseWithNameId(decryptedIds[0]);
   }

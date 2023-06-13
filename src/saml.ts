@@ -5,7 +5,7 @@ import * as crypto from "crypto";
 import { URL } from "url";
 import * as querystring from "querystring";
 import * as util from "util";
-import { InMemoryCacheProvider } from "./inmemory-cache-provider";
+import { InMemoryCacheProvider } from "./in-memory-cache-provider";
 import * as algorithms from "./algorithms";
 import { ParsedQs } from "qs";
 import {
@@ -41,7 +41,7 @@ import {
   xpath,
 } from "./xml";
 import { keyInfoToPem, generateUniqueId } from "./crypto";
-import { dateStringToTimestamp, generateInstant } from "./datetime";
+import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
 
@@ -1240,17 +1240,17 @@ class SAML {
 
   async validatePostRequestAsync(
     container: Record<string, string>,
-    _ = {
-      _parseDomFromString: parseDomFromString,
-      _parseXml2JsFromString: parseXml2JsFromString,
-      _validateSignature: validateSignature,
-    }
+    {
+      _parseDomFromString = parseDomFromString,
+      _parseXml2JsFromString = parseXml2JsFromString,
+      _validateSignature = validateSignature,
+    } = {}
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
-    const dom = await _._parseDomFromString(xml);
-    const doc = await _._parseXml2JsFromString(xml);
+    const dom = await _parseDomFromString(xml);
+    const doc = await _parseXml2JsFromString(xml);
     const pemFiles = await this.getKeyInfosAsPem();
-    if (!_._validateSignature(xml, dom.documentElement, pemFiles)) {
+    if (!_validateSignature(xml, dom.documentElement, pemFiles)) {
       throw new Error("Invalid signature on documentElement");
     }
     return await this.processValidlySignedPostRequestAsync(doc, dom);
