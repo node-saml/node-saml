@@ -13,6 +13,18 @@ import { parseDomFromString, parseXml2JsFromString, validateSignature } from "..
 const noop = (): void => undefined;
 
 describe("saml.ts", function () {
+  it("should throw when instantiating a SAML object with a string instead of a boolean", function () {
+    expect(
+      () =>
+        new SAML({
+          passive: "false" as unknown as boolean,
+          cert: FAKE_CERT,
+          issuer: "issuer",
+          callbackUrl: "callback",
+        })
+    ).to.throw("value is set but not boolean");
+  });
+
   describe("resolveAndParseKeyInfosToPem", function () {
     let getKeyInfosAsPemSpy: sinon.SinonSpy;
 

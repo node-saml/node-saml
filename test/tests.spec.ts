@@ -536,6 +536,27 @@ describe("node-saml /", function () {
         testMetadata(samlConfig, expectedMetadata, signingCert);
       });
 
+      it("config with protocol, path, host, decryptionPvk and privateKey, but no signing cert should throw", function () {
+        const samlConfig: SamlConfig = {
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          issuer: "http://example.serviceprovider.com",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
+          cert: FAKE_CERT,
+          generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
+        };
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expectedMetadataWithBothKeys.xml",
+          "utf-8"
+        );
+
+        expect(() => testMetadata(samlConfig, expectedMetadata)).to.throw(
+          "Missing signingCert while generating metadata for signing service provider messages"
+        );
+      });
+
       it("config with encryption and two signing certificates should pass", function () {
         const samlConfig: SamlConfig = {
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
