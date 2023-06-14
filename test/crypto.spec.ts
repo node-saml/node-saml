@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import { expect } from "chai";
-import * as assert from "assert";
 import { keyInfoToPem, generateUniqueId, stripPemHeaderAndFooter } from "../src/crypto";
 import {
   TEST_CERT_SINGLELINE,
@@ -27,48 +26,50 @@ describe("crypto.ts", function () {
 
     describe("invalid values", function () {
       it("should throw with null", function () {
-        assert.throws(() => keyInfoToPem(null as never, "CERTIFICATE"));
+        expect(() => keyInfoToPem(null as never, "CERTIFICATE")).to.throw();
       });
 
       it("should throw with false", function () {
-        assert.throws(() => keyInfoToPem(false as never, "CERTIFICATE"));
+        expect(() => keyInfoToPem(false as never, "CERTIFICATE")).to.throw();
       });
 
       it("should throw with empty string", function () {
-        assert.throws(() => keyInfoToPem("", "CERTIFICATE"));
+        expect(() => keyInfoToPem("", "CERTIFICATE")).to.throw();
       });
 
       it("should throw with empty Buffer", function () {
-        assert.throws(() => keyInfoToPem(Buffer.from(""), "CERTIFICATE"));
+        expect(() => keyInfoToPem(Buffer.from(""), "CERTIFICATE")).to.throw();
       });
 
       it("should throw if string is not in PEM format or not in Base64 format", function () {
-        assert.throws(() => keyInfoToPem("I'm not pem file", "CERTIFICATE"));
+        expect(() => keyInfoToPem("I'm not pem file", "CERTIFICATE")).to.throw();
       });
 
       it("should throw if cert is missing newlines after header and before footer", function () {
-        assert.throws(() =>
+        expect(() =>
           keyInfoToPem(
             `-----BEGIN CERTIFICATE-----${TEST_CERT_MULTILINE.trim()}-----END CERTIFICATE-----`,
             "CERTIFICATE"
           )
-        );
+        ).to.throw();
       });
+
       it("should throw if cert is missing newline after header ", function () {
-        assert.throws(() =>
+        expect(() =>
           keyInfoToPem(
             `-----BEGIN CERTIFICATE-----${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
             "CERTIFICATE"
           )
-        );
+        ).to.throw();
       });
+
       it("should throw if cert is missing newline before footer ", function () {
-        assert.throws(() =>
+        expect(() =>
           keyInfoToPem(
             `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}-----END CERTIFICATE-----`,
             "CERTIFICATE"
           )
-        );
+        ).to.throw();
       });
     });
 

@@ -318,7 +318,7 @@ describe("saml.ts", function () {
           try {
             assertRequired(target);
             const parsed = new URL(target);
-            assert.strictEqual(parsed.host, "exampleidp.com");
+            expect(parsed.host).to.equal("exampleidp.com");
             done();
           } catch (err2) {
             done(err2);
@@ -332,7 +332,7 @@ describe("saml.ts", function () {
           try {
             assertRequired(target);
             const parsed = new URL(target);
-            assert.strictEqual(parsed.protocol, "https:");
+            expect(parsed.protocol).to.equal("https:");
             done();
           } catch (err2) {
             done(err2);
@@ -346,7 +346,7 @@ describe("saml.ts", function () {
           try {
             assertRequired(target);
             const parsed = new URL(target);
-            assert.strictEqual(parsed.pathname, "/path");
+            expect(parsed.pathname).to.equal("/path");
             done();
           } catch (err2) {
             done(err2);
@@ -360,7 +360,7 @@ describe("saml.ts", function () {
           try {
             assertRequired(target);
             const parsed = new URL(target);
-            assert.strictEqual(parsed.searchParams.get("key"), "value");
+            expect(parsed.searchParams.get("key")).to.equal("value");
             done();
           } catch (err2) {
             done(err2);
@@ -374,9 +374,9 @@ describe("saml.ts", function () {
           try {
             assertRequired(target);
             const parsed = new URL(target);
-            assert.strictEqual(parsed.searchParams.get("key"), "value");
+            expect(parsed.searchParams.get("key")).to.equal("value");
             expect(parsed.searchParams.get("SAMLResponse")).to.exist;
-            assert.strictEqual(parsed.searchParams.get("additionalKey"), "additionalValue");
+            expect(parsed.searchParams.get("additionalKey")).to.equal("additionalValue");
             done();
           } catch (err2) {
             done(err2);
@@ -427,7 +427,7 @@ describe("saml.ts", function () {
               );
               assertRequired(cbTarget);
               assertRequired(asyncTarget);
-              assert.strictEqual(asyncTarget, cbTarget);
+              expect(asyncTarget).to.equal(cbTarget);
               done();
             } catch (err2) {
               done(err2);
