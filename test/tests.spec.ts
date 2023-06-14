@@ -1021,7 +1021,7 @@ describe("node-saml /", function () {
                 message: "InResponseTo is not valid",
               });
 
-              assert.strictEqual(await samlObj.cacheProvider.getAsync(requestId), null);
+              expect(await samlObj.cacheProvider.getAsync(requestId)).to.be.null;
             });
           });
         }
@@ -1893,17 +1893,14 @@ describe("node-saml /", function () {
       });
 
       it("should check the value of the option `racComparison`", function () {
-        assert.throws(
-          () => {
-            new SAML({
-              callbackUrl: "http://localhost/saml/consume",
-              racComparison: "bad_value" as RacComparison,
-              cert: FAKE_CERT,
-              issuer: "onesaml_login",
-            }).options;
-          },
-          { message: "racComparison must be one of ['exact', 'minimum', 'maximum', 'better']" }
-        );
+        expect(() => {
+          new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            racComparison: "bad_value" as RacComparison,
+            cert: FAKE_CERT,
+            issuer: "onesaml_login",
+          }).options;
+        }).to.throw("racComparison must be one of ['exact', 'minimum', 'maximum', 'better']");
 
         const samlObjBadComparisonType = new SAML({
           callbackUrl: "http://localhost/saml/consume",
