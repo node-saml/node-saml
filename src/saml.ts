@@ -1022,7 +1022,10 @@ class SAML {
           const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
           if (_confirmData?.$) {
             const subjectNotBefore = _confirmData.$.NotBefore;
+
             const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
+            if (subjectNotOnOrAfter == null) return true;
+
             const maxTimeLimitMs = this.calcMaxAgeAssertionTime(
               this.options.maxAssertionAgeMs,
               subjectNotOnOrAfter,
