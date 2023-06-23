@@ -1024,13 +1024,14 @@ class SAML {
             const subjectNotBefore = _confirmData.$.NotBefore;
 
             const subjectNotOnOrAfter = _confirmData.$.NotOnOrAfter;
-            if (subjectNotOnOrAfter == null) return true;
 
-            const maxTimeLimitMs = this.calcMaxAgeAssertionTime(
-              this.options.maxAssertionAgeMs,
-              subjectNotOnOrAfter,
-              assertion.$.IssueInstant
-            );
+            const maxTimeLimitMs = subjectNotOnOrAfter
+              ? this.calcMaxAgeAssertionTime(
+                  this.options.maxAssertionAgeMs,
+                  subjectNotOnOrAfter,
+                  assertion.$.IssueInstant
+                )
+              : undefined;
 
             const subjErr = this.checkTimestampsValidityError(
               nowMs,
