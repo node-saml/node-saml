@@ -78,7 +78,7 @@
     "body-parser": "^1.20.2",
     "chai": "^4.3.7",
     "choma": "^1.2.1",
-    "concurrently": "^7.6.0",
+    "concurrently": "^8.2.0",
     "eslint": "^8.42.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-deprecation": "^1.4.1",
