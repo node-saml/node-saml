@@ -54,11 +54,6 @@
     "watch": "concurrently --kill-others \"npm:*-watch\""
   },
   "dependencies": {
-    "@types/debug": "^4.1.8",
-    "@types/passport": "^1.0.12",
-    "@types/xml-crypto": "^1.4.2",
-    "@types/xml-encryption": "^1.2.1",
-    "@types/xml2js": "^0.4.11",
     "@xmldom/xmldom": "^0.8.8",
     "debug": "^4.3.4",
     "xml-crypto": "^3.1.0",
@@ -73,6 +68,11 @@
     "@types/mocha": "^10.0.1",
     "@types/node": "^14.18.50",
     "@types/sinon": "^10.0.15",
+    "@types/debug": "^4.1.8",
+    "@types/passport": "^1.0.12",
+    "@types/xml-crypto": "^1.4.2",
+    "@types/xml-encryption": "^1.2.1",
+    "@types/xml2js": "^0.4.11",
     "@typescript-eslint/eslint-plugin": "^5.59.9",
     "@typescript-eslint/parser": "^5.59.9",
     "body-parser": "^1.20.2",
