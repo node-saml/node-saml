@@ -1,6 +1,5 @@
 import { SamlConfig, Profile } from "../src/types";
 
-// import type * as express from "express";
 import type * as http from "http";
 
 // a certificate which is re-used by several tests
