@@ -4,7 +4,6 @@ import * as assert from "assert";
 import { certToPEM, generateUniqueId, keyToPEM } from "../src/crypto";
 import { TEST_CERT } from "./types";
 import { assertRequired } from "../src/utility";
-import { SamlConfig } from "../src/types";
 
 describe("crypto.ts", function () {
   describe("keyToPEM", function () {
@@ -44,12 +43,8 @@ describe("crypto.ts", function () {
 
   describe("certToPEM", function () {
     it("should generate valid certificate", function () {
-      const samlConfig: SamlConfig = {
-        entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
-        cert: "-----BEGIN CERTIFICATE-----" + TEST_CERT + "-----END CERTIFICATE-----",
-        acceptedClockSkewMs: -1,
-      };
-      const certificate = certToPEM(samlConfig.cert.toString());
+      const cert = "-----BEGIN CERTIFICATE-----" + TEST_CERT + "-----END CERTIFICATE-----";
+      const certificate = certToPEM(cert.toString());
       const certificateBegin = certificate.match(/BEGIN/g);
       const certificateEnd = certificate.match(/END/g);
       assertRequired(certificateBegin, "certificate does not have a BEGIN block");

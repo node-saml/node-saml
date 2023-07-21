@@ -51,6 +51,7 @@ export type CertCallback = (
  */
 export interface MandatorySamlOptions {
   cert: string | string[] | CertCallback;
+  issuer: string;
 }
 
 export interface SamlIDPListConfig {
@@ -103,7 +104,6 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   protocol?: string;
   host: string;
   entryPoint?: string;
-  issuer: string;
   decryptionPvk?: string | Buffer;
 
   // Additional SAML behaviors
