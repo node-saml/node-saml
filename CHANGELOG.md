@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.0.2 (2022-11-23)
+
+#### 🐛 Bug Fixes:
+
+- fix: correct handling of XML entities in signature attributes [#221](https://github.com/node-saml/node-saml/pull/221)
+- Expose ValidateInResponseTo as it is required in options [#220](https://github.com/node-saml/node-saml/pull/220)
+
+#### 📚 Documentation:
+
+- Remove pre-release comments from README [#223](https://github.com/node-saml/node-saml/pull/223)
+
+---
+
 ## v4.0.1 (2022-11-16)
 
 #### 🔗 Dependencies:
@@ -97,6 +110,8 @@
 
 #### 🔗 Dependencies:
 
+- [**javascript**] Bump ts-node from 10.7.0 to 10.8.2 [#119](https://github.com/node-saml/node-saml/pull/119)
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.5 to 5.30.6 [#120](https://github.com/node-saml/node-saml/pull/120)
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.3 to 5.30.5 [#114](https://github.com/node-saml/node-saml/pull/114)
 - [**javascript**] Bump parse-url from 6.0.0 to 6.0.2 [#115](https://github.com/node-saml/node-saml/pull/115)
 - [**javascript**] Bump @typescript-eslint/parser from 5.22.0 to 5.30.5 [#113](https://github.com/node-saml/node-saml/pull/113)
@@ -128,8 +143,6 @@
 - [**javascript**] Bump ts-node from 10.8.2 to 10.9.1 [#126](https://github.com/node-saml/node-saml/pull/126)
 - [**javascript**] Bump release-it from 15.0.0 to 15.1.1 [#117](https://github.com/node-saml/node-saml/pull/117)
 - [**javascript**] Bump xml-crypto from 2.1.3 to 2.1.4 [#118](https://github.com/node-saml/node-saml/pull/118)
-- [**javascript**] Bump ts-node from 10.7.0 to 10.8.2 [#119](https://github.com/node-saml/node-saml/pull/119)
-- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.5 to 5.30.6 [#120](https://github.com/node-saml/node-saml/pull/120)
 
 #### 📚 Documentation:
 
