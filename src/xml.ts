@@ -14,7 +14,7 @@ import {
 } from "./types";
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
-import { removeCertPEMHeaderAndFooter } from "./crypto";
+import { stripPemHeaderAndFooter } from "./crypto";
 
 type SelectedValue = string | number | boolean | Node;
 
@@ -174,10 +174,8 @@ export const signXml = (
     sig.signatureAlgorithm = algorithms.getSigningAlgorithm(options.signatureAlgorithm);
   }
   if (options.signingCert != null) {
-    const cert = removeCertPEMHeaderAndFooter(options.signingCert);
-    /* istanbul ignore next */
+    const cert = stripPemHeaderAndFooter(options.signingCert);
     sig.keyInfoProvider = {
-      file: "",
       getKeyInfo: () => "<X509Data><X509Certificate>" + cert + "</X509Certificate></X509Data>",
       getKey: () => Buffer.from(cert),
     };
