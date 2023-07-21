@@ -184,6 +184,72 @@ describe("SAML POST Signing", function () {
     });
   });
 
+  it("should sign and digest with SHA512 when specified", async function () {
+    const xml =
+      '<SAMLRequest><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></SAMLRequest>';
+    const options: SamlSigningOptions = {
+      signatureAlgorithm: "sha512",
+      digestAlgorithm: "sha512",
+      privateKey: signingKey,
+    };
+    const result = signSamlPost(xml, "/SAMLRequest", options);
+    const doc = await parseXml2JsFromString(result);
+    expect(doc).to.deep.equal({
+      SAMLRequest: {
+        $: { Id: "_0" },
+        Issuer: [
+          {
+            _: "http://example.com",
+            $: { "xmlns:saml2": "urn:oasis:names:tc:SAML:2.0:assertion" },
+          },
+        ],
+        Signature: [
+          {
+            $: { xmlns: "http://www.w3.org/2000/09/xmldsig#" },
+            SignedInfo: [
+              {
+                CanonicalizationMethod: [
+                  { $: { Algorithm: "http://www.w3.org/2001/10/xml-exc-c14n#" } },
+                ],
+                SignatureMethod: [
+                  { $: { Algorithm: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512" } },
+                ],
+                Reference: [
+                  {
+                    $: { URI: "#_0" },
+                    Transforms: [
+                      {
+                        Transform: [
+                          {
+                            $: {
+                              Algorithm: "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+                            },
+                          },
+                          { $: { Algorithm: "http://www.w3.org/2001/10/xml-exc-c14n#" } },
+                        ],
+                      },
+                    ],
+                    DigestMethod: [{ $: { Algorithm: "http://www.w3.org/2001/04/xmlenc#sha512" } }],
+                    DigestValue: [
+                      {
+                        _: "yn+OO5/n06jYFfFMCoxNBymzzuCmVjPFMjUPbc0yH6ey61fO9V7rC1U2BSwRIB1v469KidoTixmO2z38ujYmZA==",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+            SignatureValue: [
+              {
+                _: "wtwJoAQRa2cBE8JPBbTystBw6zArZIuhyX9HwKH6dKgWVLHE8AhTcTOeJl6EXtNneQVYRT1i7XZcWnbaTdtcEuKFEhbWod9uN4ItMswFPJTooUnl8a6AjVO6II8iN/X1+5Tkhd8L4r6oEPufd/jWnoR4TDuvkbkOm5ur0uAPlJC37B7GM6gQNwUXikHMoGp73lMJ4hi8H5gnFjrjjVPUHiT2y3S7Bf6Hw7X4u6bfbAwqMTcBbA5aiOWSfDbnwgrvwmcmYPRVQKMIZ/4UTeDs4qWLeZjr3djRzmUbkmPQh6/a+YgUsJmqTBnotdWMe1q0HxZNi3Qh9QRoqnoGiaKXpg==",
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
   it("should sign and digest with SHA256 when specified and using privateKey", async function () {
     const xml =
       '<SAMLRequest><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></SAMLRequest>';
@@ -238,6 +304,72 @@ describe("SAML POST Signing", function () {
             SignatureValue: [
               {
                 _: "N1vamg3kKL4lvk+i/ZPltfZRIvFPO4J+CpNslFCKcuOpVTtgxhbvaHEnmU1gTpfEmFHw2js8isKWbEWepsP+aOfQMFDTnlZM2X7HtuB6uKntpS6bOUnG4mx+P2stbRyhLzJIsDwHTvzZM5+L63O551afjZxYCJBwD2bsvUk1A/1N6dG9+AB6QP/x/Fl6OjZE9J/kQWVZbRyty48p3sIBkO1L0rVk7ekHj5f83JGRtyKt9nlK7ke8dX+BItPQ/CU353RRumQ6rSkv+MZVzqfGWcg6wIc4x5+euS9zA80eBrYOvIU9vjzK8Bd+Lv9ltAAtISMRrVCVWW0XgnKJ4fzZGg==",
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
+  it("should sign and digest with SHA512 when specified and using privateKey", async function () {
+    const xml =
+      '<SAMLRequest><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></SAMLRequest>';
+    const options: SamlSigningOptions = {
+      signatureAlgorithm: "sha512",
+      digestAlgorithm: "sha512",
+      privateKey: signingKey,
+    };
+    const result = signSamlPost(xml, "/SAMLRequest", options);
+    const doc = await parseXml2JsFromString(result);
+    expect(doc).to.deep.equal({
+      SAMLRequest: {
+        $: { Id: "_0" },
+        Issuer: [
+          {
+            _: "http://example.com",
+            $: { "xmlns:saml2": "urn:oasis:names:tc:SAML:2.0:assertion" },
+          },
+        ],
+        Signature: [
+          {
+            $: { xmlns: "http://www.w3.org/2000/09/xmldsig#" },
+            SignedInfo: [
+              {
+                CanonicalizationMethod: [
+                  { $: { Algorithm: "http://www.w3.org/2001/10/xml-exc-c14n#" } },
+                ],
+                SignatureMethod: [
+                  { $: { Algorithm: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512" } },
+                ],
+                Reference: [
+                  {
+                    $: { URI: "#_0" },
+                    Transforms: [
+                      {
+                        Transform: [
+                          {
+                            $: {
+                              Algorithm: "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+                            },
+                          },
+                          { $: { Algorithm: "http://www.w3.org/2001/10/xml-exc-c14n#" } },
+                        ],
+                      },
+                    ],
+                    DigestMethod: [{ $: { Algorithm: "http://www.w3.org/2001/04/xmlenc#sha512" } }],
+                    DigestValue: [
+                      {
+                        _: "yn+OO5/n06jYFfFMCoxNBymzzuCmVjPFMjUPbc0yH6ey61fO9V7rC1U2BSwRIB1v469KidoTixmO2z38ujYmZA==",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+            SignatureValue: [
+              {
+                _: "wtwJoAQRa2cBE8JPBbTystBw6zArZIuhyX9HwKH6dKgWVLHE8AhTcTOeJl6EXtNneQVYRT1i7XZcWnbaTdtcEuKFEhbWod9uN4ItMswFPJTooUnl8a6AjVO6II8iN/X1+5Tkhd8L4r6oEPufd/jWnoR4TDuvkbkOm5ur0uAPlJC37B7GM6gQNwUXikHMoGp73lMJ4hi8H5gnFjrjjVPUHiT2y3S7Bf6Hw7X4u6bfbAwqMTcBbA5aiOWSfDbnwgrvwmcmYPRVQKMIZ/4UTeDs4qWLeZjr3djRzmUbkmPQh6/a+YgUsJmqTBnotdWMe1q0HxZNi3Qh9QRoqnoGiaKXpg==",
               },
             ],
           },

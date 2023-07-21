@@ -1,4 +1,4 @@
-import { removeCertPEMHeaderAndFooter } from "./crypto";
+import { stripPemHeaderAndFooter } from "./crypto";
 import {
   isValidSamlSigningOptions,
   ServiceMetadataXML,
@@ -78,7 +78,7 @@ export const generateServiceProviderMetadata = (
         "ds:KeyInfo": {
           "ds:X509Data": {
             "ds:X509Certificate": {
-              "#text": removeCertPEMHeaderAndFooter(cert),
+              "#text": stripPemHeaderAndFooter(cert),
             },
           },
         },
@@ -92,7 +92,7 @@ export const generateServiceProviderMetadata = (
         "Missing decryptionCert while generating metadata for decrypting service provider"
       );
 
-      decryptionCert = removeCertPEMHeaderAndFooter(decryptionCert);
+      decryptionCert = stripPemHeaderAndFooter(decryptionCert);
 
       metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
         "@use": "encryption",

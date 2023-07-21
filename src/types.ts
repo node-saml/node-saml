@@ -1,11 +1,18 @@
 export type SignatureAlgorithm = "sha1" | "sha256" | "sha512";
 
+export type PemLabel = "CERTIFICATE" | "PUBLIC KEY" | "PRIVATE KEY";
+
 export interface SamlSigningOptions {
   privateKey: string | Buffer;
   signingCert?: string;
   signatureAlgorithm?: SignatureAlgorithm;
   xmlSignatureTransforms?: string[];
   digestAlgorithm?: string;
+}
+
+export interface AuthOptions {
+  samlFallback?: "login-request" | "logout-request";
+  additionalParams?: Record<string, string | string[]>;
 }
 
 export const isValidSamlSigningOptions = (
@@ -36,6 +43,7 @@ export type XMLObject = {
 
 export type XMLInput = XMLObject;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type XMLOutput = Record<string, any>;
 
 export type AuthorizeRequestXML = {
@@ -114,9 +122,9 @@ export interface XmlSignatureLocation {
   action: "append" | "prepend" | "before" | "after";
 }
 
-export type RacComparision = "exact" | "minimum" | "maximum" | "better";
+export type RacComparison = "exact" | "minimum" | "maximum" | "better";
 
-interface SamlScopingConfig {
+export interface SamlScopingConfig {
   idpList?: SamlIDPListConfig[];
   proxyCount?: number;
   requesterId?: string[] | string;
@@ -134,10 +142,7 @@ export enum ValidateInResponseTo {
  */
 export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlOptions {
   // Core
-  callbackUrl?: string;
-  path: string;
-  protocol?: string;
-  host: string;
+  callbackUrl: string;
   entryPoint?: string;
   decryptionPvk?: string | Buffer;
 
@@ -154,7 +159,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   forceAuthn: boolean;
   skipRequestCompression: boolean;
   authnRequestBinding?: string;
-  racComparison: RacComparision;
+  racComparison: RacComparison;
   providerName?: string;
   passive: boolean;
   idpIssuer?: string;
@@ -224,15 +229,7 @@ export interface GenerateServiceProviderMetadataParams {
   generateUniqueId: SamlOptions["generateUniqueId"];
 }
 
-export interface StrategyOptions {
-  name?: string;
-  passReqToCallback?: boolean;
-}
-
-/**
- * These options are availble for configuring a SAML strategy
- */
-export type SamlConfig = Partial<SamlOptions> & StrategyOptions & MandatorySamlOptions;
+export type SamlConfig = Partial<SamlOptions> & MandatorySamlOptions;
 
 export interface Profile {
   issuer: string;

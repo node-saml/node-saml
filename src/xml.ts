@@ -15,7 +15,6 @@ import {
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
 import { removeCertPEMHeaderAndFooter } from "./crypto";
-import { certToPEM } from "./crypto";
 
 type SelectedValue = string | number | boolean | Node;
 
@@ -78,7 +77,7 @@ const normalizeNewlines = (xml: string): string => {
 export const validateSignature = (
   fullXml: string,
   currentNode: Element,
-  certs: string[]
+  pemFiles: string[]
 ): boolean => {
   const xpathSigQuery =
     ".//*[" +
@@ -110,25 +109,24 @@ export const validateSignature = (
   }
 
   const signature = signatures[0];
-  return certs.some((certToCheck) => {
-    return validateXmlSignatureForCert(signature, certToPEM(certToCheck), fullXml, currentNode);
+  return pemFiles.some((pemFile) => {
+    return validateXmlSignatureWithPemFile(signature, pemFile, fullXml, currentNode);
   });
 };
 
 /**
- * This function checks that the |signature| is signed with a given |cert|.
+ * This function checks that the |signature| is signed with a given |pemFile|.
  */
-export const validateXmlSignatureForCert = (
+const validateXmlSignatureWithPemFile = (
   signature: Node,
-  certPem: string,
+  pemFile: string,
   fullXml: string,
   currentNode: Element
 ): boolean => {
   const sig = new xmlCrypto.SignedXml();
   sig.keyInfoProvider = {
-    file: "",
     getKeyInfo: () => "<X509Data></X509Data>",
-    getKey: () => Buffer.from(certPem),
+    getKey: () => Buffer.from(pemFile),
   };
   sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we
@@ -267,7 +265,7 @@ export const getNameIdAsync = async (
   );
 
   if (nameIds.length + encryptedIds.length > 1) {
-    throw new Error("Invalid LogoutRequest");
+    throw new Error("Invalid LogoutRequest: multiple ID elements");
   }
   if (nameIds.length === 1) {
     return promiseWithNameId(nameIds[0]);
@@ -278,21 +276,21 @@ export const getNameIdAsync = async (
       "No decryption key found getting name ID for encrypted SAML response"
     );
 
-    const encryptedDatas = xpath.selectElements(
+    const encryptedData = xpath.selectElements(
       encryptedIds[0],
       "./*[local-name()='EncryptedData']"
     );
 
-    if (encryptedDatas.length !== 1) {
-      throw new Error("Invalid LogoutRequest");
+    if (encryptedData.length !== 1) {
+      throw new Error("Invalid LogoutRequest: no EncryptedData element found");
     }
-    const encryptedDataXml = encryptedDatas[0].toString();
+    const encryptedDataXml = encryptedData[0].toString();
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
     const decryptedDoc = await parseDomFromString(decryptedXml);
     const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
     if (decryptedIds.length !== 1) {
-      throw new Error("Invalid EncryptedAssertion content");
+      throw new Error("Invalid EncryptedData content");
     }
     return await promiseWithNameId(decryptedIds[0]);
   }
