@@ -8,6 +8,7 @@ import {
   isValidSamlSigningOptions,
   NameID,
   SamlSigningOptions,
+  XmlJsObject,
   XMLOutput,
   XmlSignatureLocation,
 } from "./types";
@@ -193,11 +194,44 @@ export const signXml = (
   return sig.getSignedXml();
 };
 
-export const parseDomFromString = (xml: string): Document => {
-  return new xmldom.DOMParser().parseFromString(xml);
+export const parseDomFromString = (xml: string): Promise<Document> => {
+  return new Promise(function (resolve, reject) {
+    function errHandler(msg: string) {
+      return reject(new Error(msg));
+    }
+
+    const dom = new xmldom.DOMParser({
+      /**
+       * locator is always need for error position info
+       */
+      locator: {},
+      /**
+       * you can override the errorHandler for xml parser
+       * @link http://www.saxproject.org/apidoc/org/xml/sax/ErrorHandler.html
+       */
+      errorHandler: {
+        error: errHandler,
+        fatalError: errHandler,
+      },
+    }).parseFromString(xml, "text/xml");
+
+    if (!Object.prototype.hasOwnProperty.call(dom, "documentElement")) {
+      return reject(new Error("Not a valid XML document"));
+    }
+
+    if (
+      Array.from(dom.childNodes as NodeListOf<Element>).filter(
+        (n) => n.tagName != null && n.childNodes != null
+      ).length !== 1
+    ) {
+      return reject(new Error("Malformed XML; multiple roots detected"));
+    }
+
+    return resolve(dom);
+  });
 };
 
-export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XMLOutput> => {
+export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJsObject> => {
   const parserConfig = {
     explicitRoot: true,
     explicitCharkey: true,
@@ -207,7 +241,7 @@ export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XMLOu
   return parser.parseStringPromise(xml);
 };
 
-export const buildXml2JsObject = (rootName: string, xml: XMLOutput): string => {
+export const buildXml2JsObject = (rootName: string, xml: XmlJsObject): string => {
   const builderOpts = {
     rootName,
     headless: true,
@@ -264,7 +298,7 @@ export const getNameIdAsync = async (
     const encryptedDataXml = encryptedDatas[0].toString();
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
-    const decryptedDoc = parseDomFromString(decryptedXml);
+    const decryptedDoc = await parseDomFromString(decryptedXml);
     const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
     if (decryptedIds.length !== 1) {
       throw new Error("Invalid EncryptedAssertion content");

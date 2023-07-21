@@ -612,7 +612,7 @@ describe("node-saml /", function () {
         expect(metadata).to.contain('AuthnRequestsSigned="true"');
       });
 
-      it("signMetadata creates a valid signature", function () {
+      it("signMetadata creates a valid signature", async function () {
         const samlConfig: SamlConfig = {
           cert: TEST_CERT,
           issuer: "http://example.serviceprovider.com",
@@ -629,7 +629,7 @@ describe("node-saml /", function () {
 
         const metadata = samlObj.generateServiceProviderMetadata(null, signingCert);
 
-        const dom = parseDomFromString(metadata);
+        const dom = await parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [signingCert])).to.be.true;
       });
 
@@ -692,7 +692,7 @@ describe("node-saml /", function () {
       it("response with junk content should explain the XML or base64 is not valid", async () => {
         const samlObj = new SAML({ cert: TEST_CERT, issuer: "onesaml_login" });
         await assert.rejects(samlObj.validatePostResponseAsync({ SAMLResponse: "BOOM" }), {
-          message: "SAMLResponse is not valid base64-encoded XML",
+          message: "Not a valid XML document",
         });
       });
       it("response with error status message should generate appropriate error", async () => {
@@ -723,6 +723,41 @@ describe("node-saml /", function () {
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: /Responder.*InvalidNameIDPolicy/,
         });
+      });
+
+      it("response with NoPassive status code should generate appropriate error", async () => {
+        const xml =
+          '<?xml version="1.0" encoding="UTF-8"?><saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" Destination="http://localhost/browserSamlLogin" ID="_6a377272c8662561acf1056274ef3f81" InResponseTo="_4324fb0d00661146f7dc" IssueInstant="2014-07-02T18:16:31.278Z" Version="2.0"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">https://idp.testshib.org/idp/shibboleth</saml2:Issuer><saml2p:Status><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Responder"><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:NoPassive"/></saml2p:StatusCode></saml2p:Status></saml2p:Response>';
+        const base64xml = Buffer.from(xml).toString("base64");
+        const container = { SAMLResponse: base64xml };
+        const samlObj = new SAML({
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+          wantAuthnResponseSigned: false,
+        });
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message: "Invalid signature: NoPassive",
+        });
+      });
+
+      it("response with NoPassive status code should respond with empty set", async () => {
+        const xml = `<?xml version="1.0"?>
+<saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" Destination="http://localhost/browserSamlLogin" ID="pfxe0fff4b9-4920-b11d-fa40-0a1fd6e3f7c0" InResponseTo="_4324fb0d00661146f7dc" IssueInstant="2014-07-02T18:16:31.278Z" Version="2.0"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">https://idp.testshib.org/idp/shibboleth</saml2:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+  <ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+    <ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+  <ds:Reference URI="#pfxe0fff4b9-4920-b11d-fa40-0a1fd6e3f7c0"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>NRAARUf82PgKvlY6SDTvIjk287I=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>gGDjs2hFJPDwhvyARgyNNgfUJz3LvhrzACnaIKIuS4bA0hvu/9j631UPCLTgTE9Jy2CnSWZX4BiJFjppg+N1rEEO1anDn8Og/FICsMjB2nbLcZF9cjvDsAGlQQX+b5zL2QZvpGbswV1ijuR+Gd8wKitLBiJLYHomfaaj8V5rjbutrRj/yK9ZOWAT5baadyAAm6JA2HkuPEJMU+VPXt6zzhjAxf0xRzsXabqPfuwcZtru2eqrJRZg85XNMx9VMdMT05LWZn2Qx6JRYXI0vlwar5zbM6LroLpijoljsLk4m7cgkQI4himIv639nbktCzXaXgr+0fUohKLNscHuApsGWQ==</ds:SignatureValue>
+<ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDtTCCAp2gAwIBAgIJAKg4VeVcIDz1MA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpTb21lLVN0YXRlMSEwHwYDVQQKExhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwHhcNMTUwODEzMDE1NDIwWhcNMTUwOTEyMDE1NDIwWjBFMQswCQYDVQQGEwJVUzETMBEGA1UECBMKU29tZS1TdGF0ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxG3ouM7U+fXbJt69X1H6d4UNg/uRr06pFuU9RkfIwNC+yaXyptqB3ynXKsL7BFt4DCd0fflRvJAx3feJIDp16wN9GDVHcufWMYPhh2j5HcTW/j9JoIJzGhJyvO00YKBt+hHy83iN1SdChKv5y0iSyiPP5GnqFw+ayyHoM6hSO0PqBou1Xb0ZSIE+DHosBnvVna5w2AiPY4xrJl9yZHZ4Q7DfMiYTgstjETio4bX+6oLiBnYktn7DjdEslqhffVme4PuBxNojI+uCeg/sn4QVLd/iogMJfDWNuLD8326Mi/FE9cCRvFlvAiMSaebMI3zPaySsxTK7Zgj5TpEbmbHI9wIDAQABo4GnMIGkMB0GA1UdDgQWBBSVGgvoW4MhMuzBGce29PY8vSzHFzB1BgNVHSMEbjBsgBSVGgvoW4MhMuzBGce29PY8vSzHF6FJpEcwRTELMAkGA1UEBhMCVVMxEzARBgNVBAgTClNvbWUtU3RhdGUxITAfBgNVBAoTGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZIIJAKg4VeVcIDz1MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAJu1rqs+anD74dbdwgd3CnqnQsQDJiEXmBhG2leaGt3ve9b/9gKaJg2pyb2NyppDe1uLqh6nNXDuzg1oNZrPz5pJL/eCXPl7FhxhMUi04TtLf8LeNTCIWYZiFuO4pmhohHcv8kRvYR1+6SkLTC8j/TZerm7qvesSiTQFNapa1eNdVQ8nFwVkEtWl+JzKEM1BlRcn42sjJkijeFp7DpI7pU+PnYeiaXpRv5pJo8ogM1iFxN+SnfEs0EuQ7fhKIG9aHKi7bKZ7L6SyX7MDIGLeulEU6lf5D9BfXNmcMambiS0pXhL2QXajt96UBq8FT2KNXY8XNtR4y6MyyCzhaiZZcc8=</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature><saml2p:Status><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Responder"><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:NoPassive"/></saml2p:StatusCode></saml2p:Status></saml2p:Response>`;
+        const base64xml = Buffer.from(xml).toString("base64");
+        const container = { SAMLResponse: base64xml };
+        const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const samlObj = new SAML({
+          cert: signingCert,
+          issuer: "onesaml_login",
+          wantAssertionsSigned: false,
+          wantAuthnResponseSigned: false,
+        });
+        const response = await samlObj.validatePostResponseAsync(container);
+        expect(response).to.deep.equal({ profile: null, loggedOut: false });
       });
 
       it("accept response with an attributeStatement element without attributeValue", async () => {
@@ -2526,14 +2561,28 @@ describe("node-saml /", function () {
       });
     });
 
-    it("errors if bad xml", async function () {
+    it("errors if not xml", async function () {
       const body = {
         SAMLRequest: "asdf",
       };
       await assert.rejects(samlObj.validatePostRequestAsync(body), {
-        message: /^Non-whitespace before first tag.\n/,
+        message: "Not a valid XML document",
       });
     });
+
+    it("errors if bad xml", async function () {
+      const badXml =
+        '<xml xmlns="a" xmlns:c="./lite">\n' +
+        "\t<child>test</child>\n" +
+        "\t<child22><<</child>\n" +
+        "\t<child/>\n" +
+        "</xml>";
+      await assert.rejects(parseDomFromString(badXml), {
+        message:
+          "[xmldom error]\telement parse error: Error: invalid tagName:<<\n" + "@#[line:3,col:11]",
+      });
+    });
+
     it("errors if bad signature", async () => {
       const body = {
         SAMLRequest: fs.readFileSync(
@@ -2545,6 +2594,7 @@ describe("node-saml /", function () {
         message: "Invalid signature on documentElement",
       });
     });
+
     it("returns profile for valid signature", async () => {
       const body = {
         SAMLRequest: fs.readFileSync(
