@@ -21,7 +21,7 @@ describe("saml.ts", function () {
           cert: FAKE_CERT,
           issuer: "issuer",
           callbackUrl: "callback",
-        })
+        }),
     ).to.throw("value is set but not boolean");
   });
 
@@ -38,7 +38,7 @@ describe("saml.ts", function () {
     });
 
     async function testResolveAndParseKeyInfosPemAsync(
-      cert: string | string[] | CertCallback
+      cert: string | string[] | CertCallback,
     ): Promise<string[]> {
       const samlObj = new SAML({
         callbackUrl: "http://localhost/saml/consume",
@@ -55,7 +55,7 @@ describe("saml.ts", function () {
           }) as unknown as typeof parseDomFromString,
           _parseXml2JsFromString: noop as unknown as typeof parseXml2JsFromString,
           _validateSignature: (() => true) as unknown as typeof validateSignature,
-        }
+        },
       );
 
       const pendingResult = getKeyInfosAsPemSpy.returnValues[0];
@@ -77,7 +77,7 @@ describe("saml.ts", function () {
 
       expect(pemFiles.length).to.equal(1);
       expect(pemFiles[0]).to.equal(
-        `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n`
+        `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n`,
       );
     });
 
@@ -145,7 +145,7 @@ describe("saml.ts", function () {
     const samlResponseBody = {
       SAMLResponse: fs.readFileSync(
         __dirname + "/static/signatures/valid/response.root-signed.assertion-signed.xml",
-        "base64"
+        "base64",
       ),
     };
     let fakeClock: sinon.SinonFakeTimers;
@@ -435,7 +435,7 @@ describe("saml.ts", function () {
                 req.samlLogoutRequest,
                 "",
                 {},
-                true
+                true,
               );
               assertRequired(cbTarget);
               assertRequired(asyncTarget);
@@ -444,7 +444,7 @@ describe("saml.ts", function () {
             } catch (err2) {
               done(err2);
             }
-          }
+          },
         );
       });
     });

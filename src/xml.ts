@@ -20,7 +20,7 @@ type SelectedValue = string | number | boolean | Node;
 const selectXPath = <T extends SelectedValue>(
   guard: (values: SelectedValue[]) => values is T[],
   node: Node,
-  xpath: string
+  xpath: string,
 ): T[] => {
   const result = xmlCrypto.xpath(node, xpath);
   if (!guard(result)) {
@@ -76,7 +76,7 @@ const normalizeNewlines = (xml: string): string => {
 export const validateSignature = (
   fullXml: string,
   currentNode: Element,
-  pemFiles: string[]
+  pemFiles: string[],
 ): boolean => {
   const xpathSigQuery =
     ".//*[" +
@@ -120,7 +120,7 @@ const validateXmlSignatureWithPemFile = (
   signature: Node,
   pemFile: string,
   fullXml: string,
-  currentNode: Element
+  currentNode: Element,
 ): boolean => {
   const sig = new xmlCrypto.SignedXml();
   sig.keyInfoProvider = {
@@ -141,7 +141,7 @@ const validateXmlSignatureWithPemFile = (
   //   multiple candidate references is bad news)
   const totalReferencedNodes = xpath.selectElements(
     currentNode.ownerDocument,
-    "//*[@" + idAttribute + "='" + refId + "']"
+    "//*[@" + idAttribute + "='" + refId + "']",
   );
 
   if (totalReferencedNodes.length > 1) {
@@ -155,7 +155,7 @@ export const signXml = (
   xml: string,
   xpath: string,
   location: XmlSignatureLocation,
-  options: SamlSigningOptions
+  options: SamlSigningOptions,
 ): string => {
   const defaultTransforms = [
     "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
@@ -243,15 +243,15 @@ export const promiseWithNameId = async (nameid: Node): Promise<NameID> => {
 
 export const getNameIdAsync = async (
   doc: Node,
-  decryptionPvk: string | Buffer | null
+  decryptionPvk: string | Buffer | null,
 ): Promise<NameID> => {
   const nameIds = xpath.selectElements(
     doc,
-    "/*[local-name()='LogoutRequest']/*[local-name()='NameID']"
+    "/*[local-name()='LogoutRequest']/*[local-name()='NameID']",
   );
   const encryptedIds = xpath.selectElements(
     doc,
-    "/*[local-name()='LogoutRequest']/*[local-name()='EncryptedID']"
+    "/*[local-name()='LogoutRequest']/*[local-name()='EncryptedID']",
   );
 
   if (nameIds.length + encryptedIds.length > 1) {
@@ -263,12 +263,12 @@ export const getNameIdAsync = async (
   if (encryptedIds.length === 1) {
     assertRequired(
       decryptionPvk,
-      "No decryption key found getting name ID for encrypted SAML response"
+      "No decryption key found getting name ID for encrypted SAML response",
     );
 
     const encryptedData = xpath.selectElements(
       encryptedIds[0],
-      "./*[local-name()='EncryptedData']"
+      "./*[local-name()='EncryptedData']",
     );
 
     if (encryptedData.length !== 1) {

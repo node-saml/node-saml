@@ -49,8 +49,8 @@ describe("crypto.ts", function () {
         expect(() =>
           keyInfoToPem(
             `-----BEGIN CERTIFICATE-----${TEST_CERT_MULTILINE.trim()}-----END CERTIFICATE-----`,
-            "CERTIFICATE"
-          )
+            "CERTIFICATE",
+          ),
         ).to.throw();
       });
 
@@ -58,8 +58,8 @@ describe("crypto.ts", function () {
         expect(() =>
           keyInfoToPem(
             `-----BEGIN CERTIFICATE-----${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
-            "CERTIFICATE"
-          )
+            "CERTIFICATE",
+          ),
         ).to.throw();
       });
 
@@ -67,8 +67,8 @@ describe("crypto.ts", function () {
         expect(() =>
           keyInfoToPem(
             `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}-----END CERTIFICATE-----`,
-            "CERTIFICATE"
-          )
+            "CERTIFICATE",
+          ),
         ).to.throw();
       });
     });
@@ -77,7 +77,7 @@ describe("crypto.ts", function () {
       it("should return certificate in PEM format for multiline certificate", function () {
         const certificate = keyInfoToPem(
           `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
-          "CERTIFICATE"
+          "CERTIFICATE",
         );
         expect(certificate).to.equal(expectedCert);
       });
@@ -85,7 +85,7 @@ describe("crypto.ts", function () {
       it("should return certificate in PEM format for singleline certificate", function () {
         const certificate = keyInfoToPem(
           `-----BEGIN CERTIFICATE-----\n${TEST_CERT_SINGLELINE}\n-----END CERTIFICATE-----`,
-          "CERTIFICATE"
+          "CERTIFICATE",
         );
         expect(certificate).to.equal(expectedCert);
       });
@@ -93,7 +93,7 @@ describe("crypto.ts", function () {
       it("should return public key in PEM format for multiline pubic key", function () {
         const publicKey = keyInfoToPem(
           `-----BEGIN PUBLIC KEY-----\n${TEST_PUBLIC_KEY_MULTILINE}\n-----END PUBLIC KEY-----`,
-          "PUBLIC KEY"
+          "PUBLIC KEY",
         );
         expect(publicKey).to.equal(expectedPublicKey);
       });
@@ -101,7 +101,7 @@ describe("crypto.ts", function () {
       it("should return public key in PEM format for singleline public key", function () {
         const publicKey = keyInfoToPem(
           `-----BEGIN PUBLIC KEY-----\n${TEST_PUBLIC_KEY_SINGLELINE}\n-----END PUBLIC KEY-----`,
-          "PUBLIC KEY"
+          "PUBLIC KEY",
         );
         expect(publicKey).to.equal(expectedPublicKey);
       });
@@ -125,7 +125,7 @@ describe("crypto.ts", function () {
           .toString();
         const privateKey = keyInfoToPem(
           `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64Data}\n-----END PRIVATE KEY-----`,
-          "PRIVATE KEY"
+          "PRIVATE KEY",
         );
         expect(privateKey).to.equal(expectedPrivateKey);
       });

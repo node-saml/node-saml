@@ -185,14 +185,14 @@ class SAML {
     signer.update(querystring.stringify(samlMessageToSign));
     samlMessage.Signature = signer.sign(
       keyInfoToPem(this.options.privateKey, "PRIVATE KEY"),
-      "base64"
+      "base64",
     );
   }
 
   protected async generateAuthorizeRequestAsync(
     this: SAML,
     isPassive: boolean,
-    isHttpPostBinding: boolean
+    isHttpPostBinding: boolean,
   ): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -312,7 +312,7 @@ class SAML {
                   }
 
                   return formattedEntry;
-                }
+                },
               );
             }
 
@@ -321,7 +321,7 @@ class SAML {
             }
 
             return formattedIdpListItem;
-          }
+          },
         );
       }
 
@@ -438,7 +438,7 @@ class SAML {
     request: string | null | undefined,
     response: string | null,
     operation: string,
-    additionalParameters: querystring.ParsedUrlQuery
+    additionalParameters: querystring.ParsedUrlQuery,
   ): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
     const requestOrResponse = request || response;
@@ -490,7 +490,7 @@ class SAML {
   _getAdditionalParams(
     relayState: string,
     operation: "authorize" | "logout",
-    overrideParams?: querystring.ParsedUrlQuery
+    overrideParams?: querystring.ParsedUrlQuery,
   ): querystring.ParsedUrlQuery {
     const additionalParams: querystring.ParsedUrlQuery = {};
 
@@ -504,14 +504,14 @@ class SAML {
       operation === "logout"
         ? this.options.additionalLogoutParams
         : this.options.additionalAuthorizeParams,
-      overrideParams ?? {}
+      overrideParams ?? {},
     );
   }
 
   async getAuthorizeUrlAsync(
     RelayState: string,
     host: string | undefined,
-    options: AuthOptions
+    options: AuthOptions,
   ): Promise<string> {
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
@@ -520,14 +520,14 @@ class SAML {
       request,
       null,
       operation,
-      this._getAdditionalParams(RelayState, operation, overrideParams)
+      this._getAdditionalParams(RelayState, operation, overrideParams),
     );
   }
 
   async getAuthorizeMessageAsync(
     RelayState: string,
     host?: string,
-    options?: AuthOptions
+    options?: AuthOptions,
   ): Promise<querystring.ParsedUrlQueryInput> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -556,7 +556,7 @@ class SAML {
   async getAuthorizeFormAsync(
     RelayState: string,
     host?: string,
-    options?: AuthOptions
+    options?: AuthOptions,
   ): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -573,7 +573,7 @@ class SAML {
         | readonly string[]
         | readonly number[]
         | readonly boolean[],
-      preserveCR?: boolean
+      preserveCR?: boolean,
     ) {
       const preserveCRChar = preserveCR ? "&#13;" : "\n";
       return (
@@ -622,7 +622,7 @@ class SAML {
   async getLogoutUrlAsync(
     user: Profile,
     RelayState: string,
-    options: AuthOptions
+    options: AuthOptions,
   ): Promise<string> {
     const request = await this._generateLogoutRequest(user);
     const operation = "logout";
@@ -631,7 +631,7 @@ class SAML {
       request,
       null,
       operation,
-      this._getAdditionalParams(RelayState, operation, overrideParams)
+      this._getAdditionalParams(RelayState, operation, overrideParams),
     );
   }
 
@@ -640,10 +640,10 @@ class SAML {
     RelayState: string,
     options: AuthOptions,
     success: boolean,
-    callback: (err: Error | null, url?: string) => void
+    callback: (err: Error | null, url?: string) => void,
   ): void {
     util.callbackify(() =>
-      this.getLogoutResponseUrlAsync(samlLogoutRequest, RelayState, options, success)
+      this.getLogoutResponseUrlAsync(samlLogoutRequest, RelayState, options, success),
     )(callback);
   }
 
@@ -651,7 +651,7 @@ class SAML {
     samlLogoutRequest: Profile,
     RelayState: string,
     options: AuthOptions,
-    success: boolean
+    success: boolean,
   ): Promise<string> {
     const response = this._generateLogoutResponse(samlLogoutRequest, success);
     const operation = "logout";
@@ -660,7 +660,7 @@ class SAML {
       null,
       response,
       operation,
-      this._getAdditionalParams(RelayState, operation, overrideParams)
+      this._getAdditionalParams(RelayState, operation, overrideParams),
     );
   }
 
@@ -679,7 +679,7 @@ class SAML {
   }
 
   async validatePostResponseAsync(
-    container: Record<string, string>
+    container: Record<string, string>,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
     let xml: string;
     let doc: Document;
@@ -691,7 +691,7 @@ class SAML {
 
       const inResponseToNodes = xpath.selectAttributes(
         doc,
-        "/*[local-name()='Response']/@InResponseTo"
+        "/*[local-name()='Response']/@InResponseTo",
       );
 
       if (inResponseToNodes) {
@@ -712,11 +712,11 @@ class SAML {
 
       const assertions = xpath.selectElements(
         doc,
-        "/*[local-name()='Response']/*[local-name()='Assertion']"
+        "/*[local-name()='Response']/*[local-name()='Assertion']",
       );
       const encryptedAssertions = xpath.selectElements(
         doc,
-        "/*[local-name()='Response']/*[local-name()='EncryptedAssertion']"
+        "/*[local-name()='Response']/*[local-name()='EncryptedAssertion']",
       );
 
       if (assertions.length + encryptedAssertions.length > 1) {
@@ -736,7 +736,7 @@ class SAML {
         return await this.processValidlySignedAssertionAsync(
           assertions[0].toString(),
           xml,
-          inResponseTo
+          inResponseTo,
         );
       }
 
@@ -749,7 +749,7 @@ class SAML {
         const decryptedDoc = await parseDomFromString(decryptedXml);
         const decryptedAssertions = xpath.selectElements(
           decryptedDoc,
-          "/*[local-name()='Assertion']"
+          "/*[local-name()='Assertion']",
         );
         if (decryptedAssertions.length != 1) throw new Error("Invalid EncryptedAssertion content");
 
@@ -763,7 +763,7 @@ class SAML {
         return await this.processValidlySignedAssertionAsync(
           decryptedAssertions[0].toString(),
           xml,
-          inResponseTo
+          inResponseTo,
         );
       }
 
@@ -809,7 +809,7 @@ class SAML {
                 const statusXml = buildXml2JsObject("Status", status[0]);
                 throw new ErrorWithXmlStatus(
                   "SAML provider returned " + msgType + " error: " + msg,
-                  statusXml
+                  statusXml,
                 );
               }
             }
@@ -850,7 +850,7 @@ class SAML {
 
   async validateRedirectAsync(
     container: ParsedQs,
-    originalQuery: string
+    originalQuery: string,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
     const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
 
@@ -868,7 +868,7 @@ class SAML {
 
   protected async hasValidSignatureForRedirect(
     container: ParsedQs,
-    originalQuery: string
+    originalQuery: string,
   ): Promise<boolean | void> {
     const tokens = originalQuery.split("&");
     const getParam = (key: string) => {
@@ -893,7 +893,7 @@ class SAML {
           urlString,
           container.Signature as string,
           container.SigAlg as string,
-          pemFile
+          pemFile,
         );
       });
       if (!hasValidQuerySignature) {
@@ -908,7 +908,7 @@ class SAML {
     urlString: crypto.BinaryLike,
     signature: string,
     alg: string,
-    pemFile: string
+    pemFile: string,
   ): boolean {
     // See if we support a matching algorithm, case-insensitive. Otherwise, throw error.
     function hasMatch(ourAlgo: string) {
@@ -938,7 +938,7 @@ class SAML {
     const conErr = this.checkTimestampsValidityError(
       nowMs,
       conditions.NotBefore,
-      conditions.NotOnOrAfter
+      conditions.NotOnOrAfter,
     );
     if (conErr) {
       throw conErr;
@@ -965,7 +965,10 @@ class SAML {
       if (issuer) {
         if (issuer[0]._ !== this.options.idpIssuer)
           throw new Error(
-            "Unknown SAML issuer. Expected: " + this.options.idpIssuer + " Received: " + issuer[0]._
+            "Unknown SAML issuer. Expected: " +
+              this.options.idpIssuer +
+              " Received: " +
+              issuer[0]._,
           );
       } else {
         throw new Error("Missing SAML issuer");
@@ -977,7 +980,7 @@ class SAML {
     this: SAML,
     xml: string,
     samlResponseXml: string,
-    inResponseTo: string | null
+    inResponseTo: string | null,
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     let msg;
     const nowMs = new Date().getTime();
@@ -1026,14 +1029,14 @@ class SAML {
             const maxTimeLimitMs = this.calcMaxAgeAssertionTime(
               this.options.maxAssertionAgeMs,
               subjectNotOnOrAfter,
-              assertion.$.IssueInstant
+              assertion.$.IssueInstant,
             );
 
             const subjErr = this.checkTimestampsValidityError(
               nowMs,
               subjectNotBefore,
               subjectNotOnOrAfter,
-              maxTimeLimitMs
+              maxTimeLimitMs,
             );
             if (subjErr === null) return true;
           }
@@ -1095,13 +1098,13 @@ class SAML {
       const maxTimeLimitMs = this.calcMaxAgeAssertionTime(
         this.options.maxAssertionAgeMs,
         conditions.$.NotOnOrAfter,
-        assertion.$.IssueInstant
+        assertion.$.IssueInstant,
       );
       const conErr = this.checkTimestampsValidityError(
         nowMs,
         conditions.$.NotBefore,
         conditions.$.NotOnOrAfter,
-        maxTimeLimitMs
+        maxTimeLimitMs,
       );
       if (conErr) throw conErr;
     }
@@ -1109,7 +1112,7 @@ class SAML {
     if (this.options.audience !== false) {
       const audienceErr = this.checkAudienceValidityError(
         this.options.audience,
-        conditions.AudienceRestriction
+        conditions.AudienceRestriction,
       );
       if (audienceErr) throw audienceErr;
     }
@@ -1119,7 +1122,7 @@ class SAML {
       const attributes: XMLOutput[] = [].concat(
         ...attributeStatement
           .filter((attr: XMLObject) => Array.isArray(attr.Attribute))
-          .map((attr: XMLObject) => attr.Attribute)
+          .map((attr: XMLObject) => attr.Attribute),
       );
 
       const attrValueMapper = (value: XMLObject) => {
@@ -1185,7 +1188,7 @@ class SAML {
     nowMs: number,
     notBefore: string,
     notOnOrAfter: string,
-    maxTimeLimitMs?: number
+    maxTimeLimitMs?: number,
   ): Error | null {
     if (this.options.acceptedClockSkewMs == -1) return null;
 
@@ -1209,7 +1212,7 @@ class SAML {
 
   protected checkAudienceValidityError(
     expectedAudience: string,
-    audienceRestrictions: AudienceRestrictionXML[]
+    audienceRestrictions: AudienceRestrictionXML[],
   ): Error | null {
     if (!audienceRestrictions || audienceRestrictions.length < 1) {
       return new Error("SAML assertion has no AudienceRestriction");
@@ -1224,7 +1227,7 @@ class SAML {
             "SAML assertion audience mismatch. Expected: " +
               expectedAudience +
               " Received: " +
-              restriction.Audience[0]._
+              restriction.Audience[0]._,
           );
         }
         return null;
@@ -1244,7 +1247,7 @@ class SAML {
       _parseDomFromString = parseDomFromString,
       _parseXml2JsFromString = parseXml2JsFromString,
       _validateSignature = validateSignature,
-    } = {}
+    } = {},
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
     const dom = await _parseDomFromString(xml);
@@ -1259,7 +1262,7 @@ class SAML {
   protected async processValidlySignedPostRequestAsync(
     this: SAML,
     doc: XMLOutput,
-    dom: Document
+    dom: Document,
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const request = doc.LogoutRequest;
     if (request) {
@@ -1297,7 +1300,7 @@ class SAML {
   protected async processValidlySignedSamlLogoutAsync(
     this: SAML,
     doc: XMLOutput,
-    dom: Document
+    dom: Document,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
     const response = doc.LogoutResponse;
     const request = doc.LogoutRequest;
@@ -1314,7 +1317,7 @@ class SAML {
   generateServiceProviderMetadata(
     this: SAML,
     decryptionCert: string | null,
-    signingCerts?: string | string[] | null
+    signingCerts?: string | string[] | null,
   ): string {
     return generateServiceProviderMetadata({
       ...this.options,
@@ -1335,7 +1338,7 @@ class SAML {
   protected calcMaxAgeAssertionTime(
     maxAssertionAgeMs: number,
     notOnOrAfter: string,
-    issueInstant: string
+    issueInstant: string,
   ): number {
     const notOnOrAfterMs = dateStringToTimestamp(notOnOrAfter, "NotOnOrAfter");
     const issueInstantMs = dateStringToTimestamp(issueInstant, "IssueInstant");
