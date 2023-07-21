@@ -421,6 +421,7 @@ describe("node-saml /", function () {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           cert: FAKE_CERT,
           generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected metadata.xml",
@@ -437,6 +438,7 @@ describe("node-saml /", function () {
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           cert: FAKE_CERT,
           generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected metadata without key.xml",
@@ -456,6 +458,7 @@ describe("node-saml /", function () {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
           cert: FAKE_CERT,
           generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected metadata.xml",
@@ -474,6 +477,7 @@ describe("node-saml /", function () {
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           cert: FAKE_CERT,
           generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected metadata without key.xml",
@@ -494,6 +498,7 @@ describe("node-saml /", function () {
           privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
           cert: FAKE_CERT,
           generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expectedMetadataWithBothKeys.xml",
@@ -515,6 +520,7 @@ describe("node-saml /", function () {
           privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
           cert: FAKE_CERT,
           generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expectedMetadataWithEncryptionAndTwoSigningKeys.xml",
@@ -555,7 +561,6 @@ describe("node-saml /", function () {
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
-          wantAssertionsSigned: true,
         };
 
         const samlObj = new SAML(samlConfig);
@@ -574,7 +579,6 @@ describe("node-saml /", function () {
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
-          wantAssertionsSigned: true,
         };
 
         const samlObj = new SAML(samlConfig);
@@ -599,7 +603,6 @@ describe("node-saml /", function () {
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
-          wantAssertionsSigned: true,
         };
 
         const samlObj = new SAML(samlConfig);
@@ -616,7 +619,6 @@ describe("node-saml /", function () {
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
           identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
           privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key"),
-          wantAssertionsSigned: true,
           signMetadata: true,
           signatureAlgorithm: "sha256",
           digestAlgorithm: "sha256",
@@ -666,6 +668,7 @@ describe("node-saml /", function () {
             ],
           },
           generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
         };
 
         const expectedMetadata = fs.readFileSync(
@@ -700,6 +703,7 @@ describe("node-saml /", function () {
         const samlObj = new SAML({
           cert: "-----BEGIN CERTIFICATE-----" + TEST_CERT + "-----END CERTIFICATE-----",
           issuer: "onesaml_login",
+          wantAuthnResponseSigned: false,
         });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: /Responder.*Required NameID format not supported/,
@@ -711,7 +715,11 @@ describe("node-saml /", function () {
           '<?xml version="1.0" encoding="UTF-8"?><saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" Destination="http://localhost/browserSamlLogin" ID="_6a377272c8662561acf1056274ef3f81" InResponseTo="_4324fb0d00661146f7dc" IssueInstant="2014-07-02T18:16:31.278Z" Version="2.0"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">https://idp.testshib.org/idp/shibboleth</saml2:Issuer><saml2p:Status><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Responder"><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:InvalidNameIDPolicy"/></saml2p:StatusCode></saml2p:Status></saml2p:Response>';
         const base64xml = Buffer.from(xml).toString("base64");
         const container = { SAMLResponse: base64xml };
-        const samlObj = new SAML({ cert: FAKE_CERT, issuer: "onesaml_login" });
+        const samlObj = new SAML({
+          cert: FAKE_CERT,
+          issuer: "onesaml_login",
+          wantAuthnResponseSigned: false,
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: /Responder.*InvalidNameIDPolicy/,
         });
@@ -728,7 +736,12 @@ describe("node-saml /", function () {
 
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
 
-        const samlObj = new SAML({ cert: signingCert, audience: false, issuer: "onesaml_login" });
+        const samlObj = new SAML({
+          cert: signingCert,
+          audience: false,
+          issuer: "onesaml_login",
+          wantAssertionsSigned: false,
+        });
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
         expect(profile.issuer).to.equal("https://evil-corp.com");
@@ -754,6 +767,7 @@ describe("node-saml /", function () {
           issuer: "onesaml_login",
           audience: false,
           validateInResponseTo: ValidateInResponseTo.always,
+          wantAssertionsSigned: false,
         });
 
         // Prime cache so we can validate InResponseTo
@@ -780,6 +794,7 @@ describe("node-saml /", function () {
           issuer: "onesaml_login",
           audience: false,
           validateInResponseTo: ValidateInResponseTo.always,
+          wantAssertionsSigned: false,
         });
 
         // Prime cache so we can validate InResponseTo
@@ -807,6 +822,7 @@ describe("node-saml /", function () {
           issuer: "onesaml_login",
           audience: false,
           validateInResponseTo: ValidateInResponseTo.always,
+          wantAssertionsSigned: false,
         });
 
         // Prime cache so we can validate InResponseTo
@@ -833,6 +849,7 @@ describe("node-saml /", function () {
           issuer: "onesaml_login",
           audience: false,
           validateInResponseTo: ValidateInResponseTo.always,
+          wantAssertionsSigned: false,
         });
 
         // Prime cache so we can validate InResponseTo
@@ -859,6 +876,7 @@ describe("node-saml /", function () {
           issuer: "onesaml_login",
           audience: false,
           validateInResponseTo: ValidateInResponseTo.always,
+          wantAssertionsSigned: false,
         });
 
         // Prime cache so we can validate InResponseTo
@@ -883,6 +901,7 @@ describe("node-saml /", function () {
           issuer: "onesaml_login",
           audience: false,
           validateInResponseTo: ValidateInResponseTo.always,
+          wantAssertionsSigned: false,
         });
 
         // Prime cache so we can validate InResponseTo
@@ -911,6 +930,7 @@ describe("node-saml /", function () {
                 cert: TEST_CERT,
                 validateInResponseTo,
                 issuer: "onesaml_login",
+                wantAuthnResponseSigned: false,
               };
               const samlObj = new SAML(samlConfig);
 
@@ -948,11 +968,13 @@ describe("node-saml /", function () {
           cert: TEST_CERT,
           audience: false,
           issuer: "onesaml_login",
+          wantAuthnResponseSigned: false,
         };
         const noAudienceSamlConfig: SamlConfig = {
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
           cert: TEST_CERT,
           issuer: "onesaml_login",
+          wantAuthnResponseSigned: false,
         };
         const noCertSamlConfig: SamlConfig = {
           entryPoint: "https://app.onelogin.com/trust/saml2/http-post/sso/371755",
@@ -1199,6 +1221,7 @@ describe("node-saml /", function () {
             cert: [ALT_TEST_CERT, TEST_CERT],
             audience: false,
             issuer: "onesaml_login",
+            wantAuthnResponseSigned: false,
           };
           const xml =
             '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
@@ -1222,6 +1245,7 @@ describe("node-saml /", function () {
             },
             audience: false,
             issuer: "onesaml_login",
+            wantAuthnResponseSigned: false,
           };
           const xml =
             '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
@@ -1245,6 +1269,7 @@ describe("node-saml /", function () {
             },
             audience: false,
             issuer: "onesaml_login",
+            wantAuthnResponseSigned: false,
           };
           const xml =
             '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
@@ -1319,7 +1344,12 @@ describe("node-saml /", function () {
 
           const base64xml = Buffer.from(signedXml).toString("base64");
           const container = { SAMLResponse: base64xml };
-          const samlObj = new SAML({ cert: signingCert, audience: false, issuer: "onesaml_login" });
+          const samlObj = new SAML({
+            cert: signingCert,
+            audience: false,
+            issuer: "onesaml_login",
+            wantAssertionsSigned: false,
+          });
           const { profile } = await samlObj.validatePostResponseAsync(container);
           assertRequired(profile, "profile must exist");
           const eptid = profile["urn:oid:1.3.6.1.4.1.5923.1.1.1.10"] as XMLOutput;
@@ -1357,7 +1387,11 @@ describe("node-saml /", function () {
             "</Response>";
           const base64xml = Buffer.from(xml).toString("base64");
           const container = { SAMLResponse: base64xml };
-          const samlObj = new SAML({ cert: TEST_CERT, issuer: "onesaml_login" });
+          const samlObj = new SAML({
+            cert: TEST_CERT,
+            issuer: "onesaml_login",
+            wantAuthnResponseSigned: false,
+          });
           await assert.rejects(samlObj.validatePostResponseAsync(container), {
             message: "Invalid signature",
           });
@@ -1384,7 +1418,12 @@ describe("node-saml /", function () {
 
           const base64xml = Buffer.from(signedXml).toString("base64");
           const container = { SAMLResponse: base64xml };
-          const samlObj = new SAML({ cert: signingCert, audience: false, issuer: "onesaml_login" });
+          const samlObj = new SAML({
+            cert: signingCert,
+            audience: false,
+            issuer: "onesaml_login",
+            wantAssertionsSigned: false,
+          });
           const { profile } = await samlObj.validatePostResponseAsync(container);
           assertRequired(profile, "profile must exist");
           expect(profile["attributeName"]).to.be.undefined;
@@ -1820,6 +1859,8 @@ describe("node-saml /", function () {
                 validateInResponseTo,
                 audience: false,
                 issuer: "onesaml_login",
+                wantAssertionsSigned: false,
+                wantAuthnResponseSigned: false,
               };
               const samlObj = new SAML(samlConfig);
 
@@ -1848,6 +1889,7 @@ describe("node-saml /", function () {
                 validateInResponseTo,
                 audience: false,
                 issuer: "onesaml_login",
+                wantAssertionsSigned: false,
               };
               const samlObj = new SAML(samlConfig);
 
@@ -1939,6 +1981,8 @@ describe("node-saml /", function () {
                 validateInResponseTo,
                 audience: false,
                 issuer: "onesaml_login",
+                wantAssertionsSigned: false,
+                wantAuthnResponseSigned: false,
               };
               const samlObj = new SAML(samlConfig);
 
@@ -1963,6 +2007,7 @@ describe("node-saml /", function () {
                 validateInResponseTo,
                 audience: false,
                 issuer: "onesaml_login",
+                wantAssertionsSigned: false,
               };
               const samlObj = new SAML(samlConfig);
 
@@ -1999,6 +2044,7 @@ describe("node-saml /", function () {
           validateInResponseTo: ValidateInResponseTo.never,
           audience: false,
           issuer: "onesaml_login",
+          wantAuthnResponseSigned: false,
         };
         const samlObj = new SAML(samlConfig);
 
@@ -2023,6 +2069,7 @@ describe("node-saml /", function () {
           validateInResponseTo: ValidateInResponseTo.always,
           audience: false,
           issuer: "onesaml_login",
+          wantAssertionsSigned: false,
         };
         const samlObj = new SAML(samlConfig);
 
@@ -2051,6 +2098,8 @@ describe("node-saml /", function () {
         cert: TEST_CERT,
         audience: false,
         issuer: "onesaml_login",
+        wantAssertionsSigned: false,
+        wantAuthnResponseSigned: false,
       };
       let fakeClock: sinon.SinonFakeTimers;
 
@@ -2197,6 +2246,7 @@ describe("node-saml /", function () {
           acceptedClockSkewMs: -1,
           audience: false,
           issuer: "onesaml_login",
+          wantAuthnResponseSigned: false,
         };
         const samlObj = new SAML(samlConfig);
 
@@ -2358,6 +2408,7 @@ describe("node-saml /", function () {
           acceptedClockSkewMs: -1,
           cert: signingCert,
           issuer: "onesaml_login",
+          wantAssertionsSigned: false,
         };
         const samlObj = new SAML(samlConfig);
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
@@ -2405,6 +2456,7 @@ describe("node-saml /", function () {
           acceptedClockSkewMs: -1,
           cert: signingCert,
           issuer: "onesaml_login",
+          wantAssertionsSigned: false,
         };
         const samlObj = new SAML(samlConfig);
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
@@ -2452,6 +2504,7 @@ describe("node-saml /", function () {
           acceptedClockSkewMs: -1,
           cert: signingCert,
           issuer: "onesaml_login",
+          wantAssertionsSigned: false,
         };
         const samlObj = new SAML(samlConfig);
 
@@ -2546,7 +2599,12 @@ describe("node-saml /", function () {
     });
 
     it("check conflicting profile fields with data from attributes", async () => {
-      const testSAMLObj = new SAML({ cert: signingCert, issuer: "okta", audience: false });
+      const testSAMLObj = new SAML({
+        cert: signingCert,
+        issuer: "okta",
+        audience: false,
+        wantAssertionsSigned: false,
+      });
       const xml =
         '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
         '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +

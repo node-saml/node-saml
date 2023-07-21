@@ -77,6 +77,7 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.disableRequestAcsUrl);
     assertBooleanIfPresent(ctorOptions.allowCreate);
     assertBooleanIfPresent(ctorOptions.wantAssertionsSigned);
+    assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
 
     const options: SamlOptions = {
@@ -101,7 +102,8 @@ class SAML {
           : ctorOptions.identifierFormat,
       allowCreate: ctorOptions.allowCreate ?? true,
       spNameQualifier: ctorOptions.spNameQualifier,
-      wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? false,
+      wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? true,
+      wantAuthnResponseSigned: ctorOptions.wantAuthnResponseSigned ?? true,
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],
@@ -686,10 +688,19 @@ class SAML {
         await this.validateInResponseTo(inResponseTo);
       }
       const certs = await this.certsToCheck();
-      // Check if this document has a valid top-level signature
+      // Check if this document has a valid top-level signature which applies to the entire XML document
       let validSignature = false;
-      if (validateSignature(xml, doc.documentElement, certs)) {
+      if (
+        validateSignature(xml, doc.documentElement, certs) &&
+        Array.from(doc.childNodes as NodeListOf<Element>).filter(
+          (n) => n.tagName != null && n.childNodes != null
+        ).length === 1
+      ) {
         validSignature = true;
+      }
+
+      if (this.options.wantAuthnResponseSigned === true && validSignature === false) {
+        throw new Error("Invalid document signature");
       }
 
       const assertions = xpath.selectElements(
