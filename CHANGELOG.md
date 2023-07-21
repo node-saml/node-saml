@@ -1,5 +1,17 @@
 # Changelog
 
+## v4.0.3 (2022-12-13)
+
+#### 🔗 Dependencies:
+
+- [**javascript**] Bump eslint from 8.26.0 to 8.29.0 [#234](https://github.com/node-saml/node-saml/pull/234)
+- [**javascript**] Bump eslint-plugin-deprecation from 1.3.2 to 1.3.3 [#232](https://github.com/node-saml/node-saml/pull/232)
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.43.0 to 5.45.0 [#231](https://github.com/node-saml/node-saml/pull/231)
+- [**javascript**] Bump concurrently from 7.5.0 to 7.6.0 [#230](https://github.com/node-saml/node-saml/pull/230)
+- [**javascript**] Bump prettier from 2.7.1 to 2.8.0 [#229](https://github.com/node-saml/node-saml/pull/229)
+
+---
+
 ## v4.0.2 (2022-11-23)
 
 #### 🐛 Bug Fixes:
@@ -110,6 +122,12 @@
 
 #### 🔗 Dependencies:
 
+- [**javascript**] Bump @types/node from 14.18.16 to 14.18.22 [#124](https://github.com/node-saml/node-saml/pull/124)
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.6 to 5.30.7 [#123](https://github.com/node-saml/node-saml/pull/123)
+- [**javascript**] Bump release-it from 15.1.1 to 15.1.2 [#122](https://github.com/node-saml/node-saml/pull/122)
+- [**javascript**] Bump ts-node from 10.8.2 to 10.9.1 [#126](https://github.com/node-saml/node-saml/pull/126)
+- [**javascript**] Bump release-it from 15.0.0 to 15.1.1 [#117](https://github.com/node-saml/node-saml/pull/117)
+- [**javascript**] Bump xml-crypto from 2.1.3 to 2.1.4 [#118](https://github.com/node-saml/node-saml/pull/118)
 - [**javascript**] Bump ts-node from 10.7.0 to 10.8.2 [#119](https://github.com/node-saml/node-saml/pull/119)
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.5 to 5.30.6 [#120](https://github.com/node-saml/node-saml/pull/120)
 - [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.3 to 5.30.5 [#114](https://github.com/node-saml/node-saml/pull/114)
@@ -137,12 +155,6 @@
 - deps: move express to devDependencies because it is only used in a test. [#161](https://github.com/node-saml/node-saml/pull/161)
 - Update changelog [#162](https://github.com/node-saml/node-saml/pull/162)
 - [**javascript**] Bump @typescript-eslint/parser from 5.30.5 to 5.30.7 [#125](https://github.com/node-saml/node-saml/pull/125)
-- [**javascript**] Bump @types/node from 14.18.16 to 14.18.22 [#124](https://github.com/node-saml/node-saml/pull/124)
-- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.30.6 to 5.30.7 [#123](https://github.com/node-saml/node-saml/pull/123)
-- [**javascript**] Bump release-it from 15.1.1 to 15.1.2 [#122](https://github.com/node-saml/node-saml/pull/122)
-- [**javascript**] Bump ts-node from 10.8.2 to 10.9.1 [#126](https://github.com/node-saml/node-saml/pull/126)
-- [**javascript**] Bump release-it from 15.0.0 to 15.1.1 [#117](https://github.com/node-saml/node-saml/pull/117)
-- [**javascript**] Bump xml-crypto from 2.1.3 to 2.1.4 [#118](https://github.com/node-saml/node-saml/pull/118)
 
 #### 📚 Documentation:
 
