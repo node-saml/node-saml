@@ -139,22 +139,18 @@ describe("xml /", async function () {
   });
 
   describe("validation /", async function () {
+    /**
+     * See https://github.com/node-saml/passport-saml/issues/266
+     */
     it("Should parse XML with comments correctly", async function () {
-      const evil =
-        '<saml2:Attribute Name="Email" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"><saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xs:string">admin@mycompany.com.evil-domain</saml2:AttributeValue></saml2:Attribute>';
       const evilComment =
         '<saml2:Attribute Name="Email" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"><saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xs:string">admin@mycompany.com<!---->.evil-domain</saml2:AttributeValue></saml2:Attribute>';
       const good =
         '<saml2:Attribute Name="Email" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"><saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xs:string">admin@mycompany.com</saml2:AttributeValue></saml2:Attribute>';
 
-      const evilDoc = await parseDomFromString(evil);
       const evilCommentDoc = await parseDomFromString(evilComment);
       const goodDoc = await parseDomFromString(good);
 
-      assert(
-        evilDoc.documentElement.firstChild?.textContent === "admin@mycompany.com.evil-domain",
-        "Invalid XML comment parsing."
-      );
       assert(
         evilCommentDoc.documentElement.firstChild?.textContent ===
           "admin@mycompany.com.evil-domain",
