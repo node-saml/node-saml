@@ -268,7 +268,7 @@ describe("node-saml /", function () {
       });
       const logoutRequest = samlObj._generateLogoutResponse(
         { ID: "quux", issuer: "issuer", nameID: "nameid", nameIDFormat: "nameidformat" },
-        true
+        true,
       );
       parseString(logoutRequest, function (err, doc) {
         try {
@@ -318,7 +318,7 @@ describe("node-saml /", function () {
       });
       const logoutRequest = samlObj._generateLogoutResponse(
         { ID: "quux", issuer: "issuer", nameID: "nameid", nameIDFormat: "nameidformat" },
-        false
+        false,
       );
       parseString(logoutRequest, function (err, doc) {
         try {
@@ -430,12 +430,12 @@ describe("node-saml /", function () {
       function testMetadata(
         samlConfig: SamlConfig,
         expectedMetadata: string,
-        signingCert?: string | string[]
+        signingCert?: string | string[],
       ) {
         const samlObj = new SAML(samlConfig);
         const decryptionCert = fs.readFileSync(
           __dirname + "/static/testshib encryption cert.pem",
-          "utf-8"
+          "utf-8",
         );
         const metadata = samlObj.generateServiceProviderMetadata(decryptionCert, signingCert);
 
@@ -458,7 +458,7 @@ describe("node-saml /", function () {
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected metadata.xml",
-          "utf-8"
+          "utf-8",
         );
 
         testMetadata(samlConfig, expectedMetadata);
@@ -475,7 +475,7 @@ describe("node-saml /", function () {
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected metadata without key.xml",
-          "utf-8"
+          "utf-8",
         );
 
         testMetadata(samlConfig, expectedMetadata);
@@ -493,7 +493,7 @@ describe("node-saml /", function () {
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected metadata.xml",
-          "utf-8"
+          "utf-8",
         );
 
         testMetadata(samlConfig, expectedMetadata);
@@ -510,7 +510,7 @@ describe("node-saml /", function () {
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected metadata without key.xml",
-          "utf-8"
+          "utf-8",
         );
 
         testMetadata(samlConfig, expectedMetadata);
@@ -529,7 +529,7 @@ describe("node-saml /", function () {
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expectedMetadataWithBothKeys.xml",
-          "utf-8"
+          "utf-8",
         );
         const signingCert = fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString();
 
@@ -549,11 +549,11 @@ describe("node-saml /", function () {
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expectedMetadataWithBothKeys.xml",
-          "utf-8"
+          "utf-8",
         );
 
         expect(() => testMetadata(samlConfig, expectedMetadata)).to.throw(
-          "Missing signingCert while generating metadata for signing service provider messages"
+          "Missing signingCert while generating metadata for signing service provider messages",
         );
       });
 
@@ -570,7 +570,7 @@ describe("node-saml /", function () {
         };
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expectedMetadataWithEncryptionAndTwoSigningKeys.xml",
-          "utf-8"
+          "utf-8",
         );
         const signingCerts = [
           fs.readFileSync(__dirname + "/static/acme_tools_com.cert").toString(),
@@ -593,7 +593,7 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
         const decryptionCert = fs.readFileSync(
           __dirname + "/static/testshib encryption cert.pem",
-          "utf-8"
+          "utf-8",
         );
         const metadata = samlObj.generateServiceProviderMetadata(decryptionCert);
         expect(metadata).to.contain("SingleLogoutService");
@@ -612,7 +612,7 @@ describe("node-saml /", function () {
         const samlObj = new SAML(samlConfig);
         const decryptionCert = fs.readFileSync(
           __dirname + "/static/testshib encryption cert.pem",
-          "utf-8"
+          "utf-8",
         );
         const metadata = samlObj.generateServiceProviderMetadata(decryptionCert);
         expect(metadata).to.contain('WantAssertionsSigned="true"');
@@ -635,7 +635,7 @@ describe("node-saml /", function () {
           // typescript
           if (error instanceof Error) {
             expect(error.toString()).to.contain(
-              "Error: Missing decryptionCert while generating metadata for decrypting service provider"
+              "Error: Missing decryptionCert while generating metadata for decrypting service provider",
             );
           }
         }
@@ -719,7 +719,7 @@ describe("node-saml /", function () {
 
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected_metadata_metadataExtensions.xml",
-          "utf-8"
+          "utf-8",
         );
 
         testMetadata(samlConfig, expectedMetadata);
@@ -845,7 +845,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-24T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
-          "base64"
+          "base64",
         );
         const container = { SAMLResponse: base64xml };
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
@@ -873,7 +873,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T19:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
-          "base64"
+          "base64",
         );
         const container = { SAMLResponse: base64xml };
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
@@ -902,7 +902,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
-          "base64"
+          "base64",
         );
         const container = { SAMLResponse: base64xml };
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
@@ -930,7 +930,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
-          "base64"
+          "base64",
         );
         const container = { SAMLResponse: base64xml };
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
@@ -958,7 +958,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-no-subjectconfirmation.xml",
-          "base64"
+          "base64",
         );
         const container = { SAMLResponse: base64xml };
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
@@ -984,7 +984,7 @@ describe("node-saml /", function () {
         fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-empty-subjectconfirmation.xml",
-          "base64"
+          "base64",
         );
         const container = { SAMLResponse: base64xml };
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
@@ -1045,7 +1045,7 @@ describe("node-saml /", function () {
               expect(await samlObj.cacheProvider.getAsync(requestId)).to.be.null;
             });
           });
-        }
+        },
       );
 
       describe("validatePostResponse xml signature checks /", function () {
@@ -1572,7 +1572,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
         expect(qry.Signature).to.equal(
-          "D161m5GVbOfRHk85GvhmQ48OoFZ6n8mJuddzCe0g1Zlh9cb3b4oMMk5RCsoaOBsA3ndRnCWF3YQb78rO/MRQ+HIxIt0JDrhBoyT7GXPIUvbM/B4cJEgbfFAYouKQIy1sPunlLaTNkRL4tArKK7r4W2WF6R0hydcN8aln8/+TlTUfIengvVuXGLdtW0wSt+1HK1PiwrhLtqFHxxq2XL0X6jBqMEYYjByLfZme3Sk6x6uPIW7zhJn6OXzXlLuH9ILxusexu7GaLpw7C5EUQW43R6vlTGw+bBmx+tC0fqaMLOUWHX/uISAAeWYCAGYA8cbRuqIWh/vnVifxF0CP2sf5Vg=="
+          "D161m5GVbOfRHk85GvhmQ48OoFZ6n8mJuddzCe0g1Zlh9cb3b4oMMk5RCsoaOBsA3ndRnCWF3YQb78rO/MRQ+HIxIt0JDrhBoyT7GXPIUvbM/B4cJEgbfFAYouKQIy1sPunlLaTNkRL4tArKK7r4W2WF6R0hydcN8aln8/+TlTUfIengvVuXGLdtW0wSt+1HK1PiwrhLtqFHxxq2XL0X6jBqMEYYjByLfZme3Sk6x6uPIW7zhJn6OXzXlLuH9ILxusexu7GaLpw7C5EUQW43R6vlTGw+bBmx+tC0fqaMLOUWHX/uISAAeWYCAGYA8cbRuqIWh/vnVifxF0CP2sf5Vg==",
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1622,7 +1622,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
-          "br4UPzZ/Oy/hvG7zMGZ041Lba5WDl/JqwDDf40yxxnYXWLdDY77RD5aE8+YK6BY7BbSkvQSNXFbBXPAITcRhyNCT+3JDfwXLDgOf3xvJOzkWHRO3DUi5IOJ9IdKT/Ted+HC0J9L/4W+VA0n+5v6Lrw83UDib57ICytLvW5jamFQE8pO/Z8fQzOpSbzTwf+Q8u5KYkXeg1+H2u6OJYBFVDYOWxOTuuujW8JccqlCleX9tXDJvx/I0tOkwwnIioh1X2xVHGPy1k1wndpf1eUZtjZ4uUMcwRyxt7YuAnV433DohO3WOm2sNehwOy2AO1DUlbFi6/zbqkRK3TrmD9Q+ZUQ=="
+          "br4UPzZ/Oy/hvG7zMGZ041Lba5WDl/JqwDDf40yxxnYXWLdDY77RD5aE8+YK6BY7BbSkvQSNXFbBXPAITcRhyNCT+3JDfwXLDgOf3xvJOzkWHRO3DUi5IOJ9IdKT/Ted+HC0J9L/4W+VA0n+5v6Lrw83UDib57ICytLvW5jamFQE8pO/Z8fQzOpSbzTwf+Q8u5KYkXeg1+H2u6OJYBFVDYOWxOTuuujW8JccqlCleX9tXDJvx/I0tOkwwnIioh1X2xVHGPy1k1wndpf1eUZtjZ4uUMcwRyxt7YuAnV433DohO3WOm2sNehwOy2AO1DUlbFi6/zbqkRK3TrmD9Q+ZUQ==",
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1648,7 +1648,7 @@ describe("node-saml /", function () {
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
-          "FL5f9hUYxXaCvr/HJOIKXvDlmWIQilsfcmETqwp8bXCnjEBS44uvEY+FhkYgrFOfaMXkAY+kd8rZ7CkP4SWnPxzhmHqdbBIyAdPpIOOHq7/VTqQXrprijtRBHTxrtOtxi3yOjskRz6ad8igokr9Ut3nlorvelZwtskJP/YsAE3v1CrL/bX3EGbepE3Bq5ehdHaNHxP+dwwhMJ6s5jxKLt5YU+vXohonM8fTBEPzbnQ1+0LK9GL3c6JfqNjjBvdWRXdyReRu+gCHisnrI68vBgCwy4VC9E4tg9JNLggtFkxNbhM8Bgu7eWlyhVLdWKKc1vwaDUOrYOimx6CfTXrAQvg=="
+          "FL5f9hUYxXaCvr/HJOIKXvDlmWIQilsfcmETqwp8bXCnjEBS44uvEY+FhkYgrFOfaMXkAY+kd8rZ7CkP4SWnPxzhmHqdbBIyAdPpIOOHq7/VTqQXrprijtRBHTxrtOtxi3yOjskRz6ad8igokr9Ut3nlorvelZwtskJP/YsAE3v1CrL/bX3EGbepE3Bq5ehdHaNHxP+dwwhMJ6s5jxKLt5YU+vXohonM8fTBEPzbnQ1+0LK9GL3c6JfqNjjBvdWRXdyReRu+gCHisnrI68vBgCwy4VC9E4tg9JNLggtFkxNbhM8Bgu7eWlyhVLdWKKc1vwaDUOrYOimx6CfTXrAQvg==",
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1699,7 +1699,7 @@ describe("node-saml /", function () {
         (["logout", "authorize"] as const).forEach(function (operation) {
           const additionalParams = samlObj._getAdditionalParams(
             { RelayState: "test" } as unknown as string,
-            operation
+            operation,
           );
 
           expect(Object.keys(additionalParams)).to.have.lengthOf(0);
@@ -1824,7 +1824,7 @@ describe("node-saml /", function () {
         const additionalAuthorizeParams = samlObj._getAdditionalParams(
           "",
           "authorize",
-          options.additionalParams
+          options.additionalParams,
         );
         expect(Object.keys(additionalAuthorizeParams)).to.have.lengthOf(3);
         expect(additionalAuthorizeParams).to.include({
@@ -1836,7 +1836,7 @@ describe("node-saml /", function () {
         const additionalLogoutParams = samlObj._getAdditionalParams(
           "",
           "logout",
-          options.additionalParams
+          options.additionalParams,
         );
         expect(Object.keys(additionalLogoutParams)).to.have.lengthOf(3);
         expect(additionalLogoutParams).to.include({
@@ -1899,7 +1899,7 @@ describe("node-saml /", function () {
         const additionalAuthorizeParams = samlObj._getAdditionalParams(
           "",
           "authorize",
-          options.additionalParams
+          options.additionalParams,
         );
         expect(Object.keys(additionalAuthorizeParams)).to.have.lengthOf(1);
         expect(additionalAuthorizeParams).to.include({ queryParam: "queryParamRuntimeValue" });
@@ -1907,7 +1907,7 @@ describe("node-saml /", function () {
         const additionalLogoutParams = samlObj._getAdditionalParams(
           "",
           "logout",
-          options.additionalParams
+          options.additionalParams,
         );
         expect(Object.keys(additionalLogoutParams)).to.have.lengthOf(1);
         expect(additionalLogoutParams).to.include({ queryParam: "queryParamRuntimeValue" });
@@ -1930,7 +1930,7 @@ describe("node-saml /", function () {
         });
         expect(samlObjBadComparisonType.options.racComparison).equal(
           "exact",
-          "the default value of the option `racComparison` must be exact"
+          "the default value of the option `racComparison` must be exact",
         );
 
         const validComparisonTypes: RacComparison[] = ["exact", "minimum", "maximum", "better"];
@@ -2179,7 +2179,7 @@ describe("node-saml /", function () {
               expect(value).to.not.exist;
             });
           });
-        }
+        },
       );
 
       it("onelogin xml document without InResponseTo from request should fail", async () => {
@@ -2302,7 +2302,7 @@ describe("node-saml /", function () {
               expect(value).to.eql("2014-06-05T12:07:07.662Z");
             });
           });
-        }
+        },
       );
 
       it("onelogin xml document with InResponseTo not in the cache should validate", async () => {
@@ -2839,7 +2839,7 @@ describe("node-saml /", function () {
       const body = {
         SAMLRequest: fs.readFileSync(
           __dirname + "/static/logout_request_with_bad_signature.xml",
-          "base64"
+          "base64",
         ),
       };
       await assert.rejects(samlObj.validatePostRequestAsync(body), {
@@ -2851,7 +2851,7 @@ describe("node-saml /", function () {
       const body = {
         SAMLRequest: fs.readFileSync(
           __dirname + "/static/logout_request_with_good_signature.xml",
-          "base64"
+          "base64",
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
@@ -2866,7 +2866,7 @@ describe("node-saml /", function () {
       const body = {
         SAMLRequest: fs.readFileSync(
           __dirname + "/static/logout_request_with_session_index.xml",
-          "base64"
+          "base64",
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
@@ -2888,7 +2888,7 @@ describe("node-saml /", function () {
       const body = {
         SAMLRequest: fs.readFileSync(
           __dirname + "/static/logout_request_with_encrypted_name_id.xml",
-          "base64"
+          "base64",
         ),
       };
       const { profile } = await samlObj.validatePostRequestAsync(body);
@@ -2946,7 +2946,7 @@ describe("node-saml /", function () {
     const body = {
       SAMLRequest: fs.readFileSync(
         __dirname + "/static/logout_request_with_encrypted_name_id.xml",
-        "base64"
+        "base64",
       ),
     };
     if (process.versions.node.split(".")[0] === "18") {
@@ -3021,7 +3021,7 @@ describe("node-saml /", function () {
         });
         this.request = Object.assign(
           {},
-          JSON.parse(fs.readFileSync(__dirname + "/static/idp_slo_redirect.json", "utf8"))
+          JSON.parse(fs.readFileSync(__dirname + "/static/idp_slo_redirect.json", "utf8")),
         );
         fakeClock = sinon.useFakeTimers(Date.parse("2018-04-11T14:08:00Z"));
       });
@@ -3041,7 +3041,7 @@ describe("node-saml /", function () {
           {
             message:
               "Unknown SAML issuer. Expected: foo Received: http://localhost:20000/saml2/idp/metadata.php",
-          }
+          },
         );
       });
       it("errors if request has expired", async function () {
@@ -3050,20 +3050,20 @@ describe("node-saml /", function () {
 
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "SAML assertion expired: clocks skewed too much" }
+          { message: "SAML assertion expired: clocks skewed too much" },
         );
       });
       it("errors if request has a bad signature", async function () {
         this.request.Signature = "foo";
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "Invalid query signature" }
+          { message: "Invalid query signature" },
         );
       });
       it("returns profile for valid signature including session index", async function () {
         const { profile } = await samlObj.validateRedirectAsync(
           this.request,
-          this.request.originalQuery
+          this.request.originalQuery,
         );
         expect(profile).to.deep.equal({
           ID: "_8f0effde308adfb6ae7f1e29b414957fc320f5636f",
@@ -3087,7 +3087,7 @@ describe("node-saml /", function () {
         });
         this.request = Object.assign(
           {},
-          JSON.parse(fs.readFileSync(__dirname + "/static/sp_slo_redirect.json", "utf8"))
+          JSON.parse(fs.readFileSync(__dirname + "/static/sp_slo_redirect.json", "utf8")),
         );
       });
       afterEach(async function () {
@@ -3106,22 +3106,22 @@ describe("node-saml /", function () {
           {
             message:
               "Unknown SAML issuer. Expected: foo Received: http://localhost:20000/saml2/idp/metadata.php",
-          }
+          },
         );
       });
       it("errors if unsuccessful", async function () {
         this.request = JSON.parse(
-          fs.readFileSync(__dirname + "/static/sp_slo_redirect_failure.json", "utf8")
+          fs.readFileSync(__dirname + "/static/sp_slo_redirect_failure.json", "utf8"),
         );
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester" }
+          { message: "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester" },
         );
       });
       it("errors if InResponseTo is not found", async function () {
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "InResponseTo is not valid" }
+          { message: "InResponseTo is not valid" },
         );
       });
       it("errors if bad signature", async function () {
@@ -3129,7 +3129,7 @@ describe("node-saml /", function () {
         this.request.Signature = "foo";
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "Invalid query signature" }
+          { message: "Invalid query signature" },
         );
       });
 
@@ -3137,7 +3137,7 @@ describe("node-saml /", function () {
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
         const { loggedOut } = await samlObj.validateRedirectAsync(
           this.request,
-          this.request.originalQuery
+          this.request.originalQuery,
         );
         expect(loggedOut).to.be.true;
       });
@@ -3145,12 +3145,12 @@ describe("node-saml /", function () {
       it("accepts cert without header and footer line", async function () {
         samlObj.options.cert = fs.readFileSync(
           __dirname + "/static/acme_tools_com_without_header_and_footer.cert",
-          "ascii"
+          "ascii",
         );
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
         const { loggedOut } = await samlObj.validateRedirectAsync(
           this.request,
-          this.request.originalQuery
+          this.request.originalQuery,
         );
         expect(loggedOut).to.be.true;
       });
