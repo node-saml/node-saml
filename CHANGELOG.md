@@ -1,5 +1,14 @@
 # Changelog
 
+## v4.0.4 (2023-04-11)
+
+#### 🔗 Dependencies:
+
+- [**security**][**javascript**] Bump xml2js from 0.4.23 to 0.5.0 [#268](https://github.com/node-saml/node-saml/pull/268)
+- [**javascript**] Bump xml-encryption from 3.0.1 to 3.0.2 [#236](https://github.com/node-saml/node-saml/pull/236)
+
+---
+
 ## v4.0.3 (2022-12-13)
 
 #### 🔗 Dependencies:
