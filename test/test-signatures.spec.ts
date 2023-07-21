@@ -10,10 +10,11 @@ const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
 describe("Signatures", function () {
   const INVALID_SIGNATURE = "Invalid signature";
-  const INVALID_DOCUMENT = "Malformed XML; multiple roots detected";
   const INVALID_DOCUMENT_SIGNATURE = "Invalid document signature";
   const INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion";
   const INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms";
+  const XMLDOM_ERROR =
+    "[xmldom error]\telement parse error: Error: Hierarchy request error: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
   const createBody = (pathToXml: string) => ({
     SAMLResponse: fs.readFileSync(__dirname + "/static/signatures" + pathToXml, "base64"),
@@ -71,11 +72,7 @@ describe("Signatures", function () {
   describe("Signatures - multiple roots are considered invalid", () => {
     it(
       "multiple roots => invalid",
-      testOneResponse(
-        "/invalid/response.root-signed.multiple-root-elements.xml",
-        INVALID_DOCUMENT,
-        0
-      )
+      testOneResponse("/invalid/response.root-signed.multiple-root-elements.xml", XMLDOM_ERROR, 0)
     );
   });
 
