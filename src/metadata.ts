@@ -1,23 +1,12 @@
-import { removeCertPEMHeaderAndFooter } from "../crypto";
-import { SamlOptions, isValidSamlSigningOptions, ServiceMetadataXML, XMLObject } from "../types";
-import { assertRequired, signXmlMetadata } from "../utility";
-import { buildXmlBuilderObject } from "../xml";
-
-interface GenerateServiceProviderMetadataParams {
-  decryptionCert?: string | null;
-  signingCerts?: string | string[] | null;
-  issuer: SamlOptions["issuer"];
-  callbackUrl: SamlOptions["callbackUrl"];
-  logoutCallbackUrl?: SamlOptions["logoutCallbackUrl"];
-  identifierFormat?: SamlOptions["identifierFormat"];
-  wantAssertionsSigned: SamlOptions["wantAssertionsSigned"];
-  decryptionPvk?: SamlOptions["decryptionPvk"];
-  privateKey?: SamlOptions["privateKey"];
-  signatureAlgorithm?: SamlOptions["signatureAlgorithm"];
-  xmlSignatureTransforms?: SamlOptions["xmlSignatureTransforms"];
-  digestAlgorithm?: SamlOptions["digestAlgorithm"];
-  signMetadata?: SamlOptions["signMetadata"];
-}
+import { removeCertPEMHeaderAndFooter } from "./crypto";
+import {
+  isValidSamlSigningOptions,
+  ServiceMetadataXML,
+  XMLObject,
+  GenerateServiceProviderMetadataParams,
+} from "./types";
+import { assertRequired, signXmlMetadata } from "./utility";
+import { buildXmlBuilderObject } from "./xml";
 
 export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams
@@ -30,6 +19,9 @@ export const generateServiceProviderMetadata = (
     wantAssertionsSigned,
     decryptionPvk,
     privateKey,
+    metadataContactPerson,
+    metadataOrganization,
+    generateUniqueId,
   } = params;
 
   let { signingCerts, decryptionCert } = params;
@@ -60,10 +52,13 @@ export const generateServiceProviderMetadata = (
       "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
       "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
       "@entityID": issuer,
-      "@ID": issuer.replace(/\W/g, "_"),
+      "@ID": generateUniqueId(),
       SPSSODescriptor: {
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
+        "@AuthnRequestsSigned": "false",
       },
+      ...(metadataContactPerson ? { ContactPerson: metadataContactPerson } : {}),
+      ...(metadataOrganization ? { Organization: metadataOrganization } : {}),
     },
   };
 
