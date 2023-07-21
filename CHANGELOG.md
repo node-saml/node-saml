@@ -1,6 +1,45 @@
 # Changelog
 
-## master (2022-09-10)
+## 4.0.0-beta.6 (2022-10-13)
+
+#### ⚙️ Technical Tasks:
+
+- Update changelog build tools [#189](https://github.com/node-saml/node-saml/pull/189)
+
+---
+
+## v4.0.0-beta.5 (2022-10-11)
+
+#### 💣 Major Changes:
+
+- Require all assertions be signed; add option to disable [#177](https://github.com/node-saml/node-saml/pull/177)
+- Add option to require a document signature. [#83](https://github.com/node-saml/node-saml/pull/83)
+
+#### 🔗 Dependencies:
+
+- [**javascript**] Bump node-fetch and release-it [#187](https://github.com/node-saml/node-saml/pull/187)
+- [**javascript**] Bump parse-url and release-it [#176](https://github.com/node-saml/node-saml/pull/176)
+- [**javascript**] Bump @typescript-eslint/parser from 5.36.2 to 5.40.0 [#186](https://github.com/node-saml/node-saml/pull/186)
+- [**javascript**] Bump prettier-plugin-packagejson from 2.2.18 to 2.3.0 [#185](https://github.com/node-saml/node-saml/pull/185)
+- [**javascript**] Bump @types/passport from 1.0.9 to 1.0.11 [#182](https://github.com/node-saml/node-saml/pull/182)
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.36.2 to 5.38.1 [#183](https://github.com/node-saml/node-saml/pull/183)
+- [**javascript**] Bump typescript from 4.8.3 to 4.8.4 [#181](https://github.com/node-saml/node-saml/pull/181)
+- [**github_actions**] Bump codecov/codecov-action from 3.1.0 to 3.1.1 [#180](https://github.com/node-saml/node-saml/pull/180)
+- [**javascript**] Bump vm2 from 3.9.10 to 3.9.11 [#179](https://github.com/node-saml/node-saml/pull/179)
+
+#### 🐛 Bug Fixes:
+
+- [**security**] Fix CVE-2022-39300 [GHSA-5p8w-2mvw-38pv](https://github.com/node-saml/passport-saml/security/advisories/ GHSA-5p8w-2mvw-38pv)
+
+#### ⚙️ Technical Tasks:
+
+- Clean up signature tests [#178](https://github.com/node-saml/node-saml/pull/178)
+- Remove some usage of `any` type [#175](https://github.com/node-saml/node-saml/pull/175)
+- Add prerelease script [#174](https://github.com/node-saml/node-saml/pull/174)
+
+---
+
+## v4.0.0-beta.4 (2022-09-10)
 
 #### 🚀 Minor Changes:
 
@@ -46,6 +85,7 @@
 
 #### 📚 Documentation:
 
+- Changelog [#173](https://github.com/node-saml/node-saml/pull/173)
 - Remove insecure clockSkew recommendation [#151](https://github.com/node-saml/node-saml/pull/151)
 - Update badges for scoped package [#93](https://github.com/node-saml/node-saml/pull/93)
 
@@ -74,38 +114,43 @@
 
 #### 🚀 Minor Changes:
 
-- Migrate from "should" to "chai" [#41](https://github.com/node-saml/node-saml/pull/41)
 - Support multiple Assertion SubjectConfirmation [#43](https://github.com/node-saml/node-saml/pull/43)
 - Extend available options for NameIDPolicy attributes [#67](https://github.com/node-saml/node-saml/pull/67)
+- Migrate from "should" to "chai" [#41](https://github.com/node-saml/node-saml/pull/41)
 
 #### 🔗 Dependencies:
 
-- Support Node 18 [#68](https://github.com/node-saml/node-saml/pull/68)
-- [**security**] Upgrade xml-encryption to 2.0.0 (fixes audit issue) [#44](https://github.com/node-saml/node-saml/pull/44)
 - Bump npm from 8.6.0 to 8.11.0 [#88](https://github.com/node-saml/node-saml/pull/88)
 - Update dependencies [#81](https://github.com/node-saml/node-saml/pull/81)
 - Update dependencies [#75](https://github.com/node-saml/node-saml/pull/75)
 - Move dependency types next to dependencies [#73](https://github.com/node-saml/node-saml/pull/73)
 - Remove unused `qs` types [#72](https://github.com/node-saml/node-saml/pull/72)
 - Remove unused request dependency [#71](https://github.com/node-saml/node-saml/pull/71)
+- Support Node 18 [#68](https://github.com/node-saml/node-saml/pull/68)
+- [**security**] Upgrade xml-encryption to 2.0.0 (fixes audit issue) [#44](https://github.com/node-saml/node-saml/pull/44)
 
 #### 🐛 Bug Fixes:
 
+- [**security**] Address polynomial regular expression used on uncontrolled data [#79](https://github.com/node-saml/node-saml/pull/79)
+- Fix issues with cache provider potentially returning expired keys [#59](https://github.com/node-saml/node-saml/pull/59)
 - Correctly reset Sinon fake timers [#60](https://github.com/node-saml/node-saml/pull/60)
 - Correct carriage-return entity handling [#38](https://github.com/node-saml/node-saml/pull/38)
 - Make Issuer Required in the Types Too (like it is at runtime) [#90](https://github.com/node-saml/node-saml/pull/90)
 - Bypass for InResponseTo [#87](https://github.com/node-saml/node-saml/pull/87)
 - Fix broken request tests [#86](https://github.com/node-saml/node-saml/pull/86)
-- [**security**] Address polynomial regular expression used on uncontrolled data [#79](https://github.com/node-saml/node-saml/pull/79)
-- Fix issues with cache provider potentially returning expired keys [#59](https://github.com/node-saml/node-saml/pull/59)
 
 #### 📚 Documentation:
 
-- Correct several typos in documentation [#39](https://github.com/node-saml/node-saml/pull/39)
 - Add codecov and DeepScan badges [#76](https://github.com/node-saml/node-saml/pull/76)
+- Correct several typos in documentation [#39](https://github.com/node-saml/node-saml/pull/39)
 
 #### ⚙️ Technical Tasks:
 
+- Move to NPM organization [#91](https://github.com/node-saml/node-saml/pull/91)
+- Factor out metadata routines [#78](https://github.com/node-saml/node-saml/pull/78)
+- Clear up ambiguous branch [#80](https://github.com/node-saml/node-saml/pull/80)
+- Tighten `any` type [#77](https://github.com/node-saml/node-saml/pull/77)
+- Add code coverage [#74](https://github.com/node-saml/node-saml/pull/74)
 - Clean up exception messages and related tests [#69](https://github.com/node-saml/node-saml/pull/69)
 - Saml options typing [#66](https://github.com/node-saml/node-saml/pull/66)
 - Stop using import assignments [#65](https://github.com/node-saml/node-saml/pull/65)
@@ -125,11 +170,6 @@
 - Enable `assertRequired` to type narrow [#62](https://github.com/node-saml/node-saml/pull/62)
 - Simplify configs for compilation and release [#92](https://github.com/node-saml/node-saml/pull/92)
 - [Split saml.ts #1] Move getAdditionalParams out of saml.ts [#32](https://github.com/node-saml/node-saml/pull/32)
-- Move to NPM organization [#91](https://github.com/node-saml/node-saml/pull/91)
-- Factor out metadata routines [#78](https://github.com/node-saml/node-saml/pull/78)
-- Clear up ambiguous branch [#80](https://github.com/node-saml/node-saml/pull/80)
-- Tighten `any` type [#77](https://github.com/node-saml/node-saml/pull/77)
-- Add code coverage [#74](https://github.com/node-saml/node-saml/pull/74)
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "name": "@node-saml/node-saml",
-  "version": "4.0.0-beta.5",
+  "version": "4.0.0-beta.6",
   "description": "SAML 2.0 implementation for Node.js",
   "keywords": [
     "saml",
@@ -43,7 +43,7 @@
     "prettier-check": "prettier --config .prettierrc.json --check .",
     "prettier-format": "prettier --config .prettierrc.json --write .",
     "prettier-watch": "onchange -k -p 100 \".\" -- prettier --config .prettierrc.json --write {{file}}",
-    "prerelease": "npm ci && npm test && npm run build",
+    "prerelease": "git clean -xfd && npm ci && npm test && npm run build",
     "release": "release-it",
     "test": "npm run prettier-check && npm run lint && npm run tsc && nyc mocha",
     "test-watch": "mocha --watch",
@@ -65,7 +65,7 @@
     "xmlbuilder": "^15.1.1"
   },
   "devDependencies": {
-    "@cjbarth/github-release-notes": "^2.0.0",
+    "@cjbarth/github-release-notes": "^2.1.0",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@types/chai": "^4.3.3",
     "@types/mocha": "^9.1.1",
