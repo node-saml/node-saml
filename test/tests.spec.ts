@@ -1946,6 +1946,34 @@ describe("node-saml /", function () {
           expect(samlObjValidComparisonType.options.racComparison).to.equal(racComparison);
         });
       });
+
+      it("should check the value of the option `validateInResponseTo`", function () {
+        expect(() => {
+          new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            validateInResponseTo: "bad_value" as ValidateInResponseTo,
+            cert: FAKE_CERT,
+            issuer: "onesaml_login",
+          }).options;
+        }).to.throw("validateInResponseTo must be one of ['never', 'ifPresent', 'always']");
+
+        const validInResponseToTypes: string[] = Object.keys(ValidateInResponseTo);
+        let samlObjValidInResponseToType: SAML;
+        validInResponseToTypes.forEach(function (validateInResponseTo) {
+          samlObjValidInResponseToType = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            validateInResponseTo: validateInResponseTo as ValidateInResponseTo,
+            cert: FAKE_CERT,
+            issuer: "onesaml_login",
+          });
+          expect(samlObjValidInResponseToType.options.validateInResponseTo).to.equal(
+            validateInResponseTo,
+          );
+          expect(samlObjValidInResponseToType.options.validateInResponseTo).to.equal(
+            validateInResponseTo,
+          );
+        });
+      });
     });
 
     describe("getAuthorizeMessageAsync checks /", function () {

@@ -150,6 +150,10 @@ class SAML {
       racComparison: ctorOptions.racComparison ?? "exact",
     };
 
+    if (!Object.values(ValidateInResponseTo).includes(options.validateInResponseTo)) {
+      throw new TypeError("validateInResponseTo must be one of ['never', 'ifPresent', 'always']");
+    }
+
     /**
      * List of possible values:
      * - exact : Assertion context must exactly match a context in the list
