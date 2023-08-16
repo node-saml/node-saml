@@ -224,7 +224,10 @@ class SAML {
     }
 
     if (!this.options.disableRequestAcsUrl) {
-      request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = this.options.callbackUrl;
+      const callbackUrl = Array.isArray(this.options.callbackUrl)
+        ? this.options.callbackUrl[0]
+        : this.options.callbackUrl;
+      request["samlp:AuthnRequest"]["@AssertionConsumerServiceURL"] = callbackUrl;
     }
 
     const samlAuthnRequestExtensions = this.options.samlAuthnRequestExtensions;

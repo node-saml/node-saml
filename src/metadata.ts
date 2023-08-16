@@ -2,7 +2,6 @@ import { stripPemHeaderAndFooter } from "./crypto";
 import {
   isValidSamlSigningOptions,
   ServiceMetadataXML,
-  XMLObject,
   GenerateServiceProviderMetadataParams,
 } from "./types";
 import { assertRequired, signXmlMetadata } from "./utility";
@@ -129,12 +128,15 @@ export const generateServiceProviderMetadata = (
     metadata.EntityDescriptor.SPSSODescriptor["@WantAssertionsSigned"] = true;
   }
 
-  metadata.EntityDescriptor.SPSSODescriptor.AssertionConsumerService = {
-    "@index": "1",
-    "@isDefault": "true",
-    "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-    "@Location": callbackUrl,
-  } as XMLObject;
+  const callbackUrls = Array.isArray(callbackUrl) ? callbackUrl : [callbackUrl];
+  metadata.EntityDescriptor.SPSSODescriptor.AssertionConsumerService = callbackUrls.map(
+    (url, index) => ({
+      "@index": String(index + 1),
+      "@isDefault": index === 0 ? "true" : "false",
+      "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
+      "@Location": url,
+    }),
+  );
 
   let metadataXml = buildXmlBuilderObject(metadata, true);
   if (params.signMetadata === true && isValidSamlSigningOptions(params)) {

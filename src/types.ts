@@ -141,7 +141,7 @@ export enum ValidateInResponseTo {
  */
 export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlOptions {
   // Core
-  callbackUrl: string;
+  callbackUrl: string | string[];
   entryPoint?: string;
   decryptionPvk?: string | Buffer;
 

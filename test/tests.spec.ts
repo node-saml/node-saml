@@ -499,6 +499,26 @@ describe("node-saml /", function () {
         testMetadata(samlConfig, expectedMetadata);
       });
 
+      it("config with multiple callbackUrl should pass", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: [
+            "http://example.serviceprovider.com/saml/callback",
+            "http://other.serviceprovider.com/saml/callback",
+          ],
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          cert: FAKE_CERT,
+          generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
+        };
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected metadata with multiple callback urls.xml",
+          "utf-8",
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
+      });
+
       it("config with protocol, path, and host should pass", function () {
         const samlConfig: SamlConfig = {
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
