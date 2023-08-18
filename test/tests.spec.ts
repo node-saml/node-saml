@@ -2875,6 +2875,18 @@ describe("node-saml /", function () {
         );
       });
 
+      it("errors if expired", async () => {
+        const body = {
+          SAMLRequest: fs.readFileSync(
+            __dirname + "/static/logout_request_with_bad_expiration.xml",
+            "base64",
+          ),
+        };
+        await assert.rejects(samlObj.validatePostRequestAsync(body), {
+          message: "SAML assertion expired: clocks skewed too much",
+        });
+      });
+
       it("returns true for valid signature", async function () {
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
         const { loggedOut } = await samlObj.validateRedirectAsync(
