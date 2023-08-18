@@ -1265,6 +1265,7 @@ class SAML {
     dom: Document,
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const request = doc.LogoutRequest;
+    this.verifyLogoutRequest(doc);
     if (request) {
       const profile = {} as Profile;
       if (request.$.ID) {
