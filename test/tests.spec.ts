@@ -2599,7 +2599,7 @@ describe("node-saml /", function () {
       const body = {
         SAMLRequest: fs.readFileSync(
           __dirname + "/static/logout_request_with_bad_expiration.xml",
-          "base64",
+          "base64"
         ),
       };
       await assert.rejects(samlObj.validatePostRequestAsync(body), {
