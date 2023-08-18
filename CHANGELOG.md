@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.0.5 (2023-08-18)
+
+#### 🐛 Bug Fixes:
+
+- [**security**] Fix CVE-2023-40178 [GHSA-vx8m-6fhw-pccw](https://github.com/node-saml/node-saml/security/advisories/GHSA-vx8m-6fhw-pccw)
+
+---
+
 ## v4.0.4 (2023-04-11)
 
 #### 🔗 Dependencies:
@@ -111,7 +119,7 @@
 
 #### 🐛 Bug Fixes:
 
-- [**security**] Fix CVE-2022-39300 [GHSA-5p8w-2mvw-38pv](https://github.com/node-saml/passport-saml/security/advisories/ GHSA-5p8w-2mvw-38pv)
+- [**security**] Fix CVE-2022-39300 [GHSA-5p8w-2mvw-38pv](https://github.com/node-saml/node-saml/security/advisories/GHSA-5p8w-2mvw-38pv)
 
 #### ⚙️ Technical Tasks:
 
