@@ -2599,7 +2599,7 @@ describe("node-saml /", function () {
       const body = {
         SAMLRequest: fs.readFileSync(
           __dirname + "/static/logout_request_with_bad_expiration.xml",
-          "base64",
+          "base64"
         ),
       };
       await assert.rejects(samlObj.validatePostRequestAsync(body), {
@@ -2885,18 +2885,6 @@ describe("node-saml /", function () {
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
           { message: "Invalid query signature" }
         );
-      });
-
-      it("errors if expired", async () => {
-        const body = {
-          SAMLRequest: fs.readFileSync(
-            __dirname + "/static/logout_request_with_bad_expiration.xml",
-            "base64"
-          ),
-        };
-        await assert.rejects(samlObj.validatePostRequestAsync(body), {
-          message: "SAML assertion expired: clocks skewed too much",
-        });
       });
 
       it("returns true for valid signature", async function () {
