@@ -448,5 +448,19 @@ describe("saml.ts", function () {
         );
       });
     });
+    describe("initialize", function () {
+      it("should throw a error when SamlOptions is not set", function () {
+        expect(() => {
+          const samlObj = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            cert: FAKE_CERT,
+            issuer: "onesaml_login",
+            audience: false,
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          samlObj.initialize(undefined as any);
+        }).to.throw("SamlOptions required on construction");
+      });
+    });
   });
 });
