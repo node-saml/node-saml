@@ -57,8 +57,8 @@ export const generateServiceProviderMetadata = (
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
         "@AuthnRequestsSigned": "false",
       },
-      ...(metadataContactPerson ? { ContactPerson: metadataContactPerson } : {}),
       ...(metadataOrganization ? { Organization: metadataOrganization } : {}),
+      ...(metadataContactPerson ? { ContactPerson: metadataContactPerson } : {}),
     },
   };
 
