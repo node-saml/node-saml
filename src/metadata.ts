@@ -7,6 +7,7 @@ import {
 } from "./types";
 import { assertRequired, signXmlMetadata } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
+import { generateUniqueId as generateUniqueIdDefault } from "./crypto";
 
 export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,
@@ -16,12 +17,12 @@ export const generateServiceProviderMetadata = (
     callbackUrl,
     logoutCallbackUrl,
     identifierFormat,
-    wantAssertionsSigned,
+    wantAssertionsSigned = true,
     decryptionPvk,
     privateKey,
     metadataContactPerson,
     metadataOrganization,
-    generateUniqueId,
+    generateUniqueId = generateUniqueIdDefault,
   } = params;
 
   let { signingCerts, decryptionCert } = params;
