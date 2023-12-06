@@ -16,12 +16,13 @@ export const generateServiceProviderMetadata = (
     issuer,
     callbackUrl,
     logoutCallbackUrl,
-    identifierFormat,
-    wantAssertionsSigned = true,
     decryptionPvk,
     privateKey,
     metadataContactPerson,
     metadataOrganization,
+    // The below defaults are selected to match the defaults in the `SAML` class.
+    identifierFormat = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+    wantAssertionsSigned = true,
     generateUniqueId = generateUniqueIdDefault,
   } = params;
 
