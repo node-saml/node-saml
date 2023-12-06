@@ -1,4 +1,5 @@
 import { SAML } from "./saml";
+import { generateServiceProviderMetadata } from "./metadata";
 import {
   CacheItem,
   CacheProvider,
@@ -18,6 +19,7 @@ import {
 
 export {
   SAML,
+  generateServiceProviderMetadata,
   CacheItem,
   CacheProvider,
   SamlOptions,
