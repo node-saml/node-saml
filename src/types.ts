@@ -84,6 +84,7 @@ export type CertCallback = (
 export interface MandatorySamlOptions {
   cert: string | string[] | CertCallback;
   issuer: string;
+  callbackUrl: string;
 }
 
 export interface SamlIDPListConfig {
@@ -141,7 +142,6 @@ export enum ValidateInResponseTo {
  */
 export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlOptions {
   // Core
-  callbackUrl: string;
   entryPoint?: string;
   decryptionPvk?: string | Buffer;
 
