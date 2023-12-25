@@ -1226,16 +1226,12 @@ class SAML {
         if (!restriction.Audience || !restriction.Audience[0] || !restriction.Audience[0]._) {
           return new Error("SAML assertion AudienceRestriction has no Audience value");
         }
-        const receivedAudiences: XMLValue[] = [];
-        if (!restriction.Audience.some((audience) => {
-          receivedAudiences.push(audience._);
-          return audience._ === expectedAudience;
-        })) {
+        if (!restriction.Audience.some(audience => audience._ === expectedAudience)) {
           return new Error(
             "SAML assertion audience mismatch. Expected: " +
               expectedAudience +
               " Received: " +
-              receivedAudiences.join(", "),
+              restriction.Audience.map(_ => _._).join(", "),
           );
         }
         return null;
