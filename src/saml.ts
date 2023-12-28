@@ -1231,7 +1231,7 @@ class SAML {
             "SAML assertion audience mismatch. Expected: " +
               expectedAudience +
               " Received: " +
-              restriction.Audience.map(_ => _._).join(", "),
+              restriction.Audience.map(audience => audience._).join(", "),
           );
         }
         return null;
