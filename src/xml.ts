@@ -123,15 +123,14 @@ const validateXmlSignatureWithPemFile = (
   currentNode: Element,
 ): boolean => {
   const sig = new xmlCrypto.SignedXml();
-  sig.keyInfoProvider = {
-    getKeyInfo: () => "<X509Data></X509Data>",
-    getKey: () => Buffer.from(pemFile),
-  };
+  sig.getCertFromKeyInfo = xmlCrypto.SignedXml.getCertFromKeyInfo;
   sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we
   //   are validating, so if we see anything else, reject.
-  if (sig.references.length != 1) return false;
-  const refUri = sig.references[0].uri;
+  if (sig.getReferences().length !== 1) return false;
+  const t = sig.getReferences();
+  const refUri = t[0].uri;
+  // const refUri = sig.references[0].uri;
   assertRequired(refUri, "signature reference uri not found");
   const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
   // If we can't find the reference at the top level, reject
@@ -172,8 +171,12 @@ export const signXml = (
   if (options.signatureAlgorithm != null) {
     sig.signatureAlgorithm = algorithms.getSigningAlgorithm(options.signatureAlgorithm);
   }
-  sig.addReference(xpath, transforms, algorithms.getDigestAlgorithm(options.digestAlgorithm));
-  sig.signingKey = options.privateKey;
+  sig.addReference({
+    xpath,
+    transforms,
+    digestAlgorithm: algorithms.getDigestAlgorithm(options.digestAlgorithm),
+  });
+  sig.privateKey = options.privateKey;
   sig.computeSignature(xml, {
     location,
   });
