@@ -8,6 +8,7 @@ import {
 import { assertRequired, signXmlMetadata } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
 import { generateUniqueId as generateUniqueIdDefault } from "./crypto";
+import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
 export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,
@@ -20,9 +21,9 @@ export const generateServiceProviderMetadata = (
     privateKey,
     metadataContactPerson,
     metadataOrganization,
-    // The below defaults are selected to match the defaults in the `SAML` class.
-    identifierFormat = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-    wantAssertionsSigned = true,
+    identifierFormat = DEFAULT_IDENTIFIER_FORMAT,
+    wantAssertionsSigned = DEFAULT_WANT_ASSERTIONS_SIGNED,
+    // This matches the default used in the `SAML` class.
     generateUniqueId = generateUniqueIdDefault,
   } = params;
 

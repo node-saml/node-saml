@@ -172,8 +172,8 @@ The underlying `generateServiceProviderMetadata` function is also exported direc
 const { generateServiceProviderMetadata } = require("@node-saml/node-saml");
 
 const metadata = generateServiceProviderMetadata({
-  issuer: 'https://example.com',
-  callbackUrl: 'https://example.com/callback',
+  issuer: "https://example.com",
+  callbackUrl: "https://example.com/callback",
 });
 ```
 
