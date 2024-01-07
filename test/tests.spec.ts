@@ -1445,7 +1445,10 @@ describe("node-saml /", function () {
 
           const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
           const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-          const signedXml = signXmlResponse(xml, { privateKey: signingKey });
+          const signedXml = signXmlResponse(xml, {
+            privateKey: signingKey,
+            signatureAlgorithm: "sha1",
+          });
 
           const base64xml = Buffer.from(signedXml).toString("base64");
           const container = { SAMLResponse: base64xml };
@@ -1521,7 +1524,10 @@ describe("node-saml /", function () {
 
           const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
           const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-          const signedXml = signXmlResponse(xml, { privateKey: signingKey });
+          const signedXml = signXmlResponse(xml, {
+            privateKey: signingKey,
+            signatureAlgorithm: "sha1",
+          });
 
           const base64xml = Buffer.from(signedXml).toString("base64");
           const container = { SAMLResponse: base64xml };
@@ -2488,7 +2494,10 @@ describe("node-saml /", function () {
 
         const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-        const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
@@ -2578,7 +2587,10 @@ describe("node-saml /", function () {
 
         const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-        const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
@@ -2600,7 +2612,10 @@ describe("node-saml /", function () {
 
         const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-        const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
@@ -2669,7 +2684,10 @@ describe("node-saml /", function () {
 
         const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-        const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
@@ -2966,7 +2984,10 @@ describe("node-saml /", function () {
         "</saml2:AttributeStatement>" +
         "</saml2:Assertion>" +
         "</Response>";
-      const signedXml = signXmlResponse(xml, { privateKey: signingKey });
+      const signedXml = signXmlResponse(xml, {
+        privateKey: signingKey,
+        signatureAlgorithm: "sha1",
+      });
       const { profile } = await testSAMLObj.validatePostResponseAsync({
         SAMLResponse: Buffer.from(signedXml).toString("base64"),
       });

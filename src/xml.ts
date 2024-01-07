@@ -4,6 +4,7 @@ import * as xmlenc from "xml-encryption";
 import * as xmldom from "@xmldom/xmldom";
 import * as xml2js from "xml2js";
 import * as xmlbuilder from "xmlbuilder";
+import { select } from "xpath";
 import {
   isValidSamlSigningOptions,
   NameID,
@@ -22,7 +23,7 @@ const selectXPath = <T extends SelectedValue>(
   node: Node,
   xpath: string,
 ): T[] => {
-  const result = xmlCrypto.xpath(node, xpath);
+  const result = select(xpath, node);
   if (!guard(result)) {
     throw new Error("invalid xpath return type");
   }
@@ -123,7 +124,7 @@ const validateXmlSignatureWithPemFile = (
   currentNode: Element,
 ): boolean => {
   const sig = new xmlCrypto.SignedXml();
-  sig.getCertFromKeyInfo = xmlCrypto.SignedXml.getCertFromKeyInfo;
+  sig.publicCert = pemFile;
   sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we
   //   are validating, so if we see anything else, reject.
@@ -177,6 +178,7 @@ export const signXml = (
     digestAlgorithm: algorithms.getDigestAlgorithm(options.digestAlgorithm),
   });
   sig.privateKey = options.privateKey;
+  sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
   sig.computeSignature(xml, {
     location,
   });
