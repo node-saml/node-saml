@@ -3013,9 +3013,17 @@ describe("node-saml /", function () {
         "base64",
       ),
     };
-    await assert.rejects(samlObj.validatePostRequestAsync(body), {
-      message: "error:02000079:rsa routines::oaep decoding error",
-    });
+
+    if (process.versions.node.split(".")[0] >= "18") {
+      await assert.rejects(samlObj.validatePostRequestAsync(body), {
+        message: "error:02000079:rsa routines::oaep decoding error",
+      });
+    } else {
+      await assert.rejects(samlObj.validatePostRequestAsync(body), {
+        message:
+          "error:04099079:rsa routines:RSA_padding_check_PKCS1_OAEP_mgf1:oaep decoding error",
+      });
+    }
   });
 
   it("errors if bad privateKey to requestToURL", async () => {
@@ -3055,9 +3063,15 @@ describe("node-saml /", function () {
     const request =
       '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
 
-    await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-      message: "error:1E08010C:DECODER routines::unsupported",
-    });
+      if (process.versions.node.split(".")[0] >= "18") {
+        await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
+          message: "error:1E08010C:DECODER routines::unsupported",
+        });
+      } else {
+        await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
+          message: "error:0909006C:PEM routines:get_name:no start line",
+        });
+      }
   });
 
   describe("validateRedirect()", function () {
