@@ -4,7 +4,7 @@ import * as xmlenc from "xml-encryption";
 import * as xmldom from "@xmldom/xmldom";
 import * as xml2js from "xml2js";
 import * as xmlbuilder from "xmlbuilder";
-import { select } from "xpath";
+import { select, SelectReturnType } from "xpath";
 import {
   isValidSamlSigningOptions,
   NameID,
@@ -15,43 +15,30 @@ import {
 } from "./types";
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
+import * as isDomNode from "@xmldom/is-dom-node";
 
-type SelectedValue = string | number | boolean | Node;
-
-const selectXPath = <T extends SelectedValue>(
-  guard: (values: SelectedValue[]) => values is T[],
+const selectXPath = <T extends Node>(
+  guard: (values: SelectReturnType) => values is Array<T>,
   node: Node,
   xpath: string,
-): T[] => {
+): Array<T> => {
   const result = select(xpath, node);
   if (!guard(result)) {
-    throw new Error("invalid xpath return type");
+    throw new Error("Invalid xpath return type");
   }
   return result;
 };
 
-const attributesXPathTypeGuard = (values: SelectedValue[]): values is Attr[] => {
-  return values.every((value) => {
-    if (typeof value != "object") {
-      return false;
-    }
-    return typeof value.nodeType === "number" && value.nodeType === value.ATTRIBUTE_NODE;
-  });
-};
+const attributesXPathTypeGuard = (values: unknown): values is Array<Attr> =>
+  isDomNode.isArrayOfNodes(values) && values.every(isDomNode.isAttributeNode);
 
-const elementsXPathTypeGuard = (values: SelectedValue[]): values is Element[] => {
-  return values.every((value) => {
-    if (typeof value != "object") {
-      return false;
-    }
-    return typeof value.nodeType === "number" && value.nodeType === value.ELEMENT_NODE;
-  });
-};
+const elementsXPathTypeGuard = (values: unknown): values is Array<Element> =>
+  isDomNode.isArrayOfNodes(values) && values.every(isDomNode.isElementNode);
 
 export const xpath = {
-  selectAttributes: (node: Node, xpath: string): Attr[] =>
+  selectAttributes: (node: Node, xpath: string): Array<Attr> =>
     selectXPath(attributesXPathTypeGuard, node, xpath),
-  selectElements: (node: Node, xpath: string): Element[] =>
+  selectElements: (node: Node, xpath: string): Array<Element> =>
     selectXPath(elementsXPathTypeGuard, node, xpath),
 };
 
