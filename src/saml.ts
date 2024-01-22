@@ -1,5 +1,4 @@
 import Debug from "debug";
-const debug = Debug("node-saml");
 import * as zlib from "zlib";
 import * as crypto from "crypto";
 import { URL } from "url";
@@ -45,6 +44,7 @@ import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
 
+const debug = Debug("node-saml");
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 

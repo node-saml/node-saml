@@ -16,6 +16,9 @@ import {
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
 import * as isDomNode from "@xmldom/is-dom-node";
+import Debug from "debug";
+
+const debug = Debug("node-saml");
 
 const selectXPath = <T extends Node>(
   guard: (values: SelectReturnType) => values is Array<T>,
@@ -112,6 +115,8 @@ const validateXmlSignatureWithPemFile = (
 ): boolean => {
   const sig = new xmlCrypto.SignedXml();
   sig.publicCert = pemFile;
+  // Since we have a public cert, we don't want to trust the XML-included KeyInfo element
+  sig.getCertFromKeyInfo = () => null;
   sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we
   //   are validating, so if we see anything else, reject.
@@ -135,7 +140,13 @@ const validateXmlSignatureWithPemFile = (
     return false;
   }
   fullXml = normalizeNewlines(fullXml);
-  return sig.checkSignature(fullXml);
+
+  try {
+    return sig.checkSignature(fullXml);
+  } catch (err) {
+    debug("signature check resulted in an error: %s", err);
+    return false;
+  }
 };
 
 export const signXml = (
