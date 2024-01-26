@@ -32,7 +32,7 @@ describe("Signatures", function () {
 
   const testOneResponseBody = async (
     samlResponseBody: Record<string, string>,
-    shouldErrorWith: string | false | undefined,
+    shouldErrorWith: string | false,
     amountOfSignatureChecks = 1,
     options: Partial<SamlConfig> = {},
   ) => {
@@ -226,6 +226,17 @@ describe("Signatures", function () {
         2,
         {
           wantAuthnResponseSigned: false,
+        },
+      ),
+    );
+    it(
+      "R1A - root re-signed by attackers own private key and attacker's certificate placed to keyinfo",
+      testOneResponse(
+        "/invalid/response.root-resigned-by-attacker-assertion-unsigned-attackers-cert-at-keyinfo.xml",
+        INVALID_DOCUMENT_SIGNATURE,
+        1,
+        {
+          wantAssertionsSigned: false,
         },
       ),
     );

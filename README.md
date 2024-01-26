@@ -41,7 +41,7 @@ const saml = new SAML(options);
 - `cert`: the IDP's public signing certificate used to validate the signatures of the incoming SAML Responses, see [Security and signatures](#security-and-signatures)
 - `privateKey`: see [Security and signatures](#security-and-signatures).
 - `decryptionPvk`: optional private key that will be used to attempt to decrypt any encrypted assertions that are received
-- `signatureAlgorithm`: optionally set the signature algorithm for signing requests, valid values are 'sha1' (default), 'sha256', or 'sha512'
+- `signatureAlgorithm`: valid values are 'sha1', 'sha256', or 'sha512'
 - `digestAlgorithm`: optionally set the digest algorithm used to provide a digest for the signed data object, valid values are 'sha1' (default), 'sha256', or 'sha512'
 - `xmlSignatureTransforms`: optionally set an array of signature transforms to be used in HTTP-POST signatures. By default this is `[ 'http://www.w3.org/2000/09/xmldsig#enveloped-signature', 'http://www.w3.org/2001/10/xml-exc-c14n#' ]`
 - **Additional SAML behaviors**

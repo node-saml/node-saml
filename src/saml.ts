@@ -1,5 +1,4 @@
 import Debug from "debug";
-const debug = Debug("node-saml");
 import * as zlib from "zlib";
 import * as crypto from "crypto";
 import { URL } from "url";
@@ -46,6 +45,7 @@ import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
+const debug = Debug("node-saml");
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -1227,12 +1227,12 @@ class SAML {
         if (!restriction.Audience || !restriction.Audience[0] || !restriction.Audience[0]._) {
           return new Error("SAML assertion AudienceRestriction has no Audience value");
         }
-        if (restriction.Audience[0]._ !== expectedAudience) {
+        if (restriction.Audience.every((audience) => audience._ !== expectedAudience)) {
           return new Error(
             "SAML assertion audience mismatch. Expected: " +
               expectedAudience +
               " Received: " +
-              restriction.Audience[0]._,
+              restriction.Audience.map((audience) => audience._).join(", "),
           );
         }
         return null;
