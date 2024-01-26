@@ -115,8 +115,6 @@ const validateXmlSignatureWithPemFile = (
 ): boolean => {
   const sig = new xmlCrypto.SignedXml();
   sig.publicCert = pemFile;
-  // Since we have a public cert, we don't want to trust the XML-included KeyInfo element
-  sig.getCertFromKeyInfo = () => null;
   sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we
   //   are validating, so if we see anything else, reject.
