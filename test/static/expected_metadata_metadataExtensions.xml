@@ -41,13 +41,13 @@ nwtlCg==
     <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</NameIDFormat>
     <AssertionConsumerService index="1" isDefault="true" Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="http://example.serviceprovider.com/saml/callback"/>
   </SPSSODescriptor>
-  <ContactPerson contactType="support">
-    <GivenName>test</GivenName>
-    <EmailAddress>test@node-saml</EmailAddress>
-  </ContactPerson>
   <Organization>
     <OrganizationName xml:lang="en">node-saml</OrganizationName>
     <OrganizationDisplayName xml:lang="en">node-saml</OrganizationDisplayName>
     <OrganizationURL xml:lang="en">https://github.com/node-saml</OrganizationURL>
   </Organization>
+  <ContactPerson contactType="support">
+    <GivenName>test</GivenName>
+    <EmailAddress>test@node-saml</EmailAddress>
+  </ContactPerson>
 </EntityDescriptor>
