@@ -1445,7 +1445,10 @@ describe("node-saml /", function () {
 
           const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
           const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-          const signedXml = signXmlResponse(xml, { privateKey: signingKey });
+          const signedXml = signXmlResponse(xml, {
+            privateKey: signingKey,
+            signatureAlgorithm: "sha1",
+          });
 
           const base64xml = Buffer.from(signedXml).toString("base64");
           const container = { SAMLResponse: base64xml };
@@ -1521,7 +1524,10 @@ describe("node-saml /", function () {
 
           const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
           const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-          const signedXml = signXmlResponse(xml, { privateKey: signingKey });
+          const signedXml = signXmlResponse(xml, {
+            privateKey: signingKey,
+            signatureAlgorithm: "sha1",
+          });
 
           const base64xml = Buffer.from(signedXml).toString("base64");
           const container = { SAMLResponse: base64xml };
@@ -1566,13 +1572,14 @@ describe("node-saml /", function () {
           },
           cert: FAKE_CERT,
           generateUniqueId: () => "_12345678901234567890",
+          skipRequestCompression: true,
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
         expect(qry.Signature).to.equal(
-          "D161m5GVbOfRHk85GvhmQ48OoFZ6n8mJuddzCe0g1Zlh9cb3b4oMMk5RCsoaOBsA3ndRnCWF3YQb78rO/MRQ+HIxIt0JDrhBoyT7GXPIUvbM/B4cJEgbfFAYouKQIy1sPunlLaTNkRL4tArKK7r4W2WF6R0hydcN8aln8/+TlTUfIengvVuXGLdtW0wSt+1HK1PiwrhLtqFHxxq2XL0X6jBqMEYYjByLfZme3Sk6x6uPIW7zhJn6OXzXlLuH9ILxusexu7GaLpw7C5EUQW43R6vlTGw+bBmx+tC0fqaMLOUWHX/uISAAeWYCAGYA8cbRuqIWh/vnVifxF0CP2sf5Vg==",
+          "P+su6/H5Z46iEECgfBG5RxumoLx8liEuiPhkiqTrG6hlzTRpigCyh2bWUiFmdBJ3SNqkuPhTyCTBVESEkm3BGk6t2+OzZK2qxPkilMravtqu9Oxyz2bVexeh0MuzGPQnms84/ObdFmhj3kFjddhLGb4ju814aBdu1kWX1n1iUn3ltGymd19SrTTovfM9e48Q4TDj0Rsdn8js8ARSUOwEF+hDMZDc1MAK7iJJlzpyUNK57C3AmukWploTp20j/vc/kejlQ1Y1sAe+bdixYjHTpXgx/tXaQJeGbvz4bD8CwonNYtmLrBS4zDQDiYyR5oH4DNiErCeWgPfu5Z1tVhr0Dg==",
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1616,13 +1623,14 @@ describe("node-saml /", function () {
           },
           cert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "utf-8"),
           generateUniqueId: () => "_12345678901234567890",
+          skipRequestCompression: true,
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
-          "br4UPzZ/Oy/hvG7zMGZ041Lba5WDl/JqwDDf40yxxnYXWLdDY77RD5aE8+YK6BY7BbSkvQSNXFbBXPAITcRhyNCT+3JDfwXLDgOf3xvJOzkWHRO3DUi5IOJ9IdKT/Ted+HC0J9L/4W+VA0n+5v6Lrw83UDib57ICytLvW5jamFQE8pO/Z8fQzOpSbzTwf+Q8u5KYkXeg1+H2u6OJYBFVDYOWxOTuuujW8JccqlCleX9tXDJvx/I0tOkwwnIioh1X2xVHGPy1k1wndpf1eUZtjZ4uUMcwRyxt7YuAnV433DohO3WOm2sNehwOy2AO1DUlbFi6/zbqkRK3TrmD9Q+ZUQ==",
+          "fJ5AP361KcRPJ1w07ssQV0VqgSZoaCodpMohixCLnFDoTIexum4TziWc3Qjxid6efsaKPmkqC9yYCaP1ggiHKpGS4q8/XBmjbb19ifTZvvKcR7cNREVMdnYGPhmYXMtuRitpjRGQ4+lSg3lnR7g2Of8j0kmBHR1N/pE1mT7GpCftJMl0UwSgTkBc2yhkR6tofmQp7f85FUrDI0tsX5HDImLPBg26xLXOvAPMeMFpiLYsHZO6yp791ggtTB8DGVIMZUNS+ax9EBnwrMCzr99C9wIJKzD7TJ+7lexn3UYiK+Q7cf3pXw+K8bA3T2LD2Nqy+CgyJWBb+CznWy5jOywMdQ==",
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -1642,13 +1650,14 @@ describe("node-saml /", function () {
           },
           cert: FAKE_CERT,
           generateUniqueId: () => "_12345678901234567890",
+          skipRequestCompression: true,
         };
         const samlObj = new SAML(samlConfig);
         const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
-          "FL5f9hUYxXaCvr/HJOIKXvDlmWIQilsfcmETqwp8bXCnjEBS44uvEY+FhkYgrFOfaMXkAY+kd8rZ7CkP4SWnPxzhmHqdbBIyAdPpIOOHq7/VTqQXrprijtRBHTxrtOtxi3yOjskRz6ad8igokr9Ut3nlorvelZwtskJP/YsAE3v1CrL/bX3EGbepE3Bq5ehdHaNHxP+dwwhMJ6s5jxKLt5YU+vXohonM8fTBEPzbnQ1+0LK9GL3c6JfqNjjBvdWRXdyReRu+gCHisnrI68vBgCwy4VC9E4tg9JNLggtFkxNbhM8Bgu7eWlyhVLdWKKc1vwaDUOrYOimx6CfTXrAQvg==",
+          "Y+QepUbZULdIc6FERwalJ9cs1sMv50HIPeG+vQvD2AHACVR7VmBTwtGtVpHJ8X4JwpjRdI8EDo1zUf7oQr0dUa6uOqcGaM4asBcQNRn8d29X+Izkrf2+LKg1yzf6uDPEFWNaOe1Qw6s7/aW9PspiZdb+1D+2ViFxPzni88LhgYsQ8CqNataLgSmVftT+eLJQp3G/6wYDtXZKgcQXjoVj4vKmhH+OTgw+bGAmgMmbrovp239RxfUcQiffl8Vmv4nQDbL+Wed731I2wZp2eyltqE73httLMXgtJqyR1dSlOaRhdS8tvu8z40knH0mWAQ8kzVWsPka96Xd9dU7cff3F3A==",
         );
         expect(qry.customQueryStringParam).to.equal("CustomQueryStringParamValue");
       });
@@ -2488,7 +2497,10 @@ describe("node-saml /", function () {
 
         const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-        const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
@@ -2578,7 +2590,10 @@ describe("node-saml /", function () {
 
         const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-        const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
@@ -2600,7 +2615,10 @@ describe("node-saml /", function () {
 
         const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-        const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
@@ -2669,7 +2687,10 @@ describe("node-saml /", function () {
 
         const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
         const signingCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
-        const signedXml = signXmlResponse(unsignedXml, { privateKey: signingKey });
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
 
         const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
@@ -3017,7 +3038,10 @@ describe("node-saml /", function () {
         "</saml2:AttributeStatement>" +
         "</saml2:Assertion>" +
         "</Response>";
-      const signedXml = signXmlResponse(xml, { privateKey: signingKey });
+      const signedXml = signXmlResponse(xml, {
+        privateKey: signingKey,
+        signatureAlgorithm: "sha1",
+      });
       const { profile } = await testSAMLObj.validatePostResponseAsync({
         SAMLResponse: Buffer.from(signedXml).toString("base64"),
       });
@@ -3040,7 +3064,8 @@ describe("node-saml /", function () {
         "base64",
       ),
     };
-    if (process.versions.node.split(".")[0] === "18") {
+
+    if (process.versions.node.split(".")[0] >= "18") {
       await assert.rejects(samlObj.validatePostRequestAsync(body), {
         message: "error:02000079:rsa routines::oaep decoding error",
       });
@@ -3088,9 +3113,10 @@ describe("node-saml /", function () {
     });
     const request =
       '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
-    if (process.versions.node.split(".")[0] === "18") {
+
+    if (process.versions.node.split(".")[0] >= "18") {
       await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-        message: "Failed to read private key",
+        message: "error:1E08010C:DECODER routines::unsupported",
       });
     } else {
       await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
