@@ -4,6 +4,7 @@ import * as xmlenc from "xml-encryption";
 import * as xmldom from "@xmldom/xmldom";
 import * as xml2js from "xml2js";
 import * as xmlbuilder from "xmlbuilder";
+import { select, SelectReturnType } from "xpath";
 import {
   isValidSamlSigningOptions,
   NameID,
@@ -14,43 +15,33 @@ import {
 } from "./types";
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
+import * as isDomNode from "@xmldom/is-dom-node";
+import Debug from "debug";
 
-type SelectedValue = string | number | boolean | Node;
+const debug = Debug("node-saml");
 
-const selectXPath = <T extends SelectedValue>(
-  guard: (values: SelectedValue[]) => values is T[],
+const selectXPath = <T extends Node>(
+  guard: (values: SelectReturnType) => values is Array<T>,
   node: Node,
   xpath: string,
-): T[] => {
-  const result = xmlCrypto.xpath(node, xpath);
+): Array<T> => {
+  const result = select(xpath, node);
   if (!guard(result)) {
-    throw new Error("invalid xpath return type");
+    throw new Error("Invalid xpath return type");
   }
   return result;
 };
 
-const attributesXPathTypeGuard = (values: SelectedValue[]): values is Attr[] => {
-  return values.every((value) => {
-    if (typeof value != "object") {
-      return false;
-    }
-    return typeof value.nodeType === "number" && value.nodeType === value.ATTRIBUTE_NODE;
-  });
-};
+const attributesXPathTypeGuard = (values: unknown): values is Array<Attr> =>
+  isDomNode.isArrayOfNodes(values) && values.every(isDomNode.isAttributeNode);
 
-const elementsXPathTypeGuard = (values: SelectedValue[]): values is Element[] => {
-  return values.every((value) => {
-    if (typeof value != "object") {
-      return false;
-    }
-    return typeof value.nodeType === "number" && value.nodeType === value.ELEMENT_NODE;
-  });
-};
+const elementsXPathTypeGuard = (values: unknown): values is Array<Element> =>
+  isDomNode.isArrayOfNodes(values) && values.every(isDomNode.isElementNode);
 
 export const xpath = {
-  selectAttributes: (node: Node, xpath: string): Attr[] =>
+  selectAttributes: (node: Node, xpath: string): Array<Attr> =>
     selectXPath(attributesXPathTypeGuard, node, xpath),
-  selectElements: (node: Node, xpath: string): Element[] =>
+  selectElements: (node: Node, xpath: string): Array<Element> =>
     selectXPath(elementsXPathTypeGuard, node, xpath),
 };
 
@@ -123,15 +114,14 @@ const validateXmlSignatureWithPemFile = (
   currentNode: Element,
 ): boolean => {
   const sig = new xmlCrypto.SignedXml();
-  sig.keyInfoProvider = {
-    getKeyInfo: () => "<X509Data></X509Data>",
-    getKey: () => Buffer.from(pemFile),
-  };
+  sig.publicCert = pemFile;
   sig.loadSignature(signature);
   // We expect each signature to contain exactly one reference to the top level of the xml we
   //   are validating, so if we see anything else, reject.
-  if (sig.references.length != 1) return false;
-  const refUri = sig.references[0].uri;
+  if (sig.getReferences().length !== 1) return false;
+  const t = sig.getReferences();
+  const refUri = t[0].uri;
+  // const refUri = sig.references[0].uri;
   assertRequired(refUri, "signature reference uri not found");
   const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
   // If we can't find the reference at the top level, reject
@@ -148,7 +138,13 @@ const validateXmlSignatureWithPemFile = (
     return false;
   }
   fullXml = normalizeNewlines(fullXml);
-  return sig.checkSignature(fullXml);
+
+  try {
+    return sig.checkSignature(fullXml);
+  } catch (err) {
+    debug("signature check resulted in an error: %s", err);
+    return false;
+  }
 };
 
 export const signXml = (
@@ -172,8 +168,13 @@ export const signXml = (
   if (options.signatureAlgorithm != null) {
     sig.signatureAlgorithm = algorithms.getSigningAlgorithm(options.signatureAlgorithm);
   }
-  sig.addReference(xpath, transforms, algorithms.getDigestAlgorithm(options.digestAlgorithm));
-  sig.signingKey = options.privateKey;
+  sig.addReference({
+    xpath,
+    transforms,
+    digestAlgorithm: algorithms.getDigestAlgorithm(options.digestAlgorithm),
+  });
+  sig.privateKey = options.privateKey;
+  sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
   sig.computeSignature(xml, {
     location,
   });
