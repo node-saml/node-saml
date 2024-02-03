@@ -9,7 +9,7 @@ export function assertRequired<T>(value: T | null | undefined, error?: string): 
 
 export function assertBooleanIfPresent<T>(
   value: T | null | undefined,
-  error?: string
+  error?: string,
 ): asserts value {
   if (value != null && typeof value != "boolean") {
     throw new TypeError(error ?? "value is set but not boolean");
@@ -24,7 +24,7 @@ export function signXmlResponse(samlMessage: string, options: SamlSigningOptions
     samlMessage,
     responseXpath,
     { reference: responseXpath, action: "append" },
-    options
+    options,
   );
 }
 
@@ -36,6 +36,6 @@ export function signXmlMetadata(metadataXml: string, options: SamlSigningOptions
     metadataXml,
     metadataXpath,
     { reference: metadataXpath, action: "prepend" },
-    options
+    options,
   );
 }

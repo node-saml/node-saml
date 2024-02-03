@@ -16,7 +16,7 @@ export interface AuthOptions {
 }
 
 export const isValidSamlSigningOptions = (
-  options: Partial<SamlSigningOptions>
+  options: Partial<SamlSigningOptions>,
 ): options is SamlSigningOptions => {
   return options.privateKey != null;
 };
@@ -71,12 +71,12 @@ export type SamlAssertionXmlJs = {
 
 export type SamlStatusXmlJs = {
   Status: [
-    { StatusCode: [XmlJsObject & { StatusCode: [XmlJsObject] }]; StatusMessage: [XmlJsObject] }
+    { StatusCode: [XmlJsObject & { StatusCode: [XmlJsObject] }]; StatusMessage: [XmlJsObject] },
   ];
 };
 
 export type CertCallback = (
-  callback: (err: Error | null, cert?: string | string[]) => void
+  callback: (err: Error | null, cert?: string | string[]) => void,
 ) => void;
 
 /**
@@ -249,7 +249,10 @@ export interface Profile {
 }
 
 export class ErrorWithXmlStatus extends Error {
-  constructor(message: string, public readonly xmlStatus: string) {
+  constructor(
+    message: string,
+    public readonly xmlStatus: string,
+  ) {
     super(message);
   }
 }

@@ -154,11 +154,11 @@ describe("xml /", async function () {
       assert(
         evilCommentDoc.documentElement.firstChild?.textContent ===
           "admin@mycompany.com.evil-domain",
-        "Invalid XML comment parsing."
+        "Invalid XML comment parsing.",
       );
       assert(
         goodDoc.documentElement.firstChild?.textContent === "admin@mycompany.com",
-        "Invalid XML comment parsing."
+        "Invalid XML comment parsing.",
       );
     });
   });

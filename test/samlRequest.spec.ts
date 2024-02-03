@@ -113,7 +113,7 @@ describe("SAML request", function () {
         .then((formBody) => {
           expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
           const samlRequestMatchValues = formBody.match(
-            /<input.*name="SAMLRequest" value="([^"]*)"/
+            /<input.*name="SAMLRequest" value="([^"]*)"/,
           );
           assertRequired(samlRequestMatchValues?.[1]);
           const encodedSamlRequest = samlRequestMatchValues?.[1];
@@ -201,7 +201,7 @@ describe("SAML request", function () {
         .then((formBody) => {
           expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
           const samlRequestMatchValues = formBody.match(
-            /<input.*name="SAMLRequest" value="([^"]*)"/
+            /<input.*name="SAMLRequest" value="([^"]*)"/,
           );
           assertRequired(samlRequestMatchValues?.[1]);
           const encodedSamlRequest = samlRequestMatchValues?.[1];
@@ -293,7 +293,7 @@ describe("SAML request", function () {
         .then((formBody) => {
           expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
           const samlRequestMatchValues = formBody.match(
-            /<input.*name="SAMLRequest" value="([^"]*)"/
+            /<input.*name="SAMLRequest" value="([^"]*)"/,
           );
           assertRequired(samlRequestMatchValues?.[1]);
           const encodedSamlRequest = samlRequestMatchValues?.[1];
@@ -385,7 +385,7 @@ describe("SAML request", function () {
         .then((formBody) => {
           expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
           const samlRequestMatchValues = formBody.match(
-            /<input.*name="SAMLRequest" value="([^"]*)"/
+            /<input.*name="SAMLRequest" value="([^"]*)"/,
           );
           assertRequired(samlRequestMatchValues?.[1]);
           const encodedSamlRequest = samlRequestMatchValues?.[1];
@@ -417,7 +417,7 @@ describe("SAML request", function () {
       const samlMessage = await oSAML.getAuthorizeMessageAsync(
         "http://localhost/saml/consume",
         undefined,
-        { additionalParams: { foo: "bar" } }
+        { additionalParams: { foo: "bar" } },
       );
 
       assertRequired(samlMessage.SAMLRequest);
@@ -428,7 +428,7 @@ describe("SAML request", function () {
       const formBody = await oSAML.getAuthorizeFormAsync(
         "http://localhost/saml/consume",
         undefined,
-        { additionalParams: { foo: "bar" } }
+        { additionalParams: { foo: "bar" } },
       );
 
       expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
@@ -439,7 +439,7 @@ describe("SAML request", function () {
       const formBody = await oSAML.getAuthorizeFormAsync(
         "http://localhost/saml/consume",
         undefined,
-        {}
+        {},
       );
 
       expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
@@ -506,7 +506,7 @@ describe("SAML request", function () {
         .then((formBody) => {
           expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
           const samlRequestMatchValues = formBody.match(
-            /<input.*name="SAMLRequest" value="([^"]*)"/
+            /<input.*name="SAMLRequest" value="([^"]*)"/,
           );
           assertRequired(samlRequestMatchValues?.[1]);
           const encodedSamlRequest = samlRequestMatchValues?.[1];

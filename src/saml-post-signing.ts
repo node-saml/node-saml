@@ -9,7 +9,7 @@ const issuerXPath =
 export function signSamlPost(
   samlMessage: string,
   xpath: string,
-  options: SamlSigningOptions
+  options: SamlSigningOptions,
 ): string {
   return signXml(samlMessage, xpath, { reference: xpath + issuerXPath, action: "after" }, options);
 }

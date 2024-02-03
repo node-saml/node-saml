@@ -10,7 +10,10 @@ describe("SAML POST Signing", function () {
   it("should sign a simple saml request", async function () {
     const xml =
       '<SAMLRequest><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></SAMLRequest>';
-    const result = signSamlPost(xml, "/SAMLRequest", { privateKey: signingKey });
+    const result = signSamlPost(xml, "/SAMLRequest", {
+      privateKey: signingKey,
+      signatureAlgorithm: "sha1",
+    });
     const doc = await parseXml2JsFromString(result);
     expect(doc).to.deep.equal({
       SAMLRequest: {
@@ -67,7 +70,10 @@ describe("SAML POST Signing", function () {
   it("should place the Signature element after the Issuer element", async function () {
     const xml =
       '<SAMLRequest><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer><SomeOtherElement /></SAMLRequest>';
-    const result = signSamlPost(xml, "/SAMLRequest", { privateKey: signingKey });
+    const result = signSamlPost(xml, "/SAMLRequest", {
+      privateKey: signingKey,
+      signatureAlgorithm: "sha1",
+    });
     const doc = await parseXml2JsFromString(result);
     expect(doc).to.deep.equal({
       SAMLRequest: {
@@ -381,7 +387,10 @@ describe("SAML POST Signing", function () {
   it("should sign an AuthnRequest", async function () {
     const xml =
       '<AuthnRequest xmlns="urn:oasis:names:tc:SAML:2.0:protocol"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></AuthnRequest>';
-    const result = signAuthnRequestPost(xml, { privateKey: signingKey });
+    const result = signAuthnRequestPost(xml, {
+      privateKey: signingKey,
+      signatureAlgorithm: "sha1",
+    });
     const doc = await parseXml2JsFromString(result);
     expect(doc).to.deep.equal({
       AuthnRequest: {
