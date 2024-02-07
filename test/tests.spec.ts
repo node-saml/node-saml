@@ -3293,7 +3293,7 @@ describe("node-saml /", function () {
 
     it("matches metadata from SAML object", function () {
       const saml = new SAML({
-        cert: "no_cert_needed_for_metadata",
+        idpCert: "no_cert_needed_for_metadata",
         issuer: "https://www.example.com",
         callbackUrl: "https://www.example.com/callback",
         generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
