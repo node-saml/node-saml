@@ -164,6 +164,19 @@ The `decryptionCert` argument should be a public certificate matching the `decry
 
 The `signingCert` argument should be a public certificate matching the `privateKey` and is required if the strategy is configured with a `privateKey`. An array of certificates can be provided to support certificate rotation. When supplying an array of certificates, the first entry in the array should match the current `privateKey`. Additional entries in the array can be used to publish upcoming certificates to IdPs before changing the `privateKey`.
 
+### generateServiceProviderMetadata( params )
+
+The underlying `generateServiceProviderMetadata` function is also exported directly. This is useful if you want to generate metadata without creating a strategy object.
+
+```js
+const { generateServiceProviderMetadata } = require("@node-saml/node-saml");
+
+const metadata = generateServiceProviderMetadata({
+  issuer: "https://example.com",
+  callbackUrl: "https://example.com/callback",
+});
+```
+
 ## Security and signatures
 
 Node-SAML uses the HTTP Redirect Binding for its `AuthnRequest`s (unless overridden with the `authnRequestBinding` parameter), and expects to receive the messages back via the HTTP POST binding.

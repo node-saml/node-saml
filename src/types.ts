@@ -84,6 +84,7 @@ export type CertCallback = (
 export interface MandatorySamlOptions {
   cert: string | string[] | CertCallback;
   issuer: string;
+  callbackUrl: string;
 }
 
 export interface SamlIDPListConfig {
@@ -141,7 +142,6 @@ export enum ValidateInResponseTo {
  */
 export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlOptions {
   // Core
-  callbackUrl: string;
   entryPoint?: string;
   decryptionPvk?: string | Buffer;
 
@@ -216,7 +216,7 @@ export interface GenerateServiceProviderMetadataParams {
   callbackUrl: SamlOptions["callbackUrl"];
   logoutCallbackUrl?: SamlOptions["logoutCallbackUrl"];
   identifierFormat?: SamlOptions["identifierFormat"];
-  wantAssertionsSigned: SamlOptions["wantAssertionsSigned"];
+  wantAssertionsSigned?: SamlOptions["wantAssertionsSigned"];
   decryptionPvk?: SamlOptions["decryptionPvk"];
   privateKey?: SamlOptions["privateKey"];
   signatureAlgorithm?: SamlOptions["signatureAlgorithm"];
@@ -225,7 +225,7 @@ export interface GenerateServiceProviderMetadataParams {
   signMetadata?: SamlOptions["signMetadata"];
   metadataContactPerson?: SamlOptions["metadataContactPerson"];
   metadataOrganization?: SamlOptions["metadataOrganization"];
-  generateUniqueId: SamlOptions["generateUniqueId"];
+  generateUniqueId?: SamlOptions["generateUniqueId"];
 }
 
 export type SamlConfig = Partial<SamlOptions> & MandatorySamlOptions;

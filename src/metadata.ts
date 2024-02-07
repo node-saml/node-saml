@@ -7,6 +7,8 @@ import {
 } from "./types";
 import { assertRequired, signXmlMetadata } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
+import { generateUniqueId as generateUniqueIdDefault } from "./crypto";
+import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
 export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,
@@ -15,13 +17,14 @@ export const generateServiceProviderMetadata = (
     issuer,
     callbackUrl,
     logoutCallbackUrl,
-    identifierFormat,
-    wantAssertionsSigned,
     decryptionPvk,
     privateKey,
     metadataContactPerson,
     metadataOrganization,
-    generateUniqueId,
+    identifierFormat = DEFAULT_IDENTIFIER_FORMAT,
+    wantAssertionsSigned = DEFAULT_WANT_ASSERTIONS_SIGNED,
+    // This matches the default used in the `SAML` class.
+    generateUniqueId = generateUniqueIdDefault,
   } = params;
 
   let { signingCerts, decryptionCert } = params;

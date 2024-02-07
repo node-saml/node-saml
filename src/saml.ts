@@ -43,6 +43,7 @@ import { keyInfoToPem, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
+import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
 const debug = Debug("node-saml");
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
@@ -125,11 +126,11 @@ class SAML {
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
       identifierFormat:
         ctorOptions.identifierFormat === undefined
-          ? "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+          ? DEFAULT_IDENTIFIER_FORMAT
           : ctorOptions.identifierFormat,
       allowCreate: ctorOptions.allowCreate ?? true,
       spNameQualifier: ctorOptions.spNameQualifier,
-      wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? true,
+      wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? DEFAULT_WANT_ASSERTIONS_SIGNED,
       wantAuthnResponseSigned: ctorOptions.wantAuthnResponseSigned ?? true,
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
