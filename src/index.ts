@@ -13,7 +13,7 @@ import {
   SamlIDPListConfig,
   SamlIDPEntryConfig,
   SignatureAlgorithm,
-  CertCallback,
+  IdpCertCallback,
   AuthOptions,
 } from "./types";
 
@@ -32,6 +32,6 @@ export {
   SamlIDPListConfig,
   SamlIDPEntryConfig,
   SignatureAlgorithm,
-  CertCallback,
+  IdpCertCallback,
   AuthOptions,
 };

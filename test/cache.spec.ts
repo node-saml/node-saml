@@ -22,7 +22,7 @@ describe("Cache tests /", () => {
       callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onesaml_login",
     };
     const samlObj = new SAML(samlConfig);
@@ -43,7 +43,7 @@ describe("Cache tests /", () => {
       callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onesaml_login",
     };
     const samlObj = new SAML(samlConfig);
@@ -73,7 +73,7 @@ describe("Cache tests /", () => {
       callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onesaml_login",
     };
     const samlObj = new SAML(samlConfig);
@@ -102,7 +102,7 @@ describe("Cache tests /", () => {
       callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onesaml_login",
     };
     const samlObj = new SAML(samlConfig);
@@ -122,7 +122,7 @@ describe("Cache tests /", () => {
     const samlConfig: SamlConfig = {
       callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onesaml_login",
     };
     const samlObj = new SAML(samlConfig);
@@ -149,7 +149,7 @@ describe("Cache tests /", () => {
       callbackUrl: "http://localhost/saml/consume",
       validateInResponseTo: ValidateInResponseTo.always,
       requestIdExpirationPeriodMs,
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onesaml_login",
     };
     const samlObj = new SAML(samlConfig);

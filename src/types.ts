@@ -74,15 +74,15 @@ export type SamlStatusXmlJs = {
   ];
 };
 
-export type CertCallback = (
-  callback: (err: Error | null, cert?: string | string[]) => void,
+export type IdpCertCallback = (
+  callback: (err: Error | null, publicCert?: string | string[]) => void,
 ) => void;
 
 /**
  * These are SAML options that must be provided to construct a new SAML Strategy
  */
 export interface MandatorySamlOptions {
-  cert: string | string[] | CertCallback;
+  idpCert: string | string[] | IdpCertCallback;
   issuer: string;
   callbackUrl: string;
 }
@@ -211,7 +211,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
 
 export interface GenerateServiceProviderMetadataParams {
   decryptionCert?: string | null;
-  signingCerts?: string | string[] | null;
+  publicCerts?: string | string[] | null;
   issuer: SamlOptions["issuer"];
   callbackUrl: SamlOptions["callbackUrl"];
   logoutCallbackUrl?: SamlOptions["logoutCallbackUrl"];
