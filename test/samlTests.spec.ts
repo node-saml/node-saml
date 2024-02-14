@@ -5,7 +5,7 @@ import { URL } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
 import { SAML } from "../src/saml";
-import { AuthOptions, CertCallback } from "../src/types";
+import { AuthOptions, IdpCertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
@@ -18,7 +18,7 @@ describe("saml.ts", function () {
       () =>
         new SAML({
           passive: "false" as unknown as boolean,
-          cert: FAKE_CERT,
+          idpCert: FAKE_CERT,
           issuer: "issuer",
           callbackUrl: "callback",
         }),
@@ -38,11 +38,11 @@ describe("saml.ts", function () {
     });
 
     async function testResolveAndParseKeyInfosPemAsync(
-      cert: string | string[] | CertCallback,
+      idpCert: string | string[] | IdpCertCallback,
     ): Promise<string[]> {
       const samlObj = new SAML({
         callbackUrl: "http://localhost/saml/consume",
-        cert,
+        idpCert,
         issuer: "onesaml_login",
         audience: false,
       });
@@ -103,7 +103,7 @@ describe("saml.ts", function () {
     it("returns PEM files correctly if 'cert' is a callback which returns a PEM formatted certificate", async () => {
       const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
 
-      const cert: CertCallback = (cb) => {
+      const cert: IdpCertCallback = (cb) => {
         setTimeout(() => {
           cb(null, certificate);
         }, 0);
@@ -117,7 +117,7 @@ describe("saml.ts", function () {
     it("returns PEM files correctly if 'cert' is a callback which returns Array of PEM formatted certificates", async () => {
       const certificate = fs.readFileSync("./test/static/acme_tools_com.cert").toString();
 
-      const cert: CertCallback = (cb) => {
+      const cert: IdpCertCallback = (cb) => {
         setTimeout(() => {
           cb(null, [certificate, certificate]);
         }, 0);
@@ -130,7 +130,7 @@ describe("saml.ts", function () {
     });
 
     it("will fail if 'cert' is a callback which returns invalid value", async () => {
-      const cert: CertCallback = (cb) => {
+      const cert: IdpCertCallback = (cb) => {
         setTimeout(() => {
           cb(null, <never>null);
         }, 0);
@@ -164,7 +164,7 @@ describe("saml.ts", function () {
     it("calls 'resolveAndParseKeyInfosToPem()' to get key infos if 'cert' is not a function", async () => {
       const samlObj = new SAML({
         callbackUrl: "http://localhost/saml/consume",
-        cert: publicKey,
+        idpCert: publicKey,
         issuer: "onesaml_login",
         audience: false,
       });
@@ -176,7 +176,7 @@ describe("saml.ts", function () {
     it("returns cached key infos", async () => {
       const samlObj = new SAML({
         callbackUrl: "http://localhost/saml/consume",
-        cert: publicKey,
+        idpCert: publicKey,
         issuer: "onesaml_login",
         audience: false,
       });
@@ -190,12 +190,12 @@ describe("saml.ts", function () {
     });
 
     it("does not cache key infos if 'cert' is a function", async () => {
-      const cert: CertCallback = (cb) => {
+      const idpCert: IdpCertCallback = (cb) => {
         cb(null, [publicKey]);
       };
       const samlObj = new SAML({
         callbackUrl: "http://localhost/saml/consume",
-        cert,
+        idpCert,
         issuer: "onesaml_login",
         audience: false,
       });
@@ -219,7 +219,7 @@ describe("saml.ts", function () {
         callbackUrl: "http://localhost/saml/consume",
         entryPoint: "https://exampleidp.com/path?key=value",
         logoutUrl: "https://exampleidp.com/path?key=value",
-        cert: FAKE_CERT,
+        idpCert: FAKE_CERT,
         issuer: "onesaml_login",
         generateUniqueId: () => "uniqueId",
       });
@@ -453,7 +453,7 @@ describe("saml.ts", function () {
         expect(() => {
           const samlObj = new SAML({
             callbackUrl: "http://localhost/saml/consume",
-            cert: FAKE_CERT,
+            idpCert: FAKE_CERT,
             issuer: "onesaml_login",
             audience: false,
           });

@@ -6,7 +6,7 @@ import * as xml from "../src/xml";
 import * as assert from "assert";
 import { expect } from "chai";
 
-const cert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
+const idpCert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
 describe("Signatures", function () {
   const INVALID_SIGNATURE = "Invalid signature";
@@ -39,7 +39,7 @@ describe("Signatures", function () {
     //== Instantiate new instance before every test
     const samlObj = new SAML({
       callbackUrl: "http://localhost/saml/consume",
-      cert,
+      idpCert,
       issuer: options.issuer ?? "onesaml_login",
       audience: false,
       ...options,
@@ -100,7 +100,7 @@ describe("Signatures", function () {
     it(
       "R1A - both signed, verify using public key => valid",
       testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 2, {
-        cert: publicKey,
+        idpCert: publicKey,
       }),
     );
     it(
