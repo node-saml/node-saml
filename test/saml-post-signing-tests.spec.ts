@@ -447,10 +447,10 @@ describe("SAML POST Signing", function () {
   it("should sign an AuthnRequest and include Signature KeyInfo", async function () {
     const xml =
       '<AuthnRequest xmlns="urn:oasis:names:tc:SAML:2.0:protocol"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">http://example.com</saml2:Issuer></AuthnRequest>';
-    const signingCert = fs.readFileSync(__dirname + "/static/cert.pem").toString();
+    const publicCert = fs.readFileSync(__dirname + "/static/cert.pem").toString();
     const result = signAuthnRequestPost(xml, {
       privateKey: signingKey,
-      signingCert,
+      publicCert,
       signatureAlgorithm: "sha1",
     });
     const doc = await parseXml2JsFromString(result);
