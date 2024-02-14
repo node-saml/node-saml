@@ -38,7 +38,7 @@ const saml = new SAML(options);
 - `entryPoint`: identity provider entrypoint (is required to be spec-compliant when the request is signed)
 - `issuer`: issuer string to supply to identity provider
 - `audience`: expected saml response Audience, defaults to value of Issuer (if `false`, Audience won't be verified)
-- `cert`: the IDP's public signing certificate used to validate the signatures of the incoming SAML Responses, see [Security and signatures](#security-and-signatures)
+- `idpCert`: the IDP's public signing certificate used to validate the signatures of the incoming SAML Responses, see [Security and signatures](#security-and-signatures)
 - `privateKey`: see [Security and signatures](#security-and-signatures).
 - `signingCert`: the service provider's public signing certificate used to embed in AuthnRequest in order for the IDP to validate the signatures of the incoming SAML Request, see [Security and signatures](#security-and-signatures)
 - `decryptionPvk`: optional private key that will be used to attempt to decrypt any encrypted assertions that are received
@@ -157,13 +157,26 @@ metadataContactPerson:  [{
 // ContactPerson is an array because there can be multiple ContactPerson fields
 ```
 
-### generateServiceProviderMetadata( decryptionCert, signingCert )
+### generateServiceProviderMetadata( decryptionCert, publicCert )
 
 As a convenience, the strategy object exposes a `generateServiceProviderMetadata` method which will generate a service provider metadata document suitable for supplying to an identity provider.
 
 The `decryptionCert` argument should be a public certificate matching the `decryptionPvk` and is required if the strategy is configured with a `decryptionPvk`.
 
-The `signingCert` argument should be a public certificate matching the `privateKey` and is required if the strategy is configured with a `privateKey`. An array of certificates can be provided to support certificate rotation. When supplying an array of certificates, the first entry in the array should match the current `privateKey`. Additional entries in the array can be used to publish upcoming certificates to IdPs before changing the `privateKey`.
+The `publicCert` argument should be a public certificate matching the `privateKey` and is required if the strategy is configured with a `privateKey`. An array of certificates can be provided to support certificate rotation. When supplying an array of certificates, the first entry in the array should match the current `privateKey`. Additional entries in the array can be used to publish upcoming certificates to IdPs before changing the `privateKey`.
+
+### generateServiceProviderMetadata( params )
+
+The underlying `generateServiceProviderMetadata` function is also exported directly. This is useful if you want to generate metadata without creating a strategy object.
+
+```js
+const { generateServiceProviderMetadata } = require("@node-saml/node-saml");
+
+const metadata = generateServiceProviderMetadata({
+  issuer: "https://example.com",
+  callbackUrl: "https://example.com/callback",
+});
+```
 
 ## Security and signatures
 
@@ -213,42 +226,42 @@ or
 2. Alternatively, a single-line or multi-line private key in Base64 format.
    See example from tests of [single line private key](test/static/single_line_acme_tools_com.key).
 
-### Configuration option `cert`
+### Configuration option `idpCert`
 
 It is important to validate the signatures of the incoming SAML Responses.
 For this, provide the Identity Provider's public X.509 signing certificate(s) or public key(s) in [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` PEM format
-via the `cert` configuration property.
+via the `idpCert` configuration property.
 
 > **Important**, provided public key MUST always be in PEM format!
 
 Add it to options like this:
 
 ```javascript
-cert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
+idpCert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
 ```
 
 or
 
-If the Identity Provider has multiple signing certificates or public keys that are valid then the `cert` configuration property can be an array.
+If the Identity Provider has multiple signing certificates or public keys that are valid then the `idpCert` configuration property can be an array.
 This can be the case during the rolling from an old key to a new key and responses signed with either key are valid:
 
 ```javascript
-cert: ["MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==", "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g="];
+idpCert: ["MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==", "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g="];
 ```
 
 or
 
-The `cert` configuration property can also be a function that receives a callback as argument calls back a possible error and a certificate or array of certificates
+The `idpCert` configuration property can also be a function that receives a callback as argument calls back a possible error and a certificate or array of certificates
 or a public key or array of public keys.
 This allows the Identity Provider to be polled for valid certificates or public keys and the new certificate or public key can be used if it is changed:
 
 ```javascript
-cert: (callback) => {
+idpCert: (callback) => {
   callback(null, polledCertificates);
 };
 ```
 
-Example formats for `cert` field are,
+Example formats for `idpCert` field are,
 
 1. RFC7468 stricttextualmsg formatted PEM:
 

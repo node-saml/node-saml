@@ -1,4 +1,5 @@
 import { SAML } from "./saml";
+import { generateServiceProviderMetadata } from "./metadata";
 import {
   CacheItem,
   CacheProvider,
@@ -12,12 +13,13 @@ import {
   SamlIDPListConfig,
   SamlIDPEntryConfig,
   SignatureAlgorithm,
-  CertCallback,
+  IdpCertCallback,
   AuthOptions,
 } from "./types";
 
 export {
   SAML,
+  generateServiceProviderMetadata,
   CacheItem,
   CacheProvider,
   SamlOptions,
@@ -30,6 +32,6 @@ export {
   SamlIDPListConfig,
   SamlIDPEntryConfig,
   SignatureAlgorithm,
-  CertCallback,
+  IdpCertCallback,
   AuthOptions,
 };

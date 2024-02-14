@@ -11,7 +11,7 @@ import {
   isValidSamlSigningOptions,
   AudienceRestrictionXML,
   CacheProvider,
-  CertCallback,
+  IdpCertCallback,
   ErrorWithXmlStatus,
   Profile,
   SamlOptions,
@@ -43,25 +43,26 @@ import { keyInfoToPem, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
+import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
 const debug = Debug("node-saml");
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
 const resolveAndParseKeyInfosToPem = async ({
-  cert,
-}: Pick<SamlOptions, "cert">): Promise<string[]> => {
+  idpCert,
+}: Pick<SamlOptions, "idpCert">): Promise<string[]> => {
   const keyInfosToHandle: string[] = [];
   const pemFiles: string[] = [];
-  if (typeof cert === "function") {
+  if (typeof idpCert === "function") {
     await util
-      .promisify(cert as CertCallback)()
+      .promisify(idpCert as IdpCertCallback)()
       .then((certs) => {
-        assertRequired(certs, "callback didn't return cert");
+        assertRequired(certs, "callback didn't return idpCert");
         keyInfosToHandle.push(...(Array.isArray(certs) ? certs : [certs]));
       });
   } else {
-    keyInfosToHandle.push(...(Array.isArray(cert) ? cert : [cert]));
+    keyInfosToHandle.push(...(Array.isArray(idpCert) ? idpCert : [idpCert]));
   }
   // Verify and normalize each PEM file.
   keyInfosToHandle.forEach((cert) => {
@@ -95,7 +96,7 @@ class SAML {
 
     assertRequired(ctorOptions.callbackUrl, "callbackUrl is required");
     assertRequired(ctorOptions.issuer, "issuer is required");
-    assertRequired(ctorOptions.cert, "cert is required");
+    assertRequired(ctorOptions.idpCert, "idpCert is required");
 
     // Prevent a JS user from passing in "false", which is truthy, and doing the wrong thing
     assertBooleanIfPresent(ctorOptions.passive);
@@ -125,17 +126,17 @@ class SAML {
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
       identifierFormat:
         ctorOptions.identifierFormat === undefined
-          ? "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+          ? DEFAULT_IDENTIFIER_FORMAT
           : ctorOptions.identifierFormat,
       allowCreate: ctorOptions.allowCreate ?? true,
       spNameQualifier: ctorOptions.spNameQualifier,
-      wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? true,
+      wantAssertionsSigned: ctorOptions.wantAssertionsSigned ?? DEFAULT_WANT_ASSERTIONS_SIGNED,
       wantAuthnResponseSigned: ctorOptions.wantAuthnResponseSigned ?? true,
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],
       validateInResponseTo: ctorOptions.validateInResponseTo ?? ValidateInResponseTo.never,
-      cert: ctorOptions.cert,
+      idpCert: ctorOptions.idpCert,
       requestIdExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs ?? 28800000, // 8 hours
       cacheProvider:
         ctorOptions.cacheProvider ??
@@ -669,7 +670,7 @@ class SAML {
   }
 
   protected async getKeyInfosAsPem(): Promise<string[]> {
-    if (typeof this.options.cert === "function") {
+    if (typeof this.options.idpCert === "function") {
       // Do not cache
       return await resolveAndParseKeyInfosToPem(this.options);
     } else if (this.pemFiles.length > 0) {
@@ -1322,12 +1323,12 @@ class SAML {
   generateServiceProviderMetadata(
     this: SAML,
     decryptionCert: string | null,
-    signingCerts?: string | string[] | null,
+    publicCerts?: string | string[] | null,
   ): string {
     return generateServiceProviderMetadata({
       ...this.options,
       decryptionCert,
-      signingCerts,
+      publicCerts,
     });
   }
 

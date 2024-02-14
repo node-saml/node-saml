@@ -12,7 +12,7 @@ describe("SAML request", function () {
     const config: SamlConfig = {
       callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       samlAuthnRequestExtensions: {
         "md:RequestedAttribute": {
           "@isRequired": "true",
@@ -135,7 +135,7 @@ describe("SAML request", function () {
     const config: SamlConfig = {
       callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onelogin_saml",
     };
 
@@ -223,7 +223,7 @@ describe("SAML request", function () {
     const config: SamlConfig = {
       callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onelogin_saml",
       identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
       allowCreate: false,
@@ -315,7 +315,7 @@ describe("SAML request", function () {
     const config: SamlConfig = {
       callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onelogin_saml",
       forceAuthn: true,
       passive: true,
@@ -407,7 +407,7 @@ describe("SAML request", function () {
     const config: SamlConfig = {
       callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onelogin_saml",
     };
 
@@ -451,7 +451,7 @@ describe("SAML request", function () {
     const config: SamlConfig = {
       callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       issuer: "onelogin_saml",
       disableRequestedAuthnContext: true,
       skipRequestCompression: true,
@@ -526,7 +526,7 @@ describe("SAML request", function () {
     const config: SamlConfig = {
       callbackUrl: "http://localhost/saml/consume",
       entryPoint: "https://wwwexampleIdp.com/saml",
-      cert: FAKE_CERT,
+      idpCert: FAKE_CERT,
       samlAuthnRequestExtensions: "anyValue" as unknown as Record<string, unknown>,
       issuer: "onesaml_login",
     };

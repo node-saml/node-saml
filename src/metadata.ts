@@ -7,6 +7,8 @@ import {
 } from "./types";
 import { assertRequired, signXmlMetadata } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
+import { generateUniqueId as generateUniqueIdDefault } from "./crypto";
+import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
 export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,
@@ -15,16 +17,17 @@ export const generateServiceProviderMetadata = (
     issuer,
     callbackUrl,
     logoutCallbackUrl,
-    identifierFormat,
-    wantAssertionsSigned,
     decryptionPvk,
     privateKey,
     metadataContactPerson,
     metadataOrganization,
-    generateUniqueId,
+    identifierFormat = DEFAULT_IDENTIFIER_FORMAT,
+    wantAssertionsSigned = DEFAULT_WANT_ASSERTIONS_SIGNED,
+    // This matches the default used in the `SAML` class.
+    generateUniqueId = generateUniqueIdDefault,
   } = params;
 
-  let { signingCerts, decryptionCert } = params;
+  let { publicCerts, decryptionCert } = params;
 
   if (decryptionPvk != null) {
     if (!decryptionCert) {
@@ -37,14 +40,14 @@ export const generateServiceProviderMetadata = (
   }
 
   if (privateKey != null) {
-    if (!signingCerts) {
+    if (!publicCerts) {
       throw new Error(
-        "Missing signingCert while generating metadata for signing service provider messages",
+        "Missing publicCert while generating metadata for signing service provider messages",
       );
     }
-    signingCerts = !Array.isArray(signingCerts) ? [signingCerts] : signingCerts;
+    publicCerts = !Array.isArray(publicCerts) ? [publicCerts] : publicCerts;
   } else {
-    signingCerts = null;
+    publicCerts = null;
   }
 
   const metadata: ServiceMetadataXML = {
@@ -62,17 +65,17 @@ export const generateServiceProviderMetadata = (
     },
   };
 
-  if (decryptionCert != null || signingCerts != null) {
+  if (decryptionCert != null || publicCerts != null) {
     metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = [];
     if (isValidSamlSigningOptions(params)) {
       assertRequired(
-        signingCerts,
-        "Missing signingCert while generating metadata for signing service provider messages",
+        publicCerts,
+        "Missing publicCert while generating metadata for signing service provider messages",
       );
 
       metadata.EntityDescriptor.SPSSODescriptor["@AuthnRequestsSigned"] = true;
 
-      const certArray = Array.isArray(signingCerts) ? signingCerts : [signingCerts];
+      const certArray = Array.isArray(publicCerts) ? publicCerts : [publicCerts];
       const signingKeyDescriptors = certArray.map((cert) => ({
         "@use": "signing",
         "ds:KeyInfo": {
