@@ -174,6 +174,7 @@ export const signXml = (
     digestAlgorithm: algorithms.getDigestAlgorithm(options.digestAlgorithm),
   });
   sig.privateKey = options.privateKey;
+  sig.publicCert = options.publicCert;
   sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
   sig.computeSignature(xml, {
     location,
