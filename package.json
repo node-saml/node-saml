@@ -91,6 +91,7 @@
     "prettier-plugin-packagejson": "^2.4.10",
     "release-it": "^17.0.5",
     "sinon": "^17.0.1",
+    "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
@@ -99,5 +100,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "type": "module"
 }

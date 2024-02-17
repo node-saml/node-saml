@@ -1,14 +1,14 @@
-import { stripPemHeaderAndFooter } from "./crypto";
+import { stripPemHeaderAndFooter } from "./crypto.js";
 import {
   isValidSamlSigningOptions,
   ServiceMetadataXML,
   XMLObject,
   GenerateServiceProviderMetadataParams,
-} from "./types";
-import { assertRequired, signXmlMetadata } from "./utility";
-import { buildXmlBuilderObject } from "./xml";
-import { generateUniqueId as generateUniqueIdDefault } from "./crypto";
-import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+} from "./types.js";
+import { assertRequired, signXmlMetadata } from "./utility.js";
+import { buildXmlBuilderObject } from "./xml.js";
+import { generateUniqueId as generateUniqueIdDefault } from "./crypto.js";
+import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants.js";
 
 export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,

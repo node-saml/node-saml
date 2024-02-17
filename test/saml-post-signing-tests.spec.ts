@@ -1,8 +1,13 @@
 import * as fs from "fs";
-import { signSamlPost, signAuthnRequestPost } from "../src/saml-post-signing";
-import { SamlSigningOptions } from "../src/types";
-import { parseXml2JsFromString } from "../src/xml";
+import { signSamlPost, signAuthnRequestPost } from "../src/saml-post-signing.js";
+import { SamlSigningOptions } from "../src/types.js";
+import { parseXml2JsFromString } from "../src/xml.js";
 import { expect } from "chai";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
 

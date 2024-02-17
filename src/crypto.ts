@@ -1,6 +1,6 @@
 import * as crypto from "crypto";
-import { assertRequired } from "./utility";
-import { PemLabel } from "./types";
+import { assertRequired } from "./utility.js";
+import { PemLabel } from "./types.js";
 /**
  * PEM format has wide range of usages, but this library
  * is enforcing RFC7468 which focuses on PKIX, PKCS and CMS.
