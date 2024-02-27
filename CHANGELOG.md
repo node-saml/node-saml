@@ -1,5 +1,83 @@
 # Changelog
 
+## 5.0.0 (2024-02-27)
+
+### 💣 Major Changes
+
+- Update minor dependencies and Node to 18 [#344](https://github.com/node-saml/node-saml/pull/344)
+- Rename `cert` to `idpCert` and `signingCert` to `publicCert` [#343](https://github.com/node-saml/node-saml/pull/343)
+- Update to current Node versions [#342](https://github.com/node-saml/node-saml/pull/342)
+- Upgrade to latest version of xml-crypto [#341](https://github.com/node-saml/node-saml/pull/341)
+- Fix spelling and normalize naming [#278](https://github.com/node-saml/node-saml/pull/278)
+- Export types required for SamlOptions [#224](https://github.com/node-saml/node-saml/pull/224)
+- Simplify callback URL options; remove `path`, `protocol`, and `host`. [#214](https://github.com/node-saml/node-saml/pull/214)
+
+### 🚀 Minor Changes
+
+- Added X509 certificate to KeyInfo X509Data, if passed through options [#36](https://github.com/node-saml/node-saml/pull/36)
+- Export generateServiceProviderMetadata [#337](https://github.com/node-saml/node-saml/pull/337)
+- Fixes `node-saml` not checking all `Audience`s in an `AudienceRestriction` [#340](https://github.com/node-saml/node-saml/pull/340)
+- Add public key support [#225](https://github.com/node-saml/node-saml/pull/225)
+- feat: support additionalParams on HTTP-POST binding [#263](https://github.com/node-saml/node-saml/pull/263)
+- Improve audience mismatch error message [#257](https://github.com/node-saml/node-saml/pull/257)
+
+### 🔗 Dependencies
+
+- [**javascript**] Bump release-it from 16.3.0 to 17.0.5 [#348](https://github.com/node-saml/node-saml/pull/348)
+- [**javascript**] Bump eslint-plugin-prettier from 4.2.1 to 5.1.3 [#346](https://github.com/node-saml/node-saml/pull/346)
+- [**javascript**] Bump eslint-config-prettier from 8.10.0 to 9.1.0 [#345](https://github.com/node-saml/node-saml/pull/345)
+- [**javascript**] Bump eslint-plugin-deprecation from 1.5.0 to 2.0.0 [#347](https://github.com/node-saml/node-saml/pull/347)
+- [**javascript**] Bump sinon and @types/sinon [#349](https://github.com/node-saml/node-saml/pull/349)
+- [**github_actions**] Bump actions/checkout from 3 to 4 [#330](https://github.com/node-saml/node-saml/pull/330)
+- [**javascript**] Bump prettier from 2.8.8 to 3.0.0 [#300](https://github.com/node-saml/node-saml/pull/300)
+- [**javascript**] Bump prettier-plugin-packagejson from 2.4.3 to 2.4.5 [#307](https://github.com/node-saml/node-saml/pull/307)
+- [**javascript**] Bump eslint from 8.42.0 to 8.45.0 [#306](https://github.com/node-saml/node-saml/pull/306)
+- [**javascript**] Bump release-it from 15.11.0 to 16.1.3 [#305](https://github.com/node-saml/node-saml/pull/305)
+- [**javascript**] Bump @cjbarth/github-release-notes from 4.0.0 to 4.1.0 [#304](https://github.com/node-saml/node-saml/pull/304)
+- [**javascript**] Bump @types/node from 14.18.50 to 14.18.53 [#303](https://github.com/node-saml/node-saml/pull/303)
+- [**javascript**] Bump @typescript-eslint/eslint-plugin from 5.59.9 to 5.62.0 [#302](https://github.com/node-saml/node-saml/pull/302)
+- [**javascript**] Bump @xmldom/xmldom from 0.8.8 to 0.8.10 [#301](https://github.com/node-saml/node-saml/pull/301)
+- [**javascript**] Bump @typescript-eslint/parser from 5.59.9 to 5.62.0 [#299](https://github.com/node-saml/node-saml/pull/299)
+- [**javascript**] Bump word-wrap from 1.2.3 to 1.2.4 [#298](https://github.com/node-saml/node-saml/pull/298)
+- [**javascript**] Bump sinon from 14.0.2 to 15.2.0 [#294](https://github.com/node-saml/node-saml/pull/294)
+- [**javascript**] Bump typescript from 4.8.4 to 5.1.6 [#293](https://github.com/node-saml/node-saml/pull/293)
+- [**javascript**] Bump @typescript-eslint/parser from 5.59.9 to 5.60.1 [#292](https://github.com/node-saml/node-saml/pull/292)
+- [**javascript**] Bump concurrently from 7.6.0 to 8.2.0 [#290](https://github.com/node-saml/node-saml/pull/290)
+- Remove dependency on Passport types [#296](https://github.com/node-saml/node-saml/pull/296)
+- Remove `express` dependency [#284](https://github.com/node-saml/node-saml/pull/284)
+- Update minor dependencies [#283](https://github.com/node-saml/node-saml/pull/283)
+- [**github_actions**] Bump codecov/codecov-action from 3.1.1 to 3.1.4 [#279](https://github.com/node-saml/node-saml/pull/279)
+- [**javascript**] Bump @typescript-eslint/parser from 5.58.0 to 5.59.8 [#281](https://github.com/node-saml/node-saml/pull/281)
+- [**javascript**] Bump prettier from 2.8.7 to 2.8.8 [#274](https://github.com/node-saml/node-saml/pull/274)
+- [**javascript**] Bump json5 from 2.2.1 to 2.2.3 [#244](https://github.com/node-saml/node-saml/pull/244)
+- [**javascript**] Bump vm2 from 3.9.16 to 3.9.19 [#277](https://github.com/node-saml/node-saml/pull/277)
+- Update minor dependencies [#269](https://github.com/node-saml/node-saml/pull/269)
+
+### 🐛 Bug Fixes
+
+- Fix metadata order [#334](https://github.com/node-saml/node-saml/pull/334)
+
+### 📚 Documentation
+
+- Roll-up changelog entries for beta releases [#282](https://github.com/node-saml/node-saml/pull/282)
+
+### ⚙️ Technical Tasks
+
+- Add test coverage for initialize() of saml.ts [#327](https://github.com/node-saml/node-saml/pull/327)
+- Add tests for XML parsing with comments [#285](https://github.com/node-saml/node-saml/pull/285)
+- Separate linting out from testing [#288](https://github.com/node-saml/node-saml/pull/288)
+- Add test coverage [#287](https://github.com/node-saml/node-saml/pull/287)
+- Prefer Chai `expect` to Node `assert` [#286](https://github.com/node-saml/node-saml/pull/286)
+- Remove types specific to Passport [#226](https://github.com/node-saml/node-saml/pull/226)
+- Acknowledge that XML can be parsed to `any` [#271](https://github.com/node-saml/node-saml/pull/271)
+
+### 🙈 Other
+
+- Enforce valid setting for validateInResponseTo [#314](https://github.com/node-saml/node-saml/pull/314)
+- feat: add public getAuthorizeMessage method [#235](https://github.com/node-saml/node-saml/pull/235)
+
+---
+
 ## v4.0.4 (2023-04-11)
 
 ### 🔗 Dependencies
@@ -146,7 +224,6 @@
 ### 🐛 Bug Fixes
 
 - [**security**] Throw if multiple XML roots detected [#195](https://github.com/node-saml/node-saml/pull/195)
-- [**security**] Fix CVE-2022-39300 [GHSA-5p8w-2mvw-38pv](https://github.com/node-saml/passport-saml/security/advisories/ GHSA-5p8w-2mvw-38pv)
 - Make Issuer Required in the Types Too (like it is at runtime) [#90](https://github.com/node-saml/node-saml/pull/90)
 - Bypass for InResponseTo [#87](https://github.com/node-saml/node-saml/pull/87)
 - Fix broken request tests [#86](https://github.com/node-saml/node-saml/pull/86)
@@ -216,10 +293,4 @@
 
 ## v3.0.0 (2021-05-14)
 
-### 💣 Major Changes
-
-- Node saml separated from [passport-saml](https://github.com/node-saml/passport-saml) [#574](https://github.com/node-saml/passport-saml/pull/574)
-
----
-
-For Changes prior to v3.0.0 see [passport-saml](https://github.com/node-saml/passport-saml)
+_No changelog for this release._
