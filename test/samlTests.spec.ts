@@ -1,7 +1,7 @@
 "use strict";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { URL } from "url";
+import { URL, fileURLToPath } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
 import { SAML } from "../src/saml";
@@ -9,7 +9,10 @@ import { AuthOptions, IdpCertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
+import path from "path";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const noop = (): void => undefined;
 
 describe("saml.ts", function () {
