@@ -12,9 +12,9 @@ import {
   XmlJsObject,
   XMLOutput,
   XmlSignatureLocation,
-} from "./types";
-import * as algorithms from "./algorithms";
-import { assertRequired } from "./utility";
+} from "./types.js";
+import * as algorithms from "./algorithms.js";
+import { assertRequired } from "./utility.js";
 import * as isDomNode from "@xmldom/is-dom-node";
 import Debug from "debug";
 

@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import * as sinon from "sinon";
-import { SAML } from "../src/saml";
-import { SamlConfig, ValidateInResponseTo } from "../src/types";
-import { FAKE_CERT } from "./types";
+import { SAML } from "../src/saml.js";
+import { SamlConfig, ValidateInResponseTo } from "../src/types.js";
+import { FAKE_CERT } from "./types.js";
 
 describe("Cache tests /", () => {
   let fakeClock: sinon.SinonFakeTimers;
