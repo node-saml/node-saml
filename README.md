@@ -10,6 +10,12 @@
 
 This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provider for Node.js.
 
+## Sponsors
+
+We gratefully acknowledge support from our sponsors:
+
+- [RideAmigos](https://rideamigos.com/)
+
 ## Installation
 
 ```shell
