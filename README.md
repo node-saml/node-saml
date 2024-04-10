@@ -16,6 +16,8 @@ We gratefully acknowledge support from our sponsors:
 
 - [RideAmigos](https://rideamigos.com/)
 
+If your company benefits from node-saml being secure and up-to-date, consider asking them to sponsor the project at $25/month. See the [Github Sponsors page](https://github.com/sponsors/cjbarth) for more sponsorship levels. It's easy to do, appearing as another line-item on the Github bill they already have.  
+
 ## Installation
 
 ```shell
