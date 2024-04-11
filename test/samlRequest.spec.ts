@@ -414,33 +414,25 @@ describe("SAML request", function () {
     const oSAML = new SAML(config);
 
     it("getAuthorizeMessageAsync", async function () {
-      const samlMessage = await oSAML.getAuthorizeMessageAsync(
-        "http://localhost/saml/consume",
-        undefined,
-        { additionalParams: { foo: "bar" } },
-      );
+      const samlMessage = await oSAML.getAuthorizeMessageAsync("http://localhost/saml/consume", {
+        additionalParams: { foo: "bar" },
+      });
 
       assertRequired(samlMessage.SAMLRequest);
       expect(samlMessage.foo).to.equal("bar");
     });
 
     it("getAuthorizeFormAsync", async function () {
-      const formBody = await oSAML.getAuthorizeFormAsync(
-        "http://localhost/saml/consume",
-        undefined,
-        { additionalParams: { foo: "bar" } },
-      );
+      const formBody = await oSAML.getAuthorizeFormAsync("http://localhost/saml/consume", {
+        additionalParams: { foo: "bar" },
+      });
 
       expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
       expect(formBody).to.match(/<input.*name="foo" value="bar"/);
     });
 
     it("getAuthorizeFormAsync with empty options", async function () {
-      const formBody = await oSAML.getAuthorizeFormAsync(
-        "http://localhost/saml/consume",
-        undefined,
-        {},
-      );
+      const formBody = await oSAML.getAuthorizeFormAsync("http://localhost/saml/consume", {});
 
       expect(formBody).to.match(/<!DOCTYPE html>[^]*<input.*name="SAMLRequest"[^]*<\/html>/);
       expect(formBody).to.not.match(/<input.*name="foo" value="bar"/);

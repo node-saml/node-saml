@@ -513,11 +513,7 @@ class SAML {
     );
   }
 
-  async getAuthorizeUrlAsync(
-    RelayState: string,
-    host: string | undefined,
-    options: AuthOptions,
-  ): Promise<string> {
+  async getAuthorizeUrlAsync(RelayState: string, options: AuthOptions): Promise<string> {
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
     const overrideParams = options ? options.additionalParams || {} : {};
@@ -531,7 +527,6 @@ class SAML {
 
   async getAuthorizeMessageAsync(
     RelayState: string,
-    host?: string,
     options?: AuthOptions,
   ): Promise<querystring.ParsedUrlQueryInput> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
@@ -558,11 +553,7 @@ class SAML {
     return samlMessage;
   }
 
-  async getAuthorizeFormAsync(
-    RelayState: string,
-    host?: string,
-    options?: AuthOptions,
-  ): Promise<string> {
+  async getAuthorizeFormAsync(RelayState: string, options?: AuthOptions): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     // The quoteattr() function is used in a context, where the result will not be evaluated by javascript
@@ -595,7 +586,7 @@ class SAML {
       );
     };
 
-    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, host, options);
+    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, options);
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {

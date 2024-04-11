@@ -1576,7 +1576,7 @@ describe("node-saml /", function () {
           skipRequestCompression: true,
         };
         const samlObj = new SAML(samlConfig);
-        const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
+        const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", {});
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
         expect(qry.Signature).to.equal(
@@ -1627,7 +1627,7 @@ describe("node-saml /", function () {
           skipRequestCompression: true,
         };
         const samlObj = new SAML(samlConfig);
-        const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
+        const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", {});
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
@@ -1654,7 +1654,7 @@ describe("node-saml /", function () {
           skipRequestCompression: true,
         };
         const samlObj = new SAML(samlConfig);
-        const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", "", {});
+        const authorizeUrl = await samlObj.getAuthorizeUrlAsync("", {});
         const qry = querystring.parse(new URL(authorizeUrl).searchParams.toString() || "");
         expect(qry.SigAlg).to.equal("http://www.w3.org/2000/09/xmldsig#rsa-sha1");
         expect(qry.Signature).to.equal(
