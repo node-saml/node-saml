@@ -29,6 +29,12 @@ describe("crypto.ts", function () {
         expect(() => keyInfoToPem(null as never, "CERTIFICATE")).to.throw();
       });
 
+      it("should throw with null with optionName in message", function () {
+        expect(() => keyInfoToPem(null as never, "CERTIFICATE", "optionName")).to.throw(
+          /optionName/,
+        );
+      });
+
       it("should throw with false", function () {
         expect(() => keyInfoToPem(false as never, "CERTIFICATE")).to.throw();
       });
@@ -43,6 +49,12 @@ describe("crypto.ts", function () {
 
       it("should throw if string is not in PEM format or not in Base64 format", function () {
         expect(() => keyInfoToPem("I'm not pem file", "CERTIFICATE")).to.throw();
+      });
+
+      it("should throw if string is not in PEM format or not in Base64 format with optionName in message", function () {
+        expect(() => keyInfoToPem("I'm not pem file", "CERTIFICATE", "optionName")).to.throw(
+          /optionName/,
+        );
       });
 
       it("should throw if cert is missing newlines after header and before footer", function () {

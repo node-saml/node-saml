@@ -65,8 +65,8 @@ const resolveAndParseKeyInfosToPem = async ({
     keyInfosToHandle.push(...(Array.isArray(idpCert) ? idpCert : [idpCert]));
   }
   // Verify and normalize each PEM file.
-  keyInfosToHandle.forEach((cert) => {
-    pemFiles.push(keyInfoToPem(cert, "CERTIFICATE"));
+  keyInfosToHandle.forEach((cert, index) => {
+    pemFiles.push(keyInfoToPem(cert, "CERTIFICATE", `idpCert[${index}]`));
   });
 
   return pemFiles;
@@ -189,7 +189,7 @@ class SAML {
     }
     signer.update(querystring.stringify(samlMessageToSign));
     samlMessage.Signature = signer.sign(
-      keyInfoToPem(this.options.privateKey, "PRIVATE KEY"),
+      keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
       "base64",
     );
   }
