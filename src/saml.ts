@@ -52,24 +52,22 @@ const deflateRawAsync = util.promisify(zlib.deflateRaw);
 const resolveAndParseKeyInfosToPem = async ({
   idpCert,
 }: Pick<SamlOptions, "idpCert">): Promise<string[]> => {
-  const keyInfosToHandle: string[] = [];
-  const pemFiles: string[] = [];
-  if (typeof idpCert === "function") {
-    await util
-      .promisify(idpCert as IdpCertCallback)()
-      .then((certs) => {
-        assertRequired(certs, "callback didn't return idpCert");
-        keyInfosToHandle.push(...(Array.isArray(certs) ? certs : [certs]));
-      });
-  } else {
-    keyInfosToHandle.push(...(Array.isArray(idpCert) ? idpCert : [idpCert]));
-  }
-  // Verify and normalize each PEM file.
-  keyInfosToHandle.forEach((cert) => {
-    pemFiles.push(keyInfoToPem(cert, "CERTIFICATE"));
-  });
+  const certs =
+    typeof idpCert === "function"
+      ? await util
+          .promisify(idpCert as IdpCertCallback)()
+          .then((resolvedCerts) => {
+            assertRequired(resolvedCerts, "callback didn't return idpCert");
 
-  return pemFiles;
+            return resolvedCerts;
+          })
+      : idpCert;
+
+  if (Array.isArray(certs)) {
+    return certs.map((cert, index) => keyInfoToPem(cert, "CERTIFICATE", `idpCert[${index}]`));
+  } else {
+    return [keyInfoToPem(certs, "CERTIFICATE", `idpCert`)];
+  }
 };
 
 class SAML {
@@ -189,7 +187,7 @@ class SAML {
     }
     signer.update(querystring.stringify(samlMessageToSign));
     samlMessage.Signature = signer.sign(
-      keyInfoToPem(this.options.privateKey, "PRIVATE KEY"),
+      keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
       "base64",
     );
   }
