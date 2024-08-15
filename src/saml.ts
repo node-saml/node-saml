@@ -4,8 +4,8 @@ import * as crypto from "crypto";
 import { URL } from "url";
 import * as querystring from "querystring";
 import * as util from "util";
-import { InMemoryCacheProvider } from "./in-memory-cache-provider";
-import * as algorithms from "./algorithms";
+import { InMemoryCacheProvider } from "./in-memory-cache-provider.js";
+import * as algorithms from "./algorithms.js";
 import { ParsedQs } from "qs";
 import {
   isValidSamlSigningOptions,
@@ -27,8 +27,8 @@ import {
   XMLValue,
   SamlResponseXmlJs,
   AuthOptions,
-} from "./types";
-import { assertBooleanIfPresent, assertRequired } from "./utility";
+} from "./types.js";
+import { assertBooleanIfPresent, assertRequired } from "./utility.js";
 import {
   buildXml2JsObject,
   buildXmlBuilderObject,
@@ -38,12 +38,12 @@ import {
   parseXml2JsFromString,
   validateSignature,
   xpath,
-} from "./xml";
-import { keyInfoToPem, generateUniqueId } from "./crypto";
-import { dateStringToTimestamp, generateInstant } from "./date-time";
-import { signAuthnRequestPost } from "./saml-post-signing";
-import { generateServiceProviderMetadata } from "./metadata";
-import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+} from "./xml.js";
+import { keyInfoToPem, generateUniqueId } from "./crypto.js";
+import { dateStringToTimestamp, generateInstant } from "./date-time.js";
+import { signAuthnRequestPost } from "./saml-post-signing.js";
+import { generateServiceProviderMetadata } from "./metadata.js";
+import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants.js";
 
 const debug = Debug("node-saml");
 const inflateRawAsync = util.promisify(zlib.inflateRaw);

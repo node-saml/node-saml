@@ -1,12 +1,12 @@
 import * as fs from "fs";
 import { expect } from "chai";
-import { keyInfoToPem, generateUniqueId, stripPemHeaderAndFooter } from "../src/crypto";
+import { keyInfoToPem, generateUniqueId, stripPemHeaderAndFooter } from "../src/crypto.js";
 import {
   TEST_CERT_SINGLELINE,
   TEST_CERT_MULTILINE,
   TEST_PUBLIC_KEY_SINGLELINE,
   TEST_PUBLIC_KEY_MULTILINE,
-} from "./types";
+} from "./types.js";
 
 describe("crypto.ts", function () {
   describe("generateUniqueID", function () {
