@@ -54,7 +54,6 @@
     "watch": "concurrently --kill-others \"npm:*-watch\""
   },
   "dependencies": {
-    "@node-saml/node-saml": "^5.0.0",
     "@types/debug": "^4.1.12",
     "@types/qs": "^6.9.11",
     "@types/xml-encryption": "^1.2.4",
