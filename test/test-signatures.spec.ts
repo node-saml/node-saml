@@ -5,7 +5,11 @@ import { SamlConfig } from "../src/types";
 import * as xml from "../src/xml";
 import * as assert from "assert";
 import { expect } from "chai";
+import path from "path";
+import { fileURLToPath } from "url";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const idpCert = fs.readFileSync(__dirname + "/static/cert.pem", "ascii");
 
 describe("Signatures", function () {
