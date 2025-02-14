@@ -1,4 +1,4 @@
-export type SignatureAlgorithm = "sha1" | "sha256" | "sha512";
+export type SignatureAlgorithm = "sha1" | "sha256" | "sha256-mgf1" | "sha512";
 
 export type PemLabel = "CERTIFICATE" | "PUBLIC KEY" | "PRIVATE KEY";
 
