@@ -1,5 +1,5 @@
-import { SamlSigningOptions } from "./types";
-import { signXml } from "./xml";
+import { SamlSigningOptions } from "./types.js";
+import { signXml } from "./xml.js";
 
 const authnRequestXPath =
   '/*[local-name(.)="AuthnRequest" and namespace-uri(.)="urn:oasis:names:tc:SAML:2.0:protocol"]';

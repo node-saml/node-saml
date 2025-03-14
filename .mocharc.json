@@ -6,5 +6,6 @@
   "reporter": "spec",
   "require": ["choma", "ts-node/register"],
   "spec": "test/**/*.spec.ts",
-  "watch-files": "test/**/*.spec.ts"
+  "watch-files": "test/**/*.spec.ts",
+  "loader": "ts-node/esm"
 }
