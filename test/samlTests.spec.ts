@@ -30,7 +30,9 @@ describe("saml.ts", function () {
 
     beforeEach(function () {
       getKeyInfosAsPemSpy = sinon.spy(SAML.prototype, "getKeyInfosAsPem" as never);
-      sinon.stub(SAML.prototype, "processValidlySignedPostRequestAsync" as unknown as keyof SAML).resolves(null);
+      sinon
+        .stub(SAML.prototype, "processValidlySignedPostRequestAsync" as unknown as keyof SAML)
+        .resolves(null);
     });
 
     afterEach(function () {
