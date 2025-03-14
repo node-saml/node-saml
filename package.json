@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@types/debug": "^4.1.12",
-    "@types/qs": "^6.9.11",
+    "@types/qs": "^6.9.15",
     "@types/xml-encryption": "^1.2.4",
     "@types/xml2js": "^0.4.14",
     "@xmldom/is-dom-node": "^1.0.1",
