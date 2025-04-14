@@ -100,7 +100,7 @@ const saml = new SAML(options);
 - **InResponseTo Validation**
 - `validateInResponseTo`:
   - if `"always"`, then InResponseTo will be validated from incoming SAML responses
-  - if `"never"`, then InResponseTo won't be validated
+  - if `"never"`(default), then InResponseTo won't be validated.
   - if `"ifPresent"`, then InResponseTo will only be validated if present in the incoming SAML response
 - `requestIdExpirationPeriodMs`: Defines the expiration time when a Request ID generated for a SAML request will not be valid if seen in a SAML response in the `InResponseTo` field. Default is 8 hours.
 - `cacheProvider`: Defines the implementation for a cache provider used to store request Ids generated in SAML requests as part of `InResponseTo` validation. Default is a built-in in-memory cache provider. For details see the 'Cache Provider' section.

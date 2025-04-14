@@ -29,8 +29,10 @@ describe("saml.ts", function () {
     let getKeyInfosAsPemSpy: sinon.SinonSpy;
 
     beforeEach(function () {
-      getKeyInfosAsPemSpy = sinon.spy(SAML.prototype, <never>"getKeyInfosAsPem");
-      sinon.stub(SAML.prototype, <never>"processValidlySignedPostRequestAsync").resolves(null);
+      getKeyInfosAsPemSpy = sinon.spy(SAML.prototype, "getKeyInfosAsPem" as never);
+      sinon
+        .stub(SAML.prototype, "processValidlySignedPostRequestAsync" as unknown as keyof SAML)
+        .resolves(null);
     });
 
     afterEach(function () {
@@ -132,7 +134,7 @@ describe("saml.ts", function () {
     it("will fail if 'cert' is a callback which returns invalid value", async () => {
       const cert: IdpCertCallback = (cb) => {
         setTimeout(() => {
-          cb(null, <never>null);
+          cb(null, null as never);
         }, 0);
       };
 
