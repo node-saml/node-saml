@@ -150,12 +150,12 @@ export const getVerifiedXML = (
         continue; // no signatures verified
       }
 
-      if (!(sig.signedReferences.length === 1)) {
+      if (!(sig.getSignedReferences().length === 1)) {
         throw new Error('Only 1 signed references should be present in signature')
       }
 
 
-      return sig.signedReferences[0];
+      return sig.getSignedReferences()[0];
     } catch (err) {
       debug("signature check resulted in an error: %s", err);
       // return null; // we don't return null, since we have to verify with another key
