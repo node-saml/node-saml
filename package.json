@@ -85,7 +85,7 @@
     "eslint-plugin-deprecation": "^2.0.0",
     "eslint-plugin-prettier": "^5.1.3",
     "mocha": "^10.3.0",
-    "nyc": "^15.1.0",
+    "nyc": "^17.1.0",
     "onchange": "^7.1.0",
     "prettier": "^3.2.5",
     "prettier-plugin-packagejson": "^2.4.10",
