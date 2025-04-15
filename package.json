@@ -87,7 +87,7 @@
     "mocha": "^11.1.0",
     "nyc": "^17.1.0",
     "onchange": "^7.1.0",
-    "prettier": "^3.2.5",
+    "prettier": "^3.5.3",
     "prettier-plugin-packagejson": "^2.4.10",
     "release-it": "^17.0.5",
     "sinon": "^18.0.1",
