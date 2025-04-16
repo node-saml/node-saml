@@ -79,7 +79,7 @@
     "body-parser": "^2.2.0",
     "chai": "^4.4.1",
     "choma": "^1.2.1",
-    "concurrently": "^8.2.2",
+    "concurrently": "^9.1.2",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-deprecation": "^2.0.0",
@@ -89,7 +89,7 @@
     "onchange": "^7.1.0",
     "prettier": "^3.5.3",
     "prettier-plugin-packagejson": "^2.5.10",
-    "release-it": "^17.0.5",
+    "release-it": "^17.11.0",
     "sinon": "^18.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
