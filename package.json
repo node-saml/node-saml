@@ -49,6 +49,7 @@
     "test-watch": "mocha --watch",
     "tsc": "tsc",
     "tsc-watch": "tsc --watch",
+    "update": "npx npm-check-updates -du",
     "update:major": "npx npm-check-updates -i",
     "update:minor": "npx npm-check-updates -i -t minor",
     "watch": "concurrently --kill-others \"npm:*-watch\""
@@ -60,7 +61,7 @@
     "@types/xml2js": "^0.4.14",
     "@xmldom/is-dom-node": "^1.0.1",
     "@xmldom/xmldom": "^0.8.10",
-    "debug": "^4.3.4",
+    "debug": "^4.4.0",
     "xml-crypto": "^6.1.0",
     "xml-encryption": "^3.1.0",
     "xml2js": "^0.6.2",
