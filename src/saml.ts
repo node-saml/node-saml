@@ -33,11 +33,12 @@ import {
   buildXml2JsObject,
   buildXmlBuilderObject,
   decryptXml,
-  getNameIdAsync, getVerifiedXML,
+  getNameIdAsync,
+  getVerifiedXML,
   parseDomFromString,
   parseXml2JsFromString,
   validateSignature,
-  xpath
+  xpath,
 } from "./xml";
 import { keyInfoToPem, generateUniqueId } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
@@ -690,10 +691,7 @@ class SAML {
     // case 1: response is a verified assertion
     if (rootNode.localName === "Response") {
       // try getting the Xml from the assertions
-      const assertions = xpath.selectElements(
-        rootNode,
-        "./*[local-name()='Assertion']",
-      );
+      const assertions = xpath.selectElements(rootNode, "./*[local-name()='Assertion']");
       // now we can process the assertion as an assertion
       if (assertions.length == 1) {
         return assertions[0].toString();
@@ -713,7 +711,7 @@ class SAML {
         const decryptedDoc = await parseDomFromString(decryptedXml);
         const decryptedAssertion = decryptedDoc.documentElement;
         if (!(decryptedAssertion.localName === "Assertion")) {
-          throw new Error("Invalid EncryptedAssertion content")
+          throw new Error("Invalid EncryptedAssertion content");
         }
 
         return decryptedAssertion.toString();
@@ -724,7 +722,7 @@ class SAML {
       return null;
     }
     return null;
-   }
+  }
 
   async validatePostResponseAsync(
     container: Record<string, string>,
@@ -751,11 +749,10 @@ class SAML {
       // Check if this document has a valid top-level signature which applies to the entire XML document
       let validSignature = false; // we use verifiedXML to collect the actual verified contents
 
-
-      let responseVerifiedXML = null
-      let assertionVerifiedXML = null
-      let decryptedAssertionVerifiedXML = null
-      responseVerifiedXML = getVerifiedXML(xml, doc.documentElement, pemFiles)
+      let responseVerifiedXML = null;
+      let assertionVerifiedXML = null;
+      let decryptedAssertionVerifiedXML = null;
+      responseVerifiedXML = getVerifiedXML(xml, doc.documentElement, pemFiles);
 
       if (responseVerifiedXML) {
         validSignature = true;
@@ -810,10 +807,14 @@ class SAML {
         if (decryptedAssertions.length != 1) throw new Error("Invalid EncryptedAssertion content");
 
         if (this.options.wantAssertionsSigned || !validSignature) {
-            decryptedAssertionVerifiedXML = getVerifiedXML(decryptedXml, decryptedAssertions[0], pemFiles)
-            if (decryptedAssertionVerifiedXML == null) {
-              throw new Error("Invalid signature from encrypted assertion");
-            }
+          decryptedAssertionVerifiedXML = getVerifiedXML(
+            decryptedXml,
+            decryptedAssertions[0],
+            pemFiles,
+          );
+          if (decryptedAssertionVerifiedXML == null) {
+            throw new Error("Invalid signature from encrypted assertion");
+          }
         }
 
         // only process the verifiedXMLs
@@ -828,7 +829,8 @@ class SAML {
       // If there's no assertion, fall back on xml2js response parsing for the status &
       //   LogoutResponse code.
       // collect the verified XML's
-      const verifiedXML = responseVerifiedXML || assertionVerifiedXML || decryptedAssertionVerifiedXML;
+      const verifiedXML =
+        responseVerifiedXML || assertionVerifiedXML || decryptedAssertionVerifiedXML;
 
       // double check that there is at least 1 assertion
       if (verifiedXML && assertions.length + encryptedAssertions.length == 1) {
@@ -837,13 +839,8 @@ class SAML {
         if (signedAssertion == null) {
           throw new Error("Cannot obtain assertion from signed data");
         }
-        return await this.processValidlySignedAssertionAsync(
-          signedAssertion,
-          xml,
-          inResponseTo,
-        );
+        return await this.processValidlySignedAssertionAsync(signedAssertion, xml, inResponseTo);
       }
-
 
       const xmljsDoc = (await parseXml2JsFromString(xml)) as SamlResponseXmlJs;
       const response = xmljsDoc.Response;

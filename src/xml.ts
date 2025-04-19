@@ -48,7 +48,6 @@ export const xpath = {
 export const decryptXml = async (xml: string, decryptionKey: string | Buffer) =>
   util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionKey });
 
-
 /**
  * we can use this utility before passing XML to `xml-crypto`
  * we are considered the XML processor and are responsible for newline normalization
@@ -66,28 +65,31 @@ const normalizeNewlines = (xml: string): string => {
  * Find's a signature for the currentNode
  * Return the verified contents if verified?
  * Otherwise returns null
-* */
+ * */
 export const getVerifiedXML = (
   fullXml: string,
   currentNode: Element,
   pemFiles: string[],
 ): string | null => {
-  fullXml = normalizeNewlines(fullXml)
+  fullXml = normalizeNewlines(fullXml);
 
   // find any signature
-  const signatures = xpath.selectElements(currentNode, "./*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']");
+  const signatures = xpath.selectElements(
+    currentNode,
+    "./*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']",
+  );
   if (signatures.length < 1) {
     return null;
   }
 
   if (signatures.length > 1) {
-    throw new Error("Too many signatures found for this element")
+    throw new Error("Too many signatures found for this element");
   }
 
   const signature = signatures[0];
 
   const xpathTransformQuery =
-    ".//*[local-name(.)='Transform' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']"
+    ".//*[local-name(.)='Transform' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']";
   const transforms = xpath.selectElements(signature, xpathTransformQuery);
   // Reject also XMLDSIG with more than 2 Transform
   if (transforms.length > 2) {
@@ -99,18 +101,18 @@ export const getVerifiedXML = (
     const sig = new xmlCrypto.SignedXml();
     sig.publicCert = pemFile; // public certificate to verify
     sig.loadSignature(signature);
-    
+
     // here are the sanity checks
     // They do not affect the actual security of the program
     // more so to check conformance with the SAML spec
     const refs = sig.getReferences();
 
     if (!(refs.length === 1)) return null;
-    if (!(signature.parentNode)) {
+    if (!signature.parentNode) {
       return null;
     }
 
-    const ref = refs[0]
+    const ref = refs[0];
 
     // only allow enveloped signature
     const refUri = ref.uri;
@@ -120,19 +122,17 @@ export const getVerifiedXML = (
     // const refUri = sig.references[0].uri;
     assertRequired(refId, "signature reference uri not found");
     // prevent XPath injection
-    if (refId.includes("'" || '"')) {
+    if (refId.includes("'") || refId.includes('"')) {
       throw new Error("ref URI included quote character ' or \". Not a valid ID, and not allowed");
     }
-    
-    
+
     const totalReferencedNodes = xpath.selectElements(
       signature.ownerDocument,
-      `//*[@ID="${refId}"]`
+      `//*[@ID="${refId}"]`,
     );
 
     if (!(totalReferencedNodes.length === 1)) {
-
-      debug('Signature wrapping attack detected. ID cannot refer to more than one element');
+      debug("Signature wrapping attack detected. ID cannot refer to more than one element");
       return null;
     }
 
@@ -145,15 +145,13 @@ export const getVerifiedXML = (
     // do not trust any other xml (incuding referencedNode)
 
     try {
-
       if (!sig.checkSignature(fullXml)) {
         continue; // no signatures verified
       }
 
       if (!(sig.getSignedReferences().length === 1)) {
-        throw new Error('Only 1 signed references should be present in signature')
+        throw new Error("Only 1 signed references should be present in signature");
       }
-
 
       return sig.getSignedReferences()[0];
     } catch (err) {
@@ -163,7 +161,7 @@ export const getVerifiedXML = (
   }
 
   return null;
-}
+};
 
 /**
  * @deprecated Do not only return boolean value, instead return the actual signed content. SAML Libraries must only use the referenced bytes from the signature
@@ -174,14 +172,12 @@ export const getVerifiedXML = (
  *   vectors against SAML signature verification.
  */
 
-
 export const validateSignature = (
   fullXml: string,
   currentNode: Element,
   pemFiles: string[],
 ): boolean => {
-  const xpathSigQuery =
-    `.//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and descendant::*[local-name(.)='Reference' and @URI='#${currentNode.getAttribute("ID")}']]`
+  const xpathSigQuery = `.//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and descendant::*[local-name(.)='Reference' and @URI='#${currentNode.getAttribute("ID")}']]`;
   const signatures = xpath.selectElements(currentNode, xpathSigQuery);
   // This function is expecting to validate exactly one signature, so if we find more or fewer
   //   than that, reject.

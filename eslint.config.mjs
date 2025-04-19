@@ -14,6 +14,7 @@ export default tseslint.config([
   tseslint.configs.recommended,
   tseslint.configs.strict,
   mochaPlugin.configs.flat.recommended,
+  { files: ["**/*"], rules: { "linebreak-style": ["error", "unix"] } },
   {
     files: ["**/*.{js,ts}"],
     languageOptions: {
@@ -21,9 +22,7 @@ export default tseslint.config([
       parserOptions: { project: "./tsconfig.eslint.json", ecmaVersion: 2020, sourceType: "module" },
       globals: { ...globals.node },
     },
-
     plugins: { "@typescript-eslint": eslintPluginTypeScript },
-
     rules: {
       "no-console": "warn",
       "@typescript-eslint/no-non-null-assertion": "error",
@@ -32,7 +31,6 @@ export default tseslint.config([
       "@typescript-eslint/no-dynamic-delete": "off",
       "@typescript-eslint/no-unused-expressions": "off",
     },
-
     settings: {},
   },
   {
