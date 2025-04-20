@@ -12,7 +12,7 @@ import {
   AudienceRestrictionXML,
   CacheProvider,
   IdpCertCallback,
-  ErrorWithXmlStatus,
+  SamlStatusError,
   Profile,
   SamlOptions,
   SamlConfig,
@@ -34,7 +34,7 @@ import {
   buildXmlBuilderObject,
   decryptXml,
   getNameIdAsync,
-  getVerifiedXML,
+  getVerifiedXml,
   parseDomFromString,
   parseXml2JsFromString,
   validateSignature,
@@ -752,7 +752,7 @@ class SAML {
       let responseVerifiedXML = null;
       let assertionVerifiedXML = null;
       let decryptedAssertionVerifiedXML = null;
-      responseVerifiedXML = getVerifiedXML(xml, doc.documentElement, pemFiles);
+      responseVerifiedXML = getVerifiedXml(xml, doc.documentElement, pemFiles);
 
       if (responseVerifiedXML) {
         validSignature = true;
@@ -779,7 +779,7 @@ class SAML {
 
       if (assertions.length == 1) {
         if (this.options.wantAssertionsSigned || !validSignature) {
-          assertionVerifiedXML = getVerifiedXML(xml, assertions[0], pemFiles);
+          assertionVerifiedXML = getVerifiedXml(xml, assertions[0], pemFiles);
           if (!assertionVerifiedXML) {
             throw new Error("Invalid signature");
           }
@@ -807,7 +807,7 @@ class SAML {
         if (decryptedAssertions.length != 1) throw new Error("Invalid EncryptedAssertion content");
 
         if (this.options.wantAssertionsSigned || !validSignature) {
-          decryptedAssertionVerifiedXML = getVerifiedXML(
+          decryptedAssertionVerifiedXML = getVerifiedXml(
             decryptedXml,
             decryptedAssertions[0],
             pemFiles,
@@ -879,7 +879,7 @@ class SAML {
                   msg = msgValues ? msgValues[0] : msg;
                 }
                 const statusXml = buildXml2JsObject("Status", status[0]);
-                throw new ErrorWithXmlStatus(
+                throw new SamlStatusError(
                   "SAML provider returned " + msgType + " error: " + msg,
                   statusXml,
                 );

@@ -23,7 +23,7 @@ describe("Signatures", function () {
   let validateSignatureSpy: sinon.SinonSpy;
 
   beforeEach(() => {
-    validateSignatureSpy = sinon.spy(xml, "getVerifiedXML"); // we deprecated .validateSignature to "getVerifiedXML"
+    validateSignatureSpy = sinon.spy(xml, "getVerifiedXml");
   });
 
   afterEach(() => {

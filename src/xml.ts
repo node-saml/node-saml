@@ -1,10 +1,13 @@
+import * as isDomNode from "@xmldom/is-dom-node";
+import * as xmldom from "@xmldom/xmldom";
+import Debug from "debug";
 import * as util from "util";
 import * as xmlCrypto from "xml-crypto";
 import * as xmlenc from "xml-encryption";
-import * as xmldom from "@xmldom/xmldom";
 import * as xml2js from "xml2js";
 import * as xmlbuilder from "xmlbuilder";
 import { select, SelectReturnType } from "xpath";
+import * as algorithms from "./algorithms";
 import {
   isValidSamlSigningOptions,
   NameID,
@@ -13,10 +16,7 @@ import {
   XMLOutput,
   XmlSignatureLocation,
 } from "./types";
-import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
-import * as isDomNode from "@xmldom/is-dom-node";
-import Debug from "debug";
 
 const debug = Debug("node-saml");
 
@@ -66,7 +66,7 @@ const normalizeNewlines = (xml: string): string => {
  * Return the verified contents if verified?
  * Otherwise returns null
  * */
-export const getVerifiedXML = (
+export const getVerifiedXml = (
   fullXml: string,
   currentNode: Element,
   pemFiles: string[],
@@ -140,9 +140,9 @@ export const getVerifiedXML = (
       throw new Error("Referenced node does not refer to it's parent element");
     }*/
 
-    // actual crytographic verification
-    // after verification, the referenced XML will be in sig.signedReferences
-    // do not trust any other xml (incuding referencedNode)
+    // actual cryptographic verification
+    // after verification, the referenced XML will be in `sig.signedReferences`
+    // do not trust any other xml (including referencedNode)
 
     try {
       if (!sig.checkSignature(fullXml)) {
@@ -172,11 +172,7 @@ export const getVerifiedXML = (
  *   vectors against SAML signature verification.
  */
 
-export const validateSignature = (
-  fullXml: string,
-  currentNode: Element,
-  pemFiles: string[],
-): boolean => {
+const _validateSignature = (fullXml: string, currentNode: Element, pemFiles: string[]): boolean => {
   const xpathSigQuery = `.//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and descendant::*[local-name(.)='Reference' and @URI='#${currentNode.getAttribute("ID")}']]`;
   const signatures = xpath.selectElements(currentNode, xpathSigQuery);
   // This function is expecting to validate exactly one signature, so if we find more or fewer
@@ -205,8 +201,19 @@ export const validateSignature = (
   });
 };
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/**
+ * @deprecated
+ */
+export const validateSignature = util.deprecate(
+  _validateSignature,
+  "`validateSignature()` is deprecated. Use `getVerifiedXml() instead",
+);
+/* eslint-enable @typescript-eslint/no-unused-vars */
+
 /**
  * This function checks that the |signature| is signed with a given |pemFile|.
+ * @deprecated
  */
 const validateXmlSignatureWithPemFile = (
   signature: Node,
@@ -277,9 +284,7 @@ export const signXml = (
   sig.privateKey = options.privateKey;
   sig.publicCert = options.publicCert;
   sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
-  sig.computeSignature(xml, {
-    location,
-  });
+  sig.computeSignature(xml, { location });
 
   return sig.getSignedXml();
 };
@@ -299,10 +304,7 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
        * you can override the errorHandler for xml parser
        * @link http://www.saxproject.org/apidoc/org/xml/sax/ErrorHandler.html
        */
-      errorHandler: {
-        error: errHandler,
-        fatalError: errHandler,
-      },
+      errorHandler: { error: errHandler, fatalError: errHandler },
     }).parseFromString(xml, "text/xml");
 
     if (!Object.prototype.hasOwnProperty.call(dom, "documentElement")) {
@@ -324,10 +326,7 @@ export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJs
 };
 
 export const buildXml2JsObject = (rootName: string, xml: XmlJsObject): string => {
-  const builderOpts = {
-    rootName,
-    headless: true,
-  };
+  const builderOpts = { rootName, headless: true };
   return new xml2js.Builder(builderOpts).buildObject(xml);
 };
 
@@ -338,10 +337,7 @@ export const buildXmlBuilderObject = (xml: XMLOutput, pretty: boolean): string =
 
 export const promiseWithNameId = async (nameid: Node): Promise<NameID> => {
   const format = xpath.selectAttributes(nameid, "@Format");
-  return {
-    value: nameid.textContent,
-    format: format && format[0] && format[0].nodeValue,
-  };
+  return { value: nameid.textContent, format: format && format[0] && format[0].nodeValue };
 };
 
 export const getNameIdAsync = async (
