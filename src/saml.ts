@@ -12,7 +12,7 @@ import {
   AudienceRestrictionXML,
   CacheProvider,
   IdpCertCallback,
-  ErrorWithXmlStatus,
+  SamlStatusError,
   Profile,
   SamlOptions,
   SamlConfig,
@@ -879,7 +879,7 @@ class SAML {
                   msg = msgValues ? msgValues[0] : msg;
                 }
                 const statusXml = buildXml2JsObject("Status", status[0]);
-                throw new ErrorWithXmlStatus(
+                throw new SamlStatusError(
                   "SAML provider returned " + msgType + " error: " + msg,
                   statusXml,
                 );

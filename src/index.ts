@@ -15,7 +15,7 @@ import {
   SignatureAlgorithm,
   IdpCertCallback,
   AuthOptions,
-  ErrorWithXmlStatus,
+  SamlStatusError,
 } from "./types";
 
 export {
@@ -35,5 +35,5 @@ export {
   SignatureAlgorithm,
   IdpCertCallback,
   AuthOptions,
-  ErrorWithXmlStatus as SamlStatusError,
+  SamlStatusError,
 };
