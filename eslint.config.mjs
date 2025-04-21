@@ -15,15 +15,25 @@ export default tseslint.config([
   tseslint.configs.strict,
   mochaPlugin.configs.flat.recommended,
   {
+    files: ["**/*"],
+    rules: {
+      "linebreak-style": ["error", "unix"],
+    },
+  },
+  {
     files: ["**/*.{js,ts}"],
     languageOptions: {
       parser: tsParser,
-      parserOptions: { project: "./tsconfig.eslint.json", ecmaVersion: 2020, sourceType: "module" },
+      parserOptions: {
+        project: "./tsconfig.eslint.json",
+        ecmaVersion: 2020,
+        sourceType: "module",
+      },
       globals: { ...globals.node },
     },
-
-    plugins: { "@typescript-eslint": eslintPluginTypeScript },
-
+    plugins: {
+      "@typescript-eslint": eslintPluginTypeScript,
+    },
     rules: {
       "no-console": "warn",
       "@typescript-eslint/no-non-null-assertion": "error",
@@ -32,13 +42,16 @@ export default tseslint.config([
       "@typescript-eslint/no-dynamic-delete": "off",
       "@typescript-eslint/no-unused-expressions": "off",
     },
-
-    settings: {},
   },
   {
     files: ["**/*.spec.{js,ts}"],
-    languageOptions: { ecmaVersion: 2020, sourceType: "module", globals: { ...globals.mocha } },
-    plugins: { mocha: mochaPlugin, "chai-friendly": pluginChaiFriendly },
+    languageOptions: {
+      globals: { ...globals.mocha },
+    },
+    plugins: {
+      mocha: mochaPlugin,
+      "chai-friendly": pluginChaiFriendly,
+    },
     rules: {
       "mocha/no-async-describe": "off",
       "@typescript-eslint/no-unused-expressions": "off",
@@ -53,7 +66,6 @@ export default tseslint.config([
       "mocha/no-global-tests": "off",
       "chai-friendly/no-unused-expressions": "off",
     },
-    extends: [],
   },
   eslintConfigPrettier, // goes last
 ]);
