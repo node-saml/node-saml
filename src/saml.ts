@@ -683,9 +683,9 @@ class SAML {
   }
 
   // given actually signed XML, try to get the actual assertion used
-  protected async getSignedAssertion(signedXML: string): Promise<string | null> {
+  protected async getSignedAssertion(signedXml: string): Promise<string | null> {
     // case 1: Response signed
-    const verifiedDoc = await parseDomFromString(signedXML);
+    const verifiedDoc = await parseDomFromString(signedXml);
     const rootNode = verifiedDoc.documentElement;
 
     // case 1: response is a verified assertion
@@ -747,14 +747,13 @@ class SAML {
       }
       const pemFiles = await this.getKeyInfosAsPem();
       // Check if this document has a valid top-level signature which applies to the entire XML document
-      let validSignature = false; // we use verifiedXML to collect the actual verified contents
+      let validSignature = false; // Use `getVerifiedXml()` to collect the actual verified contents
 
-      let responseVerifiedXML = null;
-      let assertionVerifiedXML = null;
-      let decryptedAssertionVerifiedXML = null;
-      responseVerifiedXML = getVerifiedXml(xml, doc.documentElement, pemFiles);
+      const responseVerifiedXml = getVerifiedXml(xml, doc.documentElement, pemFiles);
+      let assertionVerifiedXml = null;
+      let decryptedAssertionVerifiedXml = null;
 
-      if (responseVerifiedXML) {
+      if (responseVerifiedXml) {
         validSignature = true;
       }
 
@@ -779,8 +778,8 @@ class SAML {
 
       if (assertions.length == 1) {
         if (this.options.wantAssertionsSigned || !validSignature) {
-          assertionVerifiedXML = getVerifiedXml(xml, assertions[0], pemFiles);
-          if (!assertionVerifiedXML) {
+          assertionVerifiedXml = getVerifiedXml(xml, assertions[0], pemFiles);
+          if (!assertionVerifiedXml) {
             throw new Error("Invalid signature");
           }
         }
@@ -807,12 +806,12 @@ class SAML {
         if (decryptedAssertions.length != 1) throw new Error("Invalid EncryptedAssertion content");
 
         if (this.options.wantAssertionsSigned || !validSignature) {
-          decryptedAssertionVerifiedXML = getVerifiedXml(
+          decryptedAssertionVerifiedXml = getVerifiedXml(
             decryptedXml,
             decryptedAssertions[0],
             pemFiles,
           );
-          if (decryptedAssertionVerifiedXML == null) {
+          if (decryptedAssertionVerifiedXml == null) {
             throw new Error("Invalid signature from encrypted assertion");
           }
         }
@@ -829,12 +828,12 @@ class SAML {
       // If there's no assertion, fall back on xml2js response parsing for the status &
       //   LogoutResponse code.
       // collect the verified XML's
-      const verifiedXML =
-        responseVerifiedXML || assertionVerifiedXML || decryptedAssertionVerifiedXML;
+      const verifiedXml =
+        responseVerifiedXml || assertionVerifiedXml || decryptedAssertionVerifiedXml;
 
       // double check that there is at least 1 assertion
-      if (verifiedXML && assertions.length + encryptedAssertions.length == 1) {
-        const signedAssertion = await this.getSignedAssertion(verifiedXML);
+      if (verifiedXml && assertions.length + encryptedAssertions.length == 1) {
+        const signedAssertion = await this.getSignedAssertion(verifiedXml);
 
         if (signedAssertion == null) {
           throw new Error("Cannot obtain assertion from signed data");
