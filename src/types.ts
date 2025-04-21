@@ -248,7 +248,7 @@ export interface Profile {
   [attributeName: string]: unknown; // arbitrary `AttributeValue`s
 }
 
-export class ErrorWithXmlStatus extends Error {
+export class SamlStatusError extends Error {
   constructor(
     message: string,
     public readonly xmlStatus: string,
