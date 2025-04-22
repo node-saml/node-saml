@@ -142,7 +142,7 @@ class SAML {
           keyExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs,
         }),
       logoutUrl: ctorOptions.logoutUrl ?? ctorOptions.entryPoint ?? "", // Default to Entry Point
-      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, or sha512
+      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, sha256-mgf1 or sha512
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
       generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
       signMetadata: ctorOptions.signMetadata ?? false,
@@ -186,10 +186,16 @@ class SAML {
       samlMessageToSign.SigAlg = samlMessage.SigAlg;
     }
     signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(
-      keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
-      "base64",
-    );
+    const privateKey = keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey");
+    const signParams =
+      this.options.signatureAlgorithm !== "sha256-mgf1"
+        ? privateKey
+        : {
+            key: this.options.privateKey,
+            padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+            saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
+          };
+    samlMessage.Signature = signer.sign(signParams, "base64");
   }
 
   protected async generateAuthorizeRequestAsync(
