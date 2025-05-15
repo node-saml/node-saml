@@ -783,13 +783,6 @@ class SAML {
             throw new Error("Invalid signature");
           }
         }
-
-        // removed, only processed the isolated verifiedXML results
-        /*return await this.processValidlySignedAssertionAsync(
-          (await this.getSignedAssertion(verifiedXML)).toString(),
-          xml,
-          inResponseTo,
-        );*/
       }
 
       if (encryptedAssertions.length == 1) {

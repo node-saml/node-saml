@@ -119,7 +119,6 @@ export const getVerifiedXml = (
 
     const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
 
-    // const refUri = sig.references[0].uri;
     assertRequired(refId, "signature reference uri not found");
     // prevent XPath injection
     if (refId.includes("'") || refId.includes('"')) {
@@ -164,7 +163,7 @@ export const getVerifiedXml = (
 };
 
 /**
- * @deprecated Do not only return boolean value, instead return the actual signed content. SAML Libraries must only use the referenced bytes from the signature
+ * Internally deprecated Do not only return boolean value, instead return the actual signed content. SAML Libraries must only use the referenced bytes from the signature
  * This function checks that the |currentNode| in the |fullXml| document contains exactly 1 valid
  *   signature of the |currentNode|.
  *
@@ -202,18 +201,17 @@ const _validateSignature = (fullXml: string, currentNode: Element, pemFiles: str
 };
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/**
- * @deprecated
- */
-export const validateSignature = util.deprecate(
-  _validateSignature,
-  "`validateSignature()` is deprecated. Use `getVerifiedXml() instead",
-);
+
+// validateSignature is deprecated, should be using getVerifiedXml
+// Existing non-sensitive callers can still use validateSignature
+// but new callers should use getVerifiedXml
+// this allows us to deprecate it without raising a warning
+export const validateSignature = _validateSignature;
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
 /**
  * This function checks that the |signature| is signed with a given |pemFile|.
- * @deprecated
+ * Internally deprecated, users should not be using this for anything new
  */
 const validateXmlSignatureWithPemFile = (
   signature: Node,
@@ -229,7 +227,6 @@ const validateXmlSignatureWithPemFile = (
   if (sig.getReferences().length !== 1) return false;
   const t = sig.getReferences();
   const refUri = t[0].uri;
-  // const refUri = sig.references[0].uri;
   assertRequired(refUri, "signature reference uri not found");
   const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
   // If we can't find the reference at the top level, reject
