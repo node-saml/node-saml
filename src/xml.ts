@@ -131,13 +131,12 @@ export const getVerifiedXml = (
     );
 
     if (!(totalReferencedNodes.length === 1)) {
-      debug("Signature wrapping attack detected. ID cannot refer to more than one element");
-      return null;
+      throw new Error("Invalid signature: ID cannot refer to more than one element");
     }
 
-    /*if (!(totalReferencedNodes[0] === signature.parentElement)) {
-      throw new Error("Referenced node does not refer to it's parent element");
-    }*/
+    if (!(totalReferencedNodes[0] === signature.parentNode)) {
+      throw new Error("Invalid signature: Referenced node does not refer to it's parent element");
+    }
 
     // actual cryptographic verification
     // after verification, the referenced XML will be in `sig.signedReferences`
