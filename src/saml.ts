@@ -808,14 +808,6 @@ class SAML {
             throw new Error("Invalid signature from encrypted assertion");
           }
         }
-
-        // only process the verifiedXMLs
-        /*return await this.processValidlySignedAssertionAsync(
-          decryptedAssertions[0].toString(),
-          xml,
-          inResponseTo,
-        );
-        */
       }
 
       // If there's no assertion, fall back on xml2js response parsing for the status &
