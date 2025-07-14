@@ -153,7 +153,6 @@ export const getVerifiedXml = (
 
       return sig.getSignedReferences()[0];
     } catch (err) {
-      debug("signature check resulted in an error: %s", err);
       // return null; // we don't return null, since we have to verify with another key
     }
   }
