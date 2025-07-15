@@ -141,6 +141,28 @@ export enum ValidateInResponseTo {
  * The options required to use a SAML strategy
  * These may be provided by means of defaults specified in the constructor
  */
+export interface AttributeConsumingService {
+  "@index": string;
+  "@isDefault"?: boolean;
+  ServiceName: {
+    "@xml:lang": string;
+    "#text": string;
+  }[];
+  ServiceDescription?: {
+    "@xml:lang": string;
+    "#text": string;
+  }[];
+  RequestedAttribute: {
+    "@Name": string;
+    "@NameFormat"?: string;
+    "@FriendlyName"?: string;
+    "@isRequired"?: boolean;
+    AttributeValue?: {
+      "#text": string;
+    }[];
+  }[];
+}
+
 export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlOptions {
   // Core
   entryPoint?: string;
@@ -185,6 +207,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   disableRequestAcsUrl: boolean;
   samlAuthnRequestExtensions?: Record<string, unknown>;
   samlLogoutRequestExtensions?: Record<string, unknown>;
+  metadataAttributeConsumingServices?: AttributeConsumingService[];
   metadataContactPerson?: {
     "@contactType": "technical" | "support" | "administrative" | "billing" | "other";
     Extensions?: string;
@@ -224,6 +247,7 @@ export interface GenerateServiceProviderMetadataParams {
   xmlSignatureTransforms?: SamlOptions["xmlSignatureTransforms"];
   digestAlgorithm?: SamlOptions["digestAlgorithm"];
   signMetadata?: SamlOptions["signMetadata"];
+  metadataAttributeConsumingServices?: SamlOptions["metadataAttributeConsumingServices"];
   metadataContactPerson?: SamlOptions["metadataContactPerson"];
   metadataOrganization?: SamlOptions["metadataOrganization"];
   generateUniqueId?: SamlOptions["generateUniqueId"];
