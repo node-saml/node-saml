@@ -14,6 +14,22 @@ This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provi
 
 We gratefully acknowledge support from our sponsors:
 
+<div align="center">
+  <a href="https://stytch.com">
+    <picture>
+      <source width="200px" media="(prefers-color-scheme: dark)" srcset="./sponsor/stytch-light.svg">
+      <source width="200px" media="(prefers-color-scheme: light)" srcset="./sponsor/stytch-dark.svg">
+      <img width="200px" src="./sponsor/stytch-dark.svg" />
+    </picture>
+  </a>
+   <p align="center">
+      <a href="https://stytch.com/?utm_source=oss-sponsorship&utm_medium=paid_sponsorship&utm_campaign=nodesaml">
+        <b>The identity platform for humans & AI agents</b><br/>
+        One integration for authentication, authorization, and security
+      </a>
+   </p>
+</div>
+
 - [RideAmigos](https://rideamigos.com/)
 
 If your company benefits from node-saml being secure and up-to-date, consider asking them to sponsor the project at $25/month. See the [Github Sponsors page](https://github.com/sponsors/cjbarth) for more sponsorship levels. It's easy to do, appearing as another line-item on the Github bill they already have.
