@@ -138,25 +138,130 @@ export enum ValidateInResponseTo {
 }
 
 /**
- * The options required to use a SAML strategy
- * These may be provided by means of defaults specified in the constructor
+ * Describes an AttributeConsumingService element in the SAML metadata.
+ * Used by service providers to specify required attributes.
+ * 
+ * @see {@link https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf SAML 2.0 Metadata Specification, Section 2.4.4}
+ * 
+ * @example
+ * ```typescript
+ * const attributeConsumingService: AttributeConsumingService = {
+ *   "@index": "0",
+ *   "@isDefault": true,
+ *   ServiceName: [{
+ *     "@xml:lang": "en",
+ *     "#text": "Employee Portal"
+ *   }],
+ *   ServiceDescription: [{
+ *     "@xml:lang": "en",
+ *     "#text": "Authentication service for employee portal access"
+ *   }],
+ *   RequestedAttribute: [
+ *     {
+ *       "@Name": "urn:oid:2.5.4.42",
+ *       "@FriendlyName": "givenName",
+ *       "@isRequired": true
+ *     },
+ *     {
+ *       "@Name": "urn:oid:2.5.4.4",
+ *       "@FriendlyName": "sn",
+ *       "@isRequired": true
+ *     },
+ *     {
+ *       "@Name": "urn:oid:1.2.840.113549.1.9.1",
+ *       "@FriendlyName": "emailAddress",
+ *       "@isRequired": false
+ *     }
+ *   ]
+ * };
+ * ```
  */
 export interface AttributeConsumingService {
+  /** 
+   * Unique index for the service within the SP metadata.
+   * Must be unique across all AttributeConsumingService elements.
+   * @example "0", "1", "2"
+   */
   "@index": string;
+
+  /**
+   * Indicates if this service is the default for the SP
+   * @default false
+   */
   "@isDefault"?: boolean;
+
+  /**
+   * Names of the service in multiple languages.
+   * At least one ServiceName is required.
+   */
   ServiceName: {
+    /** 
+     * Language code (e.g., "en", "es", "fr") 
+     * @example "en", "es", "fr", "de"
+     */
     "@xml:lang": string;
+    
+    /** 
+     * The actual service name text
+     * @example "My Authentication Service", "Employee Portal"
+     */
     "#text": string;
   }[];
+
+  /**
+   * Descriptions of the service in multiple languages.
+   * Optional but recommended for better user experience.
+   */
   ServiceDescription?: {
+    /** 
+     * Language code (e.g., "en", "es", "fr") 
+     * @example "en", "es", "fr", "de"
+     */
     "@xml:lang": string;
+    
+    /** 
+     * The actual service description text
+     * @example "This service provides authentication for the employee portal"
+     */
     "#text": string;
   }[];
+
+  /**
+   * Attributes requested by the service, with specifications
+   */
   RequestedAttribute: {
+    /** 
+     * Name of the requested attribute, typically an OID.
+     * Common values:
+     * - `urn:oid:2.5.4.42` (givenName)
+     * - `urn:oid:2.5.4.4` (sn/surname)
+     * - `urn:oid:1.2.840.113549.1.9.1` (emailAddress)
+     * - `urn:oid:2.5.4.3` (cn/commonName)
+     * - `urn:oid:0.9.2342.19200300.100.1.3` (mail)
+     */
     "@Name": string;
+
+    /**
+     * Format of the attribute name
+     * @default "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"
+     */
     "@NameFormat"?: string;
+
+    /** 
+     * Human-readable name of the attribute
+     * @example "givenName", "sn", "emailAddress", "mail"
+     */
     "@FriendlyName"?: string;
+
+    /** 
+     * Indicates if the attribute is required for the service to function
+     * @default false
+     */
     "@isRequired"?: boolean;
+
+    /**
+     * Specific values the attribute can take (optional constraint)
+     */
     AttributeValue?: {
       "#text": string;
     }[];
@@ -207,6 +312,28 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   disableRequestAcsUrl: boolean;
   samlAuthnRequestExtensions?: Record<string, unknown>;
   samlLogoutRequestExtensions?: Record<string, unknown>;
+  
+  /**
+   * Attribute consuming services to include in the metadata.
+   * These describe the attributes that the service provider wishes to receive.
+   * 
+   * @example
+   * ```typescript
+   * metadataAttributeConsumingServices: [{
+   *   "@index": "0",
+   *   "@isDefault": true,
+   *   ServiceName: [{
+   *     "@xml:lang": "en",
+   *     "#text": "My Service"
+   *   }],
+   *   RequestedAttribute: [{
+   *     "@Name": "urn:oid:2.5.4.42",
+   *     "@FriendlyName": "givenName",
+   *     "@isRequired": true
+   *   }]
+   * }]
+   * ```
+   */
   metadataAttributeConsumingServices?: AttributeConsumingService[];
   metadataContactPerson?: {
     "@contactType": "technical" | "support" | "administrative" | "billing" | "other";
