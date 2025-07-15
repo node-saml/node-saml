@@ -18,6 +18,11 @@ import {
   SamlStatusError,
   AttributeConsumingService,
   GenerateServiceProviderMetadataParams,
+  COMMON_SAML_ATTRIBUTES,
+  SAML_ATTRIBUTE_NAME_FORMATS,
+  CommonLanguageCode,
+  CommonSamlAttributeName,
+  SamlAttributeNameFormat,
 } from "./types";
 
 export {
@@ -40,4 +45,9 @@ export {
   SamlStatusError,
   AttributeConsumingService,
   GenerateServiceProviderMetadataParams,
+  COMMON_SAML_ATTRIBUTES,
+  SAML_ATTRIBUTE_NAME_FORMATS,
+  CommonLanguageCode,
+  CommonSamlAttributeName,
+  SamlAttributeNameFormat,
 };

@@ -125,6 +125,57 @@ export interface XmlSignatureLocation {
 
 export type RacComparison = "exact" | "minimum" | "maximum" | "better";
 
+/**
+ * Common SAML attribute names (OIDs) for use in AttributeConsumingService
+ */
+export const COMMON_SAML_ATTRIBUTES = {
+  /** Given name / first name */
+  GIVEN_NAME: "urn:oid:2.5.4.42",
+  /** Surname / last name */
+  SURNAME: "urn:oid:2.5.4.4",
+  /** Email address */
+  EMAIL_ADDRESS: "urn:oid:1.2.840.113549.1.9.1",
+  /** Common name */
+  COMMON_NAME: "urn:oid:2.5.4.3",
+  /** Mail (alternative email) */
+  MAIL: "urn:oid:0.9.2342.19200300.100.1.3",
+  /** Organization name */
+  ORGANIZATION_NAME: "urn:oid:2.5.4.10",
+  /** Organizational unit */
+  ORGANIZATIONAL_UNIT: "urn:oid:2.5.4.11",
+  /** User principal name */
+  USER_PRINCIPAL_NAME: "urn:oid:1.2.840.113556.1.4.656",
+  /** Distinguished name */
+  DISTINGUISHED_NAME: "urn:oid:2.5.4.49",
+} as const;
+
+/**
+ * Common SAML attribute name formats
+ */
+export const SAML_ATTRIBUTE_NAME_FORMATS = {
+  /** URI format (default) */
+  URI: "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+  /** Basic format */
+  BASIC: "urn:oasis:names:tc:SAML:2.0:attrname-format:basic",
+  /** Unspecified format */
+  UNSPECIFIED: "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified",
+} as const;
+
+/**
+ * Common language codes for ServiceName and ServiceDescription
+ */
+export type CommonLanguageCode = "en" | "es" | "fr" | "de" | "it" | "pt" | "ja" | "ko" | "zh" | "ar" | "ru";
+
+/**
+ * Union type for common SAML attribute names
+ */
+export type CommonSamlAttributeName = typeof COMMON_SAML_ATTRIBUTES[keyof typeof COMMON_SAML_ATTRIBUTES];
+
+/**
+ * Union type for SAML attribute name formats
+ */
+export type SamlAttributeNameFormat = typeof SAML_ATTRIBUTE_NAME_FORMATS[keyof typeof SAML_ATTRIBUTE_NAME_FORMATS];
+
 export interface SamlScopingConfig {
   idpList?: SamlIDPListConfig[];
   proxyCount?: number;
