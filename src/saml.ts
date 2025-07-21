@@ -558,10 +558,6 @@ class SAML {
         | boolean
         | undefined
         | null
-        | readonly string[]
-        | readonly number[]
-        | readonly bigint[]
-        | readonly boolean[]
         | readonly (string | number | bigint | boolean)[],
       preserveCR?: boolean,
     ) {
