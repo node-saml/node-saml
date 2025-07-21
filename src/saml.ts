@@ -576,6 +576,7 @@ class SAML {
         | null
         | readonly string[]
         | readonly number[]
+        | readonly bigint[]
         | readonly boolean[],
       preserveCR?: boolean,
     ) {
