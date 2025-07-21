@@ -283,9 +283,7 @@ class SAML {
     }
 
     if (this.options.scoping != null) {
-      const scoping: XMLInput = {
-        "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
-      };
+      const scoping: XMLInput = { "@xmlns:samlp": "urn:oasis:names:tc:SAML:2.0:protocol" };
 
       if (typeof this.options.scoping.proxyCount === "number") {
         scoping["@ProxyCount"] = this.options.scoping.proxyCount;
@@ -361,10 +359,7 @@ class SAML {
           "#text": this.options.issuer,
         },
         "samlp:Extensions": {},
-        "saml:NameID": {
-          "@Format": user.nameIDFormat,
-          "#text": user.nameID,
-        },
+        "saml:NameID": { "@Format": user.nameIDFormat, "#text": user.nameID },
       },
     } as LogoutRequestXML;
 
@@ -405,17 +400,13 @@ class SAML {
     const instant = generateInstant();
 
     const successStatus = {
-      "samlp:StatusCode": {
-        "@Value": "urn:oasis:names:tc:SAML:2.0:status:Success",
-      },
+      "samlp:StatusCode": { "@Value": "urn:oasis:names:tc:SAML:2.0:status:Success" },
     };
 
     const failStatus = {
       "samlp:StatusCode": {
         "@Value": "urn:oasis:names:tc:SAML:2.0:status:Requester",
-        "samlp:StatusCode": {
-          "@Value": "urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal",
-        },
+        "samlp:StatusCode": { "@Value": "urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal" },
       },
     };
 
@@ -428,9 +419,7 @@ class SAML {
         "@IssueInstant": instant,
         "@Destination": this.options.logoutUrl,
         "@InResponseTo": logoutRequest.ID,
-        "saml:Issuer": {
-          "#text": this.options.issuer,
-        },
+        "saml:Issuer": { "#text": this.options.issuer },
         "samlp:Status": success ? successStatus : failStatus,
       },
     };
@@ -467,12 +456,8 @@ class SAML {
     }
 
     const samlMessage: querystring.ParsedUrlQuery = request
-      ? {
-          SAMLRequest: base64,
-        }
-      : {
-          SAMLResponse: base64,
-        };
+      ? { SAMLRequest: base64 }
+      : { SAMLResponse: base64 };
     Object.keys(additionalParameters).forEach((k) => {
       samlMessage[k] = additionalParameters[k];
     });
@@ -546,9 +531,7 @@ class SAML {
     const operation = "authorize";
     const overrideParams = options ? options.additionalParams || {} : {};
     const additionalParameters = this._getAdditionalParams(RelayState, operation, overrideParams);
-    const samlMessage: querystring.ParsedUrlQueryInput = {
-      SAMLRequest: buffer.toString("base64"),
-    };
+    const samlMessage: querystring.ParsedUrlQueryInput = { SAMLRequest: buffer.toString("base64") };
 
     Object.keys(additionalParameters).forEach((k) => {
       samlMessage[k] = additionalParameters[k] || "";
@@ -578,7 +561,8 @@ class SAML {
         | readonly string[]
         | readonly number[]
         | readonly bigint[]
-        | readonly boolean[],
+        | readonly boolean[]
+        | readonly (string | number | bigint | boolean)[],
       preserveCR?: boolean,
     ) {
       const preserveCRChar = preserveCR ? "&#13;" : "\n";
@@ -1378,11 +1362,7 @@ class SAML {
     decryptionCert: string | null,
     publicCerts?: string | string[] | null,
   ): string {
-    return generateServiceProviderMetadata({
-      ...this.options,
-      decryptionCert,
-      publicCerts,
-    });
+    return generateServiceProviderMetadata({ ...this.options, decryptionCert, publicCerts });
   }
 
   /**
