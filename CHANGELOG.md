@@ -1,6 +1,31 @@
 # Changelog
 
-## 5.0.1 (2025-03-14)
+## 5.1.0 (2025-07-21)
+
+### 🚀 Minor Changes
+
+- Export custom SamlStatusError [#394](https://github.com/node-saml/node-saml/pull/394)
+
+### 🔗 Dependencies
+
+- Update dependencies [#391](https://github.com/node-saml/node-saml/pull/391)
+
+### 🐛 Bug Fixes
+
+- [**security**] Use new .signedReferences interace in xml-crypto to "see what is signed" [#397](https://github.com/node-saml/node-saml/pull/397)
+
+### 📚 Documentation
+
+- update sponsors-Stytch [#395](https://github.com/node-saml/node-saml/pull/395)
+
+### ⚙️ Technical Tasks
+
+- Add CI test & lint for Node.js 22 [#386](https://github.com/node-saml/node-saml/pull/386)
+- Adjust linting rules for line endings [#393](https://github.com/node-saml/node-saml/pull/393)
+
+---
+
+## v5.0.1 (2025-03-14)
 
 ### 🚀 Minor Changes
 
