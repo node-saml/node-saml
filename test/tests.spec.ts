@@ -11,7 +11,7 @@ import { expect } from "chai";
 import * as assert from "assert";
 import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
-import { parseDomFromString, validateSignature } from "../src/xml";
+import { getVerifiedXml, parseDomFromString, validateSignature } from "../src/xml";
 import { generateServiceProviderMetadata } from "../src/metadata";
 
 const BAD_TEST_CERT =
@@ -678,6 +678,7 @@ describe("node-saml /", function () {
 
         const dom = await parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [publicCert])).to.be.true;
+        assert(getVerifiedXml(metadata, dom.documentElement, [publicCert]));
       });
 
       it("generateServiceProviderMetadata contains metadataExtensions", function () {
