@@ -571,6 +571,7 @@ class SAML {
       s:
         | string
         | number
+        | bigint
         | boolean
         | undefined
         | null
