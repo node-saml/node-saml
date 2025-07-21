@@ -152,7 +152,7 @@ export const getVerifiedXml = (
       }
 
       return sig.getSignedReferences()[0];
-    } catch (err) {
+    } catch {
       // return null; // we don't return null, since we have to verify with another key
     }
   }
@@ -198,14 +198,11 @@ const _validateSignature = (fullXml: string, currentNode: Element, pemFiles: str
   });
 };
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 // validateSignature is deprecated, should be using getVerifiedXml
 // Existing non-sensitive callers can still use validateSignature
 // but new callers should use getVerifiedXml
 // this allows us to deprecate it without raising a warning
 export const validateSignature = _validateSignature;
-/* eslint-enable @typescript-eslint/no-unused-vars */
 
 /**
  * This function checks that the |signature| is signed with a given |pemFile|.

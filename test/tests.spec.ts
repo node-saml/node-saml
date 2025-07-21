@@ -678,8 +678,7 @@ describe("node-saml /", function () {
 
         const dom = await parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [publicCert])).to.be.true;
-        assert(getVerifiedXml(metadata, dom.documentElement, [publicCert]))
-
+        assert(getVerifiedXml(metadata, dom.documentElement, [publicCert]));
       });
 
       it("generateServiceProviderMetadata contains metadataExtensions", function () {
