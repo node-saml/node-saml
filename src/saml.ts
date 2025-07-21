@@ -710,7 +710,7 @@ class SAML {
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
         const decryptedDoc = await parseDomFromString(decryptedXml);
         const decryptedAssertion = decryptedDoc.documentElement;
-        if (!(decryptedAssertion.localName === "Assertion")) {
+        if (decryptedAssertion.localName !== "Assertion") {
           throw new Error("Invalid EncryptedAssertion content");
         }
 

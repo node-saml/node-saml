@@ -107,7 +107,7 @@ export const getVerifiedXml = (
     // more so to check conformance with the SAML spec
     const refs = sig.getReferences();
 
-    if (!(refs.length === 1)) return null;
+    if (refs.length !== 1) return null;
     if (!signature.parentNode) {
       return null;
     }
@@ -130,11 +130,11 @@ export const getVerifiedXml = (
       `//*[@ID="${refId}"]`,
     );
 
-    if (!(totalReferencedNodes.length === 1)) {
+    if (totalReferencedNodes.length !== 1) {
       throw new Error("Invalid signature: ID cannot refer to more than one element");
     }
 
-    if (!(totalReferencedNodes[0] === signature.parentNode)) {
+    if (totalReferencedNodes[0] !== signature.parentNode) {
       throw new Error("Invalid signature: Referenced node does not refer to it's parent element");
     }
 
@@ -147,7 +147,7 @@ export const getVerifiedXml = (
         continue; // no signatures verified
       }
 
-      if (!(sig.getSignedReferences().length === 1)) {
+      if (sig.getSignedReferences().length !== 1) {
         throw new Error("Only 1 signed references should be present in signature");
       }
 
