@@ -58,25 +58,119 @@ const normalizeNewlines = (xml: string): string => {
 };
 
 /**
+ * // modeled after the current validateSignature method, to maintain consistency for unit tests
+ * Input: fullXml, the document for SignedXML context
+ * Input: currentNode, this node must have a Signature
+ * Input: pemFiles: a list of pem encoded certificates that are trusted. User is responsible for ensuring trust
+ * Find's a signature for the currentNode
+ * Return the verified contents if verified?
+ * Otherwise returns null
+ * */
+export const getVerifiedXml = (
+  fullXml: string,
+  currentNode: Element,
+  pemFiles: string[],
+): string | null => {
+  fullXml = normalizeNewlines(fullXml);
+
+  // find any signature
+  const signatures = xpath.selectElements(
+    currentNode,
+    "./*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']",
+  );
+  if (signatures.length < 1) {
+    return null;
+  }
+
+  if (signatures.length > 1) {
+    throw new Error("Too many signatures found for this element");
+  }
+
+  const signature = signatures[0];
+
+  const xpathTransformQuery =
+    ".//*[local-name(.)='Transform' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']";
+  const transforms = xpath.selectElements(signature, xpathTransformQuery);
+  // Reject also XMLDSIG with more than 2 Transform
+  if (transforms.length > 2) {
+    // do not return false, throw an error so that it can be caught by tests differently
+    throw new Error("Invalid signature, too many transforms");
+  }
+
+  for (const pemFile of pemFiles) {
+    const sig = new xmlCrypto.SignedXml();
+    sig.publicCert = pemFile; // public certificate to verify
+    sig.loadSignature(signature);
+
+    // here are the sanity checks
+    // They do not affect the actual security of the program
+    // more so to check conformance with the SAML spec
+    const refs = sig.getReferences();
+
+    if (refs.length !== 1) return null;
+    if (!signature.parentNode) {
+      return null;
+    }
+
+    const ref = refs[0];
+
+    // only allow enveloped signature
+    const refUri = ref.uri;
+
+    const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
+
+    assertRequired(refId, "signature reference uri not found");
+    // prevent XPath injection
+    if (refId.includes("'") || refId.includes('"')) {
+      throw new Error("ref URI included quote character ' or \". Not a valid ID, and not allowed");
+    }
+
+    const totalReferencedNodes = xpath.selectElements(
+      signature.ownerDocument,
+      `//*[@ID="${refId}"]`,
+    );
+
+    if (totalReferencedNodes.length !== 1) {
+      throw new Error("Invalid signature: ID cannot refer to more than one element");
+    }
+
+    if (totalReferencedNodes[0] !== signature.parentNode) {
+      throw new Error("Invalid signature: Referenced node does not refer to it's parent element");
+    }
+
+    // actual cryptographic verification
+    // after verification, the referenced XML will be in `sig.signedReferences`
+    // do not trust any other xml (including referencedNode)
+
+    try {
+      if (!sig.checkSignature(fullXml)) {
+        continue; // no signatures verified
+      }
+
+      if (sig.getSignedReferences().length !== 1) {
+        throw new Error("Only 1 signed references should be present in signature");
+      }
+
+      return sig.getSignedReferences()[0];
+    } catch {
+      // return null; // we don't return null, since we have to verify with another key
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Internally deprecated Do not only return boolean value, instead return the actual signed content. SAML Libraries must only use the referenced bytes from the signature
  * This function checks that the |currentNode| in the |fullXml| document contains exactly 1 valid
  *   signature of the |currentNode|.
  *
  * See https://github.com/bergie/passport-saml/issues/19 for references to some of the attack
  *   vectors against SAML signature verification.
  */
-export const validateSignature = (
-  fullXml: string,
-  currentNode: Element,
-  pemFiles: string[],
-): boolean => {
-  const xpathSigQuery =
-    ".//*[" +
-    "local-name(.)='Signature' and " +
-    "namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and " +
-    "descendant::*[local-name(.)='Reference' and @URI='#" +
-    currentNode.getAttribute("ID") +
-    "']" +
-    "]";
+
+const _validateSignature = (fullXml: string, currentNode: Element, pemFiles: string[]): boolean => {
+  const xpathSigQuery = `.//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and descendant::*[local-name(.)='Reference' and @URI='#${currentNode.getAttribute("ID")}']]`;
   const signatures = xpath.selectElements(currentNode, xpathSigQuery);
   // This function is expecting to validate exactly one signature, so if we find more or fewer
   //   than that, reject.
@@ -104,8 +198,15 @@ export const validateSignature = (
   });
 };
 
+// validateSignature is deprecated, should be using getVerifiedXml
+// Existing non-sensitive callers can still use validateSignature
+// but new callers should use getVerifiedXml
+// this allows us to deprecate it without raising a warning
+export const validateSignature = _validateSignature;
+
 /**
  * This function checks that the |signature| is signed with a given |pemFile|.
+ * Internally deprecated, users should not be using this for anything new
  */
 const validateXmlSignatureWithPemFile = (
   signature: Node,
@@ -121,7 +222,6 @@ const validateXmlSignatureWithPemFile = (
   if (sig.getReferences().length !== 1) return false;
   const t = sig.getReferences();
   const refUri = t[0].uri;
-  // const refUri = sig.references[0].uri;
   assertRequired(refUri, "signature reference uri not found");
   const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
   // If we can't find the reference at the top level, reject
@@ -176,9 +276,7 @@ export const signXml = (
   sig.privateKey = options.privateKey;
   sig.publicCert = options.publicCert;
   sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
-  sig.computeSignature(xml, {
-    location,
-  });
+  sig.computeSignature(xml, { location });
 
   return sig.getSignedXml();
 };
@@ -198,10 +296,7 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
        * you can override the errorHandler for xml parser
        * @link http://www.saxproject.org/apidoc/org/xml/sax/ErrorHandler.html
        */
-      errorHandler: {
-        error: errHandler,
-        fatalError: errHandler,
-      },
+      errorHandler: { error: errHandler, fatalError: errHandler },
     }).parseFromString(xml, "text/xml");
 
     if (!Object.prototype.hasOwnProperty.call(dom, "documentElement")) {
@@ -223,10 +318,7 @@ export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJs
 };
 
 export const buildXml2JsObject = (rootName: string, xml: XmlJsObject): string => {
-  const builderOpts = {
-    rootName,
-    headless: true,
-  };
+  const builderOpts = { rootName, headless: true };
   return new xml2js.Builder(builderOpts).buildObject(xml);
 };
 
@@ -237,10 +329,7 @@ export const buildXmlBuilderObject = (xml: XMLOutput, pretty: boolean): string =
 
 export const promiseWithNameId = async (nameid: Node): Promise<NameID> => {
   const format = xpath.selectAttributes(nameid, "@Format");
-  return {
-    value: nameid.textContent,
-    format: format && format[0] && format[0].nodeValue,
-  };
+  return { value: nameid.textContent, format: format && format[0] && format[0].nodeValue };
 };
 
 export const getNameIdAsync = async (
