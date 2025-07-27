@@ -499,7 +499,6 @@ class SAML {
 
   async getAuthorizeUrlAsync(
     RelayState: string,
-    host: string | undefined,
     options: AuthOptions,
   ): Promise<string> {
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
@@ -515,7 +514,6 @@ class SAML {
 
   async getAuthorizeMessageAsync(
     RelayState: string,
-    host?: string,
     options?: AuthOptions,
   ): Promise<querystring.ParsedUrlQueryInput> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
@@ -542,7 +540,6 @@ class SAML {
 
   async getAuthorizeFormAsync(
     RelayState: string,
-    host?: string,
     options?: AuthOptions,
   ): Promise<string> {
     assertRequired(this.options.entryPoint, "entryPoint is required");
@@ -576,7 +573,7 @@ class SAML {
       );
     };
 
-    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, host, options);
+    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, options);
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {
