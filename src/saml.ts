@@ -134,7 +134,7 @@ class SAML {
       authnContext: ctorOptions.authnContext ?? [
         "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
       ],
-      validateInResponseTo: ctorOptions.validateInResponseTo ?? ValidateInResponseTo.never,
+      validateInResponseTo: ctorOptions.validateInResponseTo ?? ValidateInResponseTo.always,
       idpCert: ctorOptions.idpCert,
       requestIdExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs ?? 28800000, // 8 hours
       cacheProvider:

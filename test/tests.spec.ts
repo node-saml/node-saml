@@ -3002,6 +3002,7 @@ describe("node-saml /", function () {
         idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "ascii"),
         decryptionPvk: fs.readFileSync(__dirname + "/static/key.pem", "ascii"),
         issuer: "onelogin_saml",
+        validateInResponseTo: ValidateInResponseTo.never,
       });
       const body = {
         SAMLRequest: fs.readFileSync(
@@ -3026,6 +3027,7 @@ describe("node-saml /", function () {
         issuer: "okta",
         audience: false,
         wantAssertionsSigned: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       });
       const xml =
         '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
