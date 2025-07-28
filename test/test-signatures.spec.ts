@@ -1,7 +1,7 @@
 import { SAML } from "../src";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { SamlConfig } from "../src/types";
+import { SamlConfig, ValidateInResponseTo } from "../src/types";
 import * as xml from "../src/xml";
 import * as assert from "assert";
 import { expect } from "chai";
@@ -94,25 +94,30 @@ describe("Signatures", function () {
     //== VALID
     it(
       "R1A - both signed => valid",
-      testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 2),
+      testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 2, {
+        validateInResponseTo: ValidateInResponseTo.never,
+      }),
     );
     const publicKey = fs.readFileSync(__dirname + "/static/pub.pem", "ascii");
     it(
       "R1A - both signed, verify using public key => valid",
       testOneResponse("/valid/response.root-signed.assertion-signed.xml", false, 2, {
         idpCert: publicKey,
+        validateInResponseTo: ValidateInResponseTo.never,
       }),
     );
     it(
       "R1A - root signed => valid",
       testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", false, 1, {
         wantAssertionsSigned: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       }),
     );
     it(
       "R1A - assertion signed => valid",
       testOneResponse("/valid/response.root-unsigned.assertion-signed.xml", false, 2, {
         wantAuthnResponseSigned: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       }),
     );
     it(
@@ -120,6 +125,7 @@ describe("Signatures", function () {
       testOneResponse("/valid/response.root-unsigned.assertion-signed.xml", false, 2, {
         wantAuthnResponseSigned: false,
         wantAssertionsSigned: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       }),
     );
 
@@ -130,6 +136,7 @@ describe("Signatures", function () {
         "/valid/response.root-unsigned.assertion-signed.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -138,6 +145,7 @@ describe("Signatures", function () {
         "/invalid/response.root-unsigned.assertion-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -149,6 +157,7 @@ describe("Signatures", function () {
         {
           wantAuthnResponseSigned: false,
           wantAssertionsSigned: false,
+          validateInResponseTo: ValidateInResponseTo.never,
         },
       ),
     );
@@ -158,6 +167,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-signed.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -166,6 +176,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -174,11 +185,14 @@ describe("Signatures", function () {
         "/invalid/response.root-unsigned.assertion-signed.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
       "R1A - root signed - wantAssertionsSigned=true => error",
-      testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", INVALID_SIGNATURE, 2),
+      testOneResponse("/valid/response.root-signed.assertion-unsigned.xml", INVALID_SIGNATURE, 2, {
+        validateInResponseTo: ValidateInResponseTo.never,
+      }),
     );
     it(
       "R1A - root signed - assertion unsigned encrypted -wantAssertionsSigned=true => error",
@@ -188,6 +202,7 @@ describe("Signatures", function () {
         2,
         {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          validateInResponseTo: ValidateInResponseTo.never,
         },
       ),
     );
@@ -197,6 +212,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-invalidly-signed.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -207,6 +223,7 @@ describe("Signatures", function () {
         2,
         {
           decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          validateInResponseTo: ValidateInResponseTo.never,
         },
       ),
     );
@@ -216,6 +233,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed-transforms.assertion-unsigned.xml",
         INVALID_TOO_MANY_TRANSFORMS,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -226,6 +244,7 @@ describe("Signatures", function () {
         2,
         {
           wantAuthnResponseSigned: false,
+          validateInResponseTo: ValidateInResponseTo.never,
         },
       ),
     );
@@ -237,6 +256,7 @@ describe("Signatures", function () {
         1,
         {
           wantAssertionsSigned: false,
+          validateInResponseTo: ValidateInResponseTo.never,
         },
       ),
     );
@@ -256,7 +276,9 @@ describe("Signatures", function () {
     //== VALID
     it(
       "R1A1Ad - signed root + assertion + advice => valid",
-      testOneResponse("/valid/response.root-signed.assertion-signed.1advice-signed.xml", false, 2),
+      testOneResponse("/valid/response.root-signed.assertion-signed.1advice-signed.xml", false, 2, {
+        validateInResponseTo: ValidateInResponseTo.never,
+      }),
     );
     it(
       "R1A1Ad - signed root + assertion => valid",
@@ -264,6 +286,7 @@ describe("Signatures", function () {
         "/valid/response.root-signed.assertion-signed.1advice-unsigned.xml",
         false,
         2,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -272,7 +295,7 @@ describe("Signatures", function () {
         "/valid/response.root-unsigned.assertion-signed.1advice-signed.xml",
         false,
         2,
-        { wantAuthnResponseSigned: false },
+        { wantAuthnResponseSigned: false, validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -283,6 +306,7 @@ describe("Signatures", function () {
         1,
         {
           wantAssertionsSigned: false,
+          validateInResponseTo: ValidateInResponseTo.never,
         },
       ),
     );
@@ -292,7 +316,7 @@ describe("Signatures", function () {
         "/valid/response.root-unsigned.assertion-signed.1advice-unsigned.xml",
         false,
         2,
-        { wantAuthnResponseSigned: false },
+        { wantAuthnResponseSigned: false, validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
 
@@ -303,6 +327,7 @@ describe("Signatures", function () {
         "/invalid/response.root-unsigned.assertion-unsigned.1advice-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -311,6 +336,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-signed.1advice-signed.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -319,6 +345,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-signed.1advice-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -327,7 +354,7 @@ describe("Signatures", function () {
         "/invalid/response.root-unsigned.assertion-signed.1advice-signed.xml",
         INVALID_SIGNATURE,
         2,
-        { wantAuthnResponseSigned: false },
+        { wantAuthnResponseSigned: false, validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -336,6 +363,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-unsigned.1advice-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -344,7 +372,7 @@ describe("Signatures", function () {
         "/invalid/response.root-unsigned.assertion-signed.1advice-unsigned.xml",
         INVALID_SIGNATURE,
         2,
-        { wantAuthnResponseSigned: false },
+        { wantAuthnResponseSigned: false, validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
   });
@@ -363,7 +391,9 @@ describe("Signatures", function () {
     //== VALID
     it(
       "R1A2Ad - signed root + assertion + advice => valid",
-      testOneResponse("/valid/response.root-signed.assertion-signed.2advice-signed.xml", false, 2),
+      testOneResponse("/valid/response.root-signed.assertion-signed.2advice-signed.xml", false, 2, {
+        validateInResponseTo: ValidateInResponseTo.never,
+      }),
     );
     it(
       "R1A2Ad - signed root + assertion => valid",
@@ -371,6 +401,7 @@ describe("Signatures", function () {
         "/valid/response.root-signed.assertion-signed.2advice-unsigned.xml",
         false,
         2,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -379,7 +410,7 @@ describe("Signatures", function () {
         "/valid/response.root-signed.assertion-unsigned.2advice-unsigned.xml",
         false,
         1,
-        { wantAssertionsSigned: false },
+        { wantAssertionsSigned: false, validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
 
@@ -390,6 +421,7 @@ describe("Signatures", function () {
         "/invalid/response.root-unsigned.assertion-unsigned.2advice-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -398,6 +430,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-signed.2advice-signed.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -406,6 +439,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-signed.2advice-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
     it(
@@ -414,6 +448,7 @@ describe("Signatures", function () {
         "/invalid/response.root-signed.assertion-unsigned.2advice-unsigned.xml",
         INVALID_DOCUMENT_SIGNATURE,
         1,
+        { validateInResponseTo: ValidateInResponseTo.never },
       ),
     );
   });
@@ -438,12 +473,16 @@ describe("Signatures", function () {
 
     it("CRLF line endings", async () => {
       const body = makeBody(samlResponseXml.replace(/\n/g, "\r\n"));
-      await testOneResponseBody(body, false, 2);
+      await testOneResponseBody(body, false, 2, {
+        validateInResponseTo: ValidateInResponseTo.never,
+      });
     });
 
     it("CR line endings", async () => {
       const body = makeBody(samlResponseXml.replace(/\n/g, "\r"));
-      await testOneResponseBody(body, false, 2);
+      await testOneResponseBody(body, false, 2, {
+        validateInResponseTo: ValidateInResponseTo.never,
+      });
     });
   });
 
@@ -462,6 +501,7 @@ describe("Signatures", function () {
       "Attribute with &#13;",
       testOneResponse("/valid/response.root-signed.assertion-unsigned-13.xml", false, 1, {
         wantAssertionsSigned: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       }),
     );
 
@@ -469,6 +509,7 @@ describe("Signatures", function () {
       "Attribute with &#xd;",
       testOneResponse("/valid/response.root-signed.assertion-unsigned-xd.xml", false, 1, {
         wantAssertionsSigned: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       }),
     );
   });
@@ -488,6 +529,7 @@ describe("Signatures", function () {
       "Signature attributes with &#13;",
       testOneResponse("/valid/response.root-signed.assertion-unsigned-13-signature.xml", false, 1, {
         wantAssertionsSigned: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       }),
     );
 
@@ -495,6 +537,7 @@ describe("Signatures", function () {
       "Signature attributes with &#xd;",
       testOneResponse("/valid/response.root-signed.assertion-unsigned-xd-signature.xml", false, 1, {
         wantAssertionsSigned: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       }),
     );
   });
