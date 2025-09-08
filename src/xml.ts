@@ -16,9 +16,7 @@ import {
 import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
 import * as isDomNode from "@xmldom/is-dom-node";
-import Debug from "debug";
 
-const debug = Debug("node-saml");
 
 const selectXPath = <T extends Node>(
   guard: (values: SelectReturnType) => values is Array<T>,
@@ -242,7 +240,7 @@ const validateXmlSignatureWithPemFile = (
   try {
     return sig.checkSignature(fullXml);
   } catch (err) {
-    debug("signature check resulted in an error: %s", err);
+    //debug("signature check resulted in an error: %s", err);
     return false;
   }
 };

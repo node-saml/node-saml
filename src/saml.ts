@@ -1,4 +1,3 @@
-import Debug from "debug";
 import * as zlib from "zlib";
 import * as crypto from "crypto";
 import { URL } from "url";
@@ -46,7 +45,6 @@ import { signAuthnRequestPost } from "./saml-post-signing";
 import { generateServiceProviderMetadata } from "./metadata";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
-const debug = Debug("node-saml");
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -866,7 +864,7 @@ class SAML {
         }
       }
     } catch (err) {
-      debug("validatePostResponse resulted in an error: %s", err);
+      // debug("validatePostResponse resulted in an error: %s", err);
       if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
         await this.cacheProvider.removeAsync(inResponseTo);
       }
