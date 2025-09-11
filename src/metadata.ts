@@ -139,6 +139,17 @@ export const generateServiceProviderMetadata = (
     "@Location": callbackUrl,
   } as XMLObject;
 
+  if (params.metadataAttributeConsumingServices) {
+    metadata.EntityDescriptor.SPSSODescriptor.AttributeConsumingService =
+      params.metadataAttributeConsumingServices.map((service) => ({
+        "@index": service["@index"],
+        ...(service["@isDefault"] ? { "@isDefault": service["@isDefault"] } : {}),
+        ServiceName: service.ServiceName,
+        ...(service.ServiceDescription ? { ServiceDescription: service.ServiceDescription } : {}),
+        RequestedAttribute: service.RequestedAttribute,
+      }));
+  }
+
   let metadataXml = buildXmlBuilderObject(metadata, true);
   if (params.signMetadata === true && isValidSamlSigningOptions(params)) {
     metadataXml = signXmlMetadata(metadataXml, {
