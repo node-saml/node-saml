@@ -864,7 +864,7 @@ class SAML {
         }
       }
     } catch (err) {
-      // debug("validatePostResponse resulted in an error: %s", err);
+      console.debug("validatePostResponse resulted in an error: %s", err);
       if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
         await this.cacheProvider.removeAsync(inResponseTo);
       }
