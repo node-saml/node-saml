@@ -134,7 +134,7 @@ export const getVerifiedXml = (
     }
 
     if (totalReferencedNodes[0] !== signature.parentNode) {
-      throw new Error("Invalid signature: Referenced node does not refer to it's parent element");
+      throw new Error("Invalid signature: Referenced node does not refer to its parent element");
     }
 
     // actual cryptographic verification
@@ -241,7 +241,7 @@ const validateXmlSignatureWithPemFile = (
   try {
     return sig.checkSignature(fullXml);
   } catch (err) {
-    debugLog("signature check resulted in an error: %s", err);
+    debugLog.enabled && debugLog("signature check resulted in an error: %s", err);
     return false;
   }
 };
