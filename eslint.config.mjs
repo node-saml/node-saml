@@ -35,7 +35,7 @@ export default tseslint.config([
       "@typescript-eslint": eslintPluginTypeScript,
     },
     rules: {
-      "no-console": ["error", { allow: ["debug", "warn", "error"] }],
+      "no-console": ["error"],
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-unused-vars": "error",
       "@typescript-eslint/no-invalid-void-type": "off",
