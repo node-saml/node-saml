@@ -8,7 +8,7 @@ import { SAML } from "../src/saml";
 import { AuthOptions, IdpCertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
-import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
+import { getVerifiedXml, parseDomFromString, parseXml2JsFromString } from "../src/xml";
 
 const noop = (): void => undefined;
 
@@ -56,8 +56,8 @@ describe("saml.ts", function () {
             return { documentElement: null };
           }) as unknown as typeof parseDomFromString,
           _parseXml2JsFromString: noop as unknown as typeof parseXml2JsFromString,
-          _validateSignature: (() => true) as unknown as typeof validateSignature,
-        },
+          _getVerifiedXml: ((fullXml: string, currentNode: Element, pemFiles: string[]) => fullXml) as unknown as typeof getVerifiedXml,
+        }
       );
 
       const pendingResult = getKeyInfosAsPemSpy.returnValues[0];

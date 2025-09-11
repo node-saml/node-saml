@@ -36,7 +36,6 @@ import {
   getVerifiedXml,
   parseDomFromString,
   parseXml2JsFromString,
-  validateSignature,
   xpath,
 } from "./xml";
 import { keyInfoToPem, generateUniqueId } from "./crypto";
@@ -1282,17 +1281,20 @@ class SAML {
     {
       _parseDomFromString = parseDomFromString,
       _parseXml2JsFromString = parseXml2JsFromString,
-      _validateSignature = validateSignature,
+      _getVerifiedXml = getVerifiedXml,
     } = {},
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
     const dom = await _parseDomFromString(xml);
-    const doc = await _parseXml2JsFromString(xml);
     const pemFiles = await this.getKeyInfosAsPem();
-    if (!_validateSignature(xml, dom.documentElement, pemFiles)) {
+    const verifiedXml = _getVerifiedXml(xml, dom.documentElement, pemFiles);
+
+    if (!verifiedXml) {
       throw new Error("Invalid signature on documentElement");
     }
-    return await this.processValidlySignedPostRequestAsync(doc, dom);
+    const verifiedRequest = await _parseXml2JsFromString(verifiedXml);
+
+    return await this.processValidlySignedPostRequestAsync(verifiedRequest, dom);
   }
 
   protected async processValidlySignedPostRequestAsync(
