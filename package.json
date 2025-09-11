@@ -46,7 +46,7 @@
     "prerelease": "git clean -xfd && npm ci && npm run lint && npm test && npm run build",
     "release": "release-it",
     "test": "npm run build && nyc mocha --config .mocharc.json",
-    "test-watch": "mocha --watch",
+    "test-watch": "mocha --config .mocharc.json --watch",
     "tsc": "tsc",
     "tsc-watch": "tsc --watch",
     "update": "npx npm-check-updates -du",

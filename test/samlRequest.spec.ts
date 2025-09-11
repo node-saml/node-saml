@@ -98,7 +98,7 @@ describe("SAML request", function () {
           const decoded = Buffer.from(encodedSamlRequest, "base64");
           const inflated = zlib.inflateRawSync(decoded);
 
-          return parseStringPromise(inflated.toString());
+          return parseStringPromise(inflated.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -121,7 +121,7 @@ describe("SAML request", function () {
           const decoded = Buffer.from(encodedSamlRequest, "base64");
           const inflated = zlib.inflateRawSync(decoded);
 
-          return parseStringPromise(inflated.toString());
+          return parseStringPromise(inflated.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -186,7 +186,7 @@ describe("SAML request", function () {
           const decoded = Buffer.from(encodedSamlRequest, "base64");
           const inflated = zlib.inflateRawSync(decoded);
 
-          return parseStringPromise(inflated.toString());
+          return parseStringPromise(inflated.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -209,7 +209,7 @@ describe("SAML request", function () {
           const decoded = Buffer.from(encodedSamlRequest, "base64");
           const inflated = zlib.inflateRawSync(decoded);
 
-          return parseStringPromise(inflated.toString());
+          return parseStringPromise(inflated.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -278,7 +278,7 @@ describe("SAML request", function () {
           const decoded = Buffer.from(encodedSamlRequest, "base64");
           const inflated = zlib.inflateRawSync(decoded);
 
-          return parseStringPromise(inflated.toString());
+          return parseStringPromise(inflated.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -301,7 +301,7 @@ describe("SAML request", function () {
           const decoded = Buffer.from(encodedSamlRequest, "base64");
           const inflated = zlib.inflateRawSync(decoded);
 
-          return parseStringPromise(inflated.toString());
+          return parseStringPromise(inflated.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -370,7 +370,7 @@ describe("SAML request", function () {
           const decoded = Buffer.from(encodedSamlRequest, "base64");
           const inflated = zlib.inflateRawSync(decoded);
 
-          return parseStringPromise(inflated.toString());
+          return parseStringPromise(inflated.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -393,7 +393,7 @@ describe("SAML request", function () {
           const decoded = Buffer.from(encodedSamlRequest, "base64");
           const inflated = zlib.inflateRawSync(decoded);
 
-          return parseStringPromise(inflated.toString());
+          return parseStringPromise(inflated.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -491,7 +491,7 @@ describe("SAML request", function () {
           const encodedSamlRequest = samlMessage.SAMLRequest as string;
           const buffer = Buffer.from(encodedSamlRequest, "base64");
 
-          return parseStringPromise(buffer.toString());
+          return parseStringPromise(buffer.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
@@ -512,7 +512,7 @@ describe("SAML request", function () {
           const encodedSamlRequest = samlRequestMatchValues?.[1];
           const buffer = Buffer.from(encodedSamlRequest, "base64");
 
-          return parseStringPromise(buffer.toString());
+          return parseStringPromise(buffer.toString("utf8"));
         })
         .then((doc) => {
           delete doc["samlp:AuthnRequest"]["$"]["ID"];
