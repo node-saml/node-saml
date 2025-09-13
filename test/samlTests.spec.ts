@@ -5,7 +5,7 @@ import { URL } from "url";
 import { expect } from "chai";
 import * as assert from "assert";
 import { SAML } from "../src/saml";
-import { AuthOptions, IdpCertCallback } from "../src/types";
+import { AuthOptions, IdpCertCallback, ValidateInResponseTo } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
@@ -169,6 +169,7 @@ describe("saml.ts", function () {
         idpCert: publicKey,
         issuer: "onesaml_login",
         audience: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       });
 
       await triggerGetKeyInfosAsPemFunctionCall(samlObj);
@@ -181,6 +182,7 @@ describe("saml.ts", function () {
         idpCert: publicKey,
         issuer: "onesaml_login",
         audience: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       });
 
       await triggerGetKeyInfosAsPemFunctionCall(samlObj);
@@ -200,6 +202,7 @@ describe("saml.ts", function () {
         idpCert,
         issuer: "onesaml_login",
         audience: false,
+        validateInResponseTo: ValidateInResponseTo.never,
       });
 
       const oldPems = samlObj.pemFiles;
