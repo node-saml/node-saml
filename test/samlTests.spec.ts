@@ -247,27 +247,27 @@ describe("saml.ts", function () {
 
     describe("getAuthorizeUrl", function () {
       it("calls callback with right host", async () => {
-        const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
+        const target = await saml.getAuthorizeUrlAsync("", {});
         expect(new URL(target).host).to.equal("exampleidp.com");
       });
 
       it("calls callback with right protocol", async () => {
-        const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
+        const target = await saml.getAuthorizeUrlAsync("", {});
         expect(new URL(target).protocol).to.equal("https:");
       });
 
       it("calls callback with right path", async () => {
-        const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
+        const target = await saml.getAuthorizeUrlAsync("", {});
         expect(new URL(target).pathname).to.equal("/path");
       });
 
       it("calls callback with original query string", async () => {
-        const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
+        const target = await saml.getAuthorizeUrlAsync("", {});
         expect(new URL(target).searchParams.get("key")).to.equal("value");
       });
 
       it("calls callback with additional run-time params in query string", async () => {
-        const target = await saml.getAuthorizeUrlAsync("", req.headers.host, options);
+        const target = await saml.getAuthorizeUrlAsync("", options);
         const urlSearchParams = new URL(target).searchParams;
         expect(Array.from(urlSearchParams)).to.have.lengthOf(3);
         expect(urlSearchParams.get("key")).to.equal("value");
@@ -277,7 +277,7 @@ describe("saml.ts", function () {
 
       // NOTE: This test only tests existence of the assertion, not the correctness
       it("calls callback with saml request object", async () => {
-        const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
+        const target = await saml.getAuthorizeUrlAsync("", {});
         expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
       });
     });
