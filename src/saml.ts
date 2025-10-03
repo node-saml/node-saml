@@ -591,7 +591,7 @@ class SAML {
       '<meta charset="utf-8">',
       '<meta http-equiv="x-ua-compatible" content="ie=edge">',
       "</head>",
-      '<body onload="document.forms[0].submit()">',
+      '<body>',
       "<noscript>",
       "<p><strong>Note:</strong> Since your browser does not support JavaScript, you must press the button below once to proceed.</p>",
       "</noscript>",
@@ -599,7 +599,7 @@ class SAML {
       formInputs,
       '<input type="submit" value="Submit" />',
       "</form>",
-      '<script>document.forms[0].style.display="none";</script>', // Hide the form if JavaScript is enabled
+      '<script>document.forms[0].style.display="none"; document.forms[0].submit();</script>', // Hide and submit the form if JavaScript is enabled
       "</body>",
       "</html>",
     ].join("\r\n");
