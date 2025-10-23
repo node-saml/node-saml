@@ -66,7 +66,7 @@ const saml = new SAML(options);
 - `privateKey`: see [Security and signatures](#security-and-signatures).
 - `publicCert`: the service provider's public signing certificate used to embed in AuthnRequest in order for the IDP to validate the signatures of the incoming SAML Request, see [Security and signatures](#security-and-signatures)
 - `decryptionPvk`: optional private key that will be used to attempt to decrypt any encrypted assertions that are received
-- `signatureAlgorithm`: valid values are 'sha1', 'sha256', or 'sha512'
+- `signatureAlgorithm`: valid values are 'sha1', 'sha256', 'sha256-mgf1', or 'sha512'
 - `digestAlgorithm`: optionally set the digest algorithm used to provide a digest for the signed data object, valid values are 'sha1' (default), 'sha256', or 'sha512'
 - `xmlSignatureTransforms`: optionally set an array of signature transforms to be used in HTTP-POST signatures. By default this is `[ 'http://www.w3.org/2000/09/xmldsig#enveloped-signature', 'http://www.w3.org/2001/10/xml-exc-c14n#' ]`
 - **Additional SAML behaviors**
@@ -208,13 +208,14 @@ Node-SAML uses the HTTP Redirect Binding for its `AuthnRequest`s (unless overrid
 
 ### Configuration option `signatureAlgorithm`
 
-Authentication requests sent by Node-SAML can be signed using RSA signature with SHA1, SHA256 or SHA512 hashing algorithms.
+Authentication requests sent by Node-SAML can be signed using RSA signature with SHA1, SHA256, SHA256 with MGF1, or SHA512 hashing algorithms.
 
 To select hashing algorithm, use:
 
 ```javascript
 signatureAlgorithm: 'sha1' // (default, but not recommended anymore these days)
 signatureAlgorithm: 'sha256', // (preferred - your IDP should support it, otherwise think about upgrading it)
+signatureAlgorithm: 'sha256-mgf1', // (RSA-PSS padding - some IDPs require this)
 signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
 ```
 

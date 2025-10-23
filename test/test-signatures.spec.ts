@@ -498,4 +498,25 @@ describe("Signatures", function () {
       }),
     );
   });
+  describe("Signatures with sha256-rsa-MGF1", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+    });
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
+    it(
+      "should validate a valid signature",
+      testOneResponse(
+        "/valid/response.root-signed.assertion-unsigned.sha256-rsa-mgf1.xml",
+        false,
+        1,
+        {
+          wantAssertionsSigned: false,
+        },
+      ),
+    );
+  });
 });
