@@ -48,6 +48,10 @@ const normalizePemFile = (pem: string): string => {
   ).join("\n")}\n`;
 };
 
+const bufferToString = (keyInfo: string | Buffer): string => {
+  return Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
+};
+
 /**
  * This function currently expects to get data in PEM format or in base64 format.
  */
@@ -56,7 +60,7 @@ export const keyInfoToPem = (
   pemLabel: PemLabel,
   optionName = "keyInfo",
 ): string => {
-  const keyData = Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
+  const keyData = bufferToString(keyInfo)?.trim();
   assertRequired(keyData, `${optionName} is not provided`);
 
   if (PEM_FORMAT_REGEX.test(keyData)) {
@@ -66,7 +70,7 @@ export const keyInfoToPem = (
   const isBase64 = BASE64_REGEX.test(keyData);
   assertRequired(isBase64 || undefined, `${optionName} is not in PEM format or in base64 format`);
 
-  const pem = `-----BEGIN ${pemLabel}-----\n${keyInfo}\n-----END ${pemLabel}-----`;
+  const pem = `-----BEGIN ${pemLabel}-----\n${keyData}\n-----END ${pemLabel}-----`;
 
   return normalizePemFile(pem);
 };

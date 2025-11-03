@@ -150,6 +150,27 @@ describe("crypto.ts", function () {
     });
 
     describe("when key info is provided in Base64 format", function () {
+      it("should allow Base64 without padding but with trailing whitespace", function () {
+        const certificate = keyInfoToPem("QUIK \n", "CERTIFICATE");
+        expect(certificate).to.equal(
+          "-----BEGIN CERTIFICATE-----\nQUIK \n-----END CERTIFICATE-----\n",
+        );
+      });
+
+      it("should allow one Base64 pad with trailing whitespace", function () {
+        const certificate = keyInfoToPem("QQo= \n", "CERTIFICATE");
+        expect(certificate).to.equal(
+          "-----BEGIN CERTIFICATE-----\nQQo= \n-----END CERTIFICATE-----\n",
+        );
+      });
+
+      it("should allow two Base64 pads with trailing whitespace", function () {
+        const certificate = keyInfoToPem("QUJDCg== \n", "CERTIFICATE");
+        expect(certificate).to.equal(
+          "-----BEGIN CERTIFICATE-----\nQUJDCg== \n-----END CERTIFICATE-----\n",
+        );
+      });
+
       it("should return certificate in PEM format for multiline Base64 certificate", function () {
         const certificate = keyInfoToPem(TEST_CERT_MULTILINE, "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);
