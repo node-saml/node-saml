@@ -70,7 +70,7 @@ export const keyInfoToPem = (
   const isBase64 = BASE64_REGEX.test(keyData);
   assertRequired(isBase64 || undefined, `${optionName} is not in PEM format or in base64 format`);
 
-  const pem = `-----BEGIN ${pemLabel}-----\n${keyInfo}\n-----END ${pemLabel}-----`;
+  const pem = `-----BEGIN ${pemLabel}-----\n${keyData}\n-----END ${pemLabel}-----`;
 
   return normalizePemFile(pem);
 };
