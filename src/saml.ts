@@ -1167,19 +1167,35 @@ class SAML {
         const hasChildren = Object.keys(value).some((cur) => {
           return cur !== "_" && cur !== "$";
         });
-        return hasChildren ? value : value._;
+        if (hasChildren) {
+          return value;
+        }
+        // An attribute that exists but holds an empty value (for example
+        // `<AttributeValue/>` for an `xs:string`) has no character data, so
+        // xml2js leaves `_` undefined. SAML Core section 1246 says such a value
+        // is the empty string, so represent it as "" rather than dropping it.
+        return value._ ?? "";
       };
 
       if (attributes.length > 0) {
         const profileAttributes: Record<string, XMLValue | XMLValue[]> = {};
 
         attributes.forEach((attribute) => {
+          const name: string = attribute.$.Name;
+
+          // An attribute may exist with no `AttributeValue` child at all (for
+          // example `<Attribute Name="x"/>`). SAML Core section 1219 allows
+          // this for an attribute that exists but has no values. Represent it as
+          // null so consumers can tell it apart from a missing attribute,
+          // instead of dropping it from the profile entirely.
           if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
-            // if attributes has no AttributeValue child, continue
+            profileAttributes[name] = null;
+            if (!Object.prototype.hasOwnProperty.call(profile, name)) {
+              profile[name] = null;
+            }
             return;
           }
 
-          const name: string = attribute.$.Name;
           const value: XMLValue | XMLValue[] =
             attribute.AttributeValue.length === 1
               ? attrValueMapper(attribute.AttributeValue[0])

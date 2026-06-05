@@ -839,8 +839,12 @@ describe("node-saml /", function () {
         expect(profile.issuer).to.equal("https://evil-corp.com");
         expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
         expect(profile).to.have.property("evil-corp.egroupid", "vincent.vega@evil-corp.com");
-        // attributes without attributeValue child should be ignored
-        expect(profile).to.not.have.property("evilcorp.roles");
+        // An attribute that exists but carries no AttributeValue child is kept
+        // with a null value rather than dropped, so callers can distinguish a
+        // valueless attribute from one the IdP never sent.
+        expect(profile).to.have.property("evilcorp.roles", null);
+        const attributes = profile.attributes as Record<string, unknown>;
+        expect(attributes).to.have.property("evilcorp.roles", null);
       });
 
       it("valid xml document with multiple SubjectConfirmation should validate", async () => {
@@ -1509,7 +1513,7 @@ describe("node-saml /", function () {
           });
         });
 
-        it("An undefined value given with an object should still be undefined", async () => {
+        it("An empty AttributeValue should be an empty string", async () => {
           const xml =
             '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
             '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
@@ -1542,7 +1546,42 @@ describe("node-saml /", function () {
           });
           const { profile } = await samlObj.validatePostResponseAsync(container);
           assertRequired(profile, "profile must exist");
-          expect(profile["attributeName"]).to.be.undefined;
+          const attributes = profile.attributes as Record<string, unknown>;
+          expect(attributes.attributeName).to.equal("");
+        });
+
+        it("An attribute with no AttributeValue should be null", async () => {
+          const xml =
+            '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
+            '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
+            "<saml2:AttributeStatement>" +
+            '<saml2:Attribute Name="attributeName" ' +
+            'NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified" />' +
+            "</saml2:AttributeStatement>" +
+            "</saml2:Assertion>" +
+            "</Response>";
+
+          const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+          const idpCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+          const signedXml = signXmlResponse(xml, {
+            privateKey: signingKey,
+            signatureAlgorithm: "sha1",
+          });
+
+          const base64xml = Buffer.from(signedXml).toString("base64");
+          const container = { SAMLResponse: base64xml };
+          const samlObj = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            idpCert,
+            audience: false,
+            issuer: "onesaml_login",
+            wantAssertionsSigned: false,
+          });
+          const { profile } = await samlObj.validatePostResponseAsync(container);
+          assertRequired(profile, "profile must exist");
+          const attributes = profile.attributes as Record<string, unknown>;
+          expect(attributes).to.have.property("attributeName");
+          expect(attributes.attributeName).to.be.null;
         });
       });
     });
