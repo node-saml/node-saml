@@ -3030,7 +3030,7 @@ describe("node-saml /", function () {
       const xml =
         '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
         '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
-        "<saml:Issuer>http://idp.example.com/metadata.php</saml:Issuer>" +
+        "<saml2:Issuer>http://idp.example.com/metadata.php</saml2:Issuer>" +
         "<saml2:AttributeStatement>" +
         '<saml2:Attribute Name="attributeName" ' +
         'NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified">' +
@@ -3039,7 +3039,7 @@ describe("node-saml /", function () {
         'xsi:type="xs:string"/>' +
         "</saml2:Attribute>" +
         '<saml2:Attribute Name="issuer" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">' +
-        '<saml2:AttributeValue xsi:type="xs:string">test</saml2:AttributeValue>' +
+        '<saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xs:string">test</saml2:AttributeValue>' +
         "</saml2:Attribute>" +
         "</saml2:AttributeStatement>" +
         "</saml2:Assertion>" +
