@@ -280,29 +280,61 @@ export const signXml = (
   return sig.getSignedXml();
 };
 
+const samlNamespaces: Readonly<Record<string, string>> = {
+  saml: "urn:oasis:names:tc:SAML:2.0:assertion",
+  samlp: "urn:oasis:names:tc:SAML:2.0:protocol",
+  saml2: "urn:oasis:names:tc:SAML:2.0:assertion",
+  saml2p: "urn:oasis:names:tc:SAML:2.0:protocol",
+  ds: "http://www.w3.org/2000/09/xmldsig#",
+  xenc: "http://www.w3.org/2001/04/xmlenc#",
+  xs: "http://www.w3.org/2001/XMLSchema",
+  xsi: "http://www.w3.org/2001/XMLSchema-instance",
+};
+
+const formatXmlError = (
+  level: string,
+  msg: string,
+  locator?: { lineNumber?: number; columnNumber?: number } | null,
+): Error => {
+  if (msg === "missing root element") {
+    return new Error("Not a valid XML document");
+  }
+  if (locator?.lineNumber != null) {
+    return new Error(
+      `[xmldom ${level}]\t${msg}\n@#[line:${locator.lineNumber},col:${locator.columnNumber}]`,
+    );
+  }
+  return new Error(msg);
+};
+
 export const parseDomFromString = (xml: string): Promise<Document> => {
   return new Promise(function (resolve, reject) {
-    function errHandler(msg: string) {
-      return reject(new Error(msg));
+    let parseError: Error | undefined;
+    let dom: xmldom.Document;
+    try {
+      dom = new xmldom.DOMParser({
+        locator: true,
+        xmlns: samlNamespaces,
+        onError: (level, msg, context) => {
+          if (level === "error" || level === "fatalError") {
+            parseError ??= formatXmlError(level, msg, context?.locator);
+          }
+        },
+      }).parseFromString(xml, "text/xml");
+    } catch (err: unknown) {
+      if (parseError) {
+        return reject(parseError);
+      }
+      const locator = (err as { locator?: { lineNumber?: number; columnNumber?: number } })?.locator;
+      const msg = err instanceof Error ? err.message : String(err);
+      return reject(formatXmlError("error", `element parse error: Error: ${msg}`, locator));
     }
 
-    const dom = new xmldom.DOMParser({
-      /**
-       * locator is always need for error position info
-       */
-      locator: {},
-      /**
-       * you can override the errorHandler for xml parser
-       * @link http://www.saxproject.org/apidoc/org/xml/sax/ErrorHandler.html
-       */
-      errorHandler: { error: errHandler, fatalError: errHandler },
-    }).parseFromString(xml, "text/xml");
-
-    if (!Object.prototype.hasOwnProperty.call(dom, "documentElement")) {
-      return reject(new Error("Not a valid XML document"));
+    if (parseError) {
+      return reject(parseError);
     }
 
-    return resolve(dom);
+    return resolve(dom as unknown as Document);
   });
 };
 

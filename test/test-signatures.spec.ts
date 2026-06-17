@@ -14,7 +14,7 @@ describe("Signatures", function () {
   const INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion";
   const INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms";
   const XMLDOM_ERROR =
-    "[xmldom error]\telement parse error: Error: Hierarchy request error: Only one element can be added and only after doctype\n@#[line:57,col:1]";
+    "[xmldom error]\telement parse error: Error: HierarchyRequestError: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
   const createBody = (pathToXml: string) => ({
     SAMLResponse: fs.readFileSync(__dirname + "/static/signatures" + pathToXml, "base64"),
