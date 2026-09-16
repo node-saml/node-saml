@@ -760,6 +760,9 @@ describe("node-saml /", function () {
                   "@FriendlyName": "mail",
                   "@isRequired": true,
                 },
+                // No `@NameFormat`, so none is emitted. SAML 2.0 Core, section
+                // 2.7.3.1 reads an absent NameFormat as `unspecified`; nothing
+                // is substituted here.
                 { "@Name": COMMON_SAML_ATTRIBUTES.GIVEN_NAME },
               ],
             },

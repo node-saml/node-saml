@@ -153,7 +153,7 @@ export const COMMON_SAML_ATTRIBUTES = {
  * Common SAML attribute name formats
  */
 export const SAML_ATTRIBUTE_NAME_FORMATS = {
-  /** URI format (default) */
+  /** URI format; the usual choice for OID- and URI-named attributes */
   URI: "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
   /** Basic format */
   BASIC: "urn:oasis:names:tc:SAML:2.0:attrname-format:basic",
@@ -207,16 +207,19 @@ export enum ValidateInResponseTo {
  *   RequestedAttribute: [
  *     {
  *       "@Name": "urn:oid:2.5.4.42",
+ *       "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
  *       "@FriendlyName": "givenName",
  *       "@isRequired": true
  *     },
  *     {
  *       "@Name": "urn:oid:2.5.4.4",
+ *       "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
  *       "@FriendlyName": "sn",
  *       "@isRequired": true
  *     },
  *     {
  *       "@Name": "urn:oid:1.2.840.113549.1.9.1",
+ *       "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
  *       "@FriendlyName": "emailAddress",
  *       "@isRequired": false
  *     }
@@ -300,7 +303,15 @@ export interface AttributeConsumingService {
     /**
      * Format of the attribute name. SAML 2.0 Core, section 8.2 defines the
      * permitted values, which {@link SAML_ATTRIBUTE_NAME_FORMATS} enumerates.
-     * @default "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"
+     *
+     * Omitting this emits no `NameFormat` attribute, which SAML 2.0 Core,
+     * section 2.7.3.1 states is equivalent to
+     * `urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified`. Nothing is
+     * substituted on your behalf. Set this explicitly to
+     * `urn:oasis:names:tc:SAML:2.0:attrname-format:uri` when the attribute is
+     * named by an OID or URI, as the examples here do: an identity provider
+     * that distinguishes the formats will not match a URI-named attribute
+     * against an unspecified request.
      */
     "@NameFormat"?: SamlAttributeNameFormat | (string & {});
 
@@ -382,6 +393,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
    *   }],
    *   RequestedAttribute: [{
    *     "@Name": "urn:oid:2.5.4.42",
+   *     "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
    *     "@FriendlyName": "givenName",
    *     "@isRequired": true
    *   }]
