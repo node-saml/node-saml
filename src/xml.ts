@@ -1,10 +1,12 @@
+import * as isDomNode from "@xmldom/is-dom-node";
+import * as xmldom from "@xmldom/xmldom";
 import * as util from "util";
 import * as xmlCrypto from "xml-crypto";
 import * as xmlenc from "xml-encryption";
-import * as xmldom from "@xmldom/xmldom";
 import * as xml2js from "xml2js";
 import * as xmlbuilder from "xmlbuilder";
 import { select, SelectReturnType } from "xpath";
+import * as algorithms from "./algorithms";
 import {
   isValidSamlSigningOptions,
   NameID,
@@ -13,12 +15,9 @@ import {
   XMLOutput,
   XmlSignatureLocation,
 } from "./types";
-import * as algorithms from "./algorithms";
 import { assertRequired } from "./utility";
-import * as isDomNode from "@xmldom/is-dom-node";
-import Debug from "debug";
 
-const debug = Debug("node-saml");
+const debugLog = util.debuglog("node-saml");
 
 const selectXPath = <T extends Node>(
   guard: (values: SelectReturnType) => values is Array<T>,
@@ -135,7 +134,7 @@ export const getVerifiedXml = (
     }
 
     if (totalReferencedNodes[0] !== signature.parentNode) {
-      throw new Error("Invalid signature: Referenced node does not refer to it's parent element");
+      throw new Error("Invalid signature: Referenced node does not refer to its parent element");
     }
 
     // actual cryptographic verification
@@ -242,7 +241,7 @@ const validateXmlSignatureWithPemFile = (
   try {
     return sig.checkSignature(fullXml);
   } catch (err) {
-    debug("signature check resulted in an error: %s", err);
+    debugLog.enabled && debugLog("signature check resulted in an error: %s", err);
     return false;
   }
 };

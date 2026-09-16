@@ -1,32 +1,36 @@
-import Debug from "debug";
-import * as zlib from "zlib";
 import * as crypto from "crypto";
-import { URL } from "url";
-import * as querystring from "querystring";
-import * as util from "util";
-import { InMemoryCacheProvider } from "./in-memory-cache-provider";
-import * as algorithms from "./algorithms";
 import { ParsedQs } from "qs";
+import * as querystring from "querystring";
+import { URL } from "url";
+import * as util from "util";
+import * as zlib from "zlib";
+import * as algorithms from "./algorithms";
+import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+import { generateUniqueId, keyInfoToPem } from "./crypto";
+import { dateStringToTimestamp, generateInstant } from "./date-time";
+import { InMemoryCacheProvider } from "./in-memory-cache-provider";
+import { generateServiceProviderMetadata } from "./metadata";
+import { signAuthnRequestPost } from "./saml-post-signing";
 import {
-  isValidSamlSigningOptions,
   AudienceRestrictionXML,
+  AuthOptions,
+  AuthorizeRequestXML,
   CacheProvider,
   IdpCertCallback,
-  SamlStatusError,
-  Profile,
-  SamlOptions,
-  SamlConfig,
-  XMLOutput,
-  ValidateInResponseTo,
-  AuthorizeRequestXML,
-  XMLInput,
-  SamlIDPListConfig,
-  SamlIDPEntryConfig,
+  isValidSamlSigningOptions,
   LogoutRequestXML,
-  XMLObject,
-  XMLValue,
+  Profile,
+  SamlConfig,
+  SamlIDPEntryConfig,
+  SamlIDPListConfig,
+  SamlOptions,
   SamlResponseXmlJs,
-  AuthOptions,
+  SamlStatusError,
+  ValidateInResponseTo,
+  XMLInput,
+  XMLObject,
+  XMLOutput,
+  XMLValue,
 } from "./types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
 import {
@@ -40,13 +44,9 @@ import {
   validateSignature,
   xpath,
 } from "./xml";
-import { keyInfoToPem, generateUniqueId } from "./crypto";
-import { dateStringToTimestamp, generateInstant } from "./date-time";
-import { signAuthnRequestPost } from "./saml-post-signing";
-import { generateServiceProviderMetadata } from "./metadata";
-import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
-const debug = Debug("node-saml");
+const debugLog = util.debuglog("node-saml");
+
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -866,7 +866,7 @@ class SAML {
         }
       }
     } catch (err) {
-      debug("validatePostResponse resulted in an error: %s", err);
+      debugLog.enabled && debugLog("validatePostResponse resulted in an error: %s", err);
       if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
         await this.cacheProvider.removeAsync(inResponseTo);
       }
