@@ -139,11 +139,17 @@ export const generateServiceProviderMetadata = (
     "@Location": callbackUrl,
   } as XMLObject;
 
-  if (params.metadataAttributeConsumingServices) {
+  // This must be assigned after `AssertionConsumerService` above, because
+  // `SPSSODescriptorType` sequences `AssertionConsumerService` before
+  // `AttributeConsumingService`. Likewise, the fields below are copied one by
+  // one rather than spread, so that the children are emitted in the order
+  // `AttributeConsumingServiceType` sequences them, whatever order the caller
+  // happened to write them in.
+  if (params.metadataAttributeConsumingServices?.length) {
     metadata.EntityDescriptor.SPSSODescriptor.AttributeConsumingService =
       params.metadataAttributeConsumingServices.map((service) => ({
         "@index": service["@index"],
-        ...(service["@isDefault"] ? { "@isDefault": service["@isDefault"] } : {}),
+        ...(service["@isDefault"] !== undefined ? { "@isDefault": service["@isDefault"] } : {}),
         ServiceName: service.ServiceName,
         ...(service.ServiceDescription ? { ServiceDescription: service.ServiceDescription } : {}),
         RequestedAttribute: service.RequestedAttribute,

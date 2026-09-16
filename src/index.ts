@@ -20,7 +20,6 @@ import {
   GenerateServiceProviderMetadataParams,
   COMMON_SAML_ATTRIBUTES,
   SAML_ATTRIBUTE_NAME_FORMATS,
-  CommonLanguageCode,
   CommonSamlAttributeName,
   SamlAttributeNameFormat,
 } from "./types";
@@ -47,7 +46,6 @@ export {
   GenerateServiceProviderMetadataParams,
   COMMON_SAML_ATTRIBUTES,
   SAML_ATTRIBUTE_NAME_FORMATS,
-  CommonLanguageCode,
   CommonSamlAttributeName,
   SamlAttributeNameFormat,
 };

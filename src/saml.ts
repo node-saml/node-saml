@@ -580,13 +580,7 @@ class SAML {
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {
-        return (
-          '<input type="hidden" name="' +
-          k +
-          '" value="' +
-          quoteattr(String(samlMessage[k] || "")) +
-          '" />'
-        );
+        return '<input type="hidden" name="' + k + '" value="' + quoteattr(samlMessage[k]) + '" />';
       })
       .join("\r\n");
 

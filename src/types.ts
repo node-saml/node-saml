@@ -162,22 +162,6 @@ export const SAML_ATTRIBUTE_NAME_FORMATS = {
 } as const;
 
 /**
- * Common language codes for ServiceName and ServiceDescription
- */
-export type CommonLanguageCode =
-  | "en"
-  | "es"
-  | "fr"
-  | "de"
-  | "it"
-  | "pt"
-  | "ja"
-  | "ko"
-  | "zh"
-  | "ar"
-  | "ru";
-
-/**
  * Union type for common SAML attribute names
  */
 export type CommonSamlAttributeName =
@@ -260,8 +244,9 @@ export interface AttributeConsumingService {
    */
   ServiceName: {
     /**
-     * Language code (e.g., "en", "es", "fr")
-     * @example "en", "es", "fr", "de"
+     * Language tag identifying the language of the text, as defined by BCP 47.
+     * @see {@link https://www.rfc-editor.org/info/bcp47 BCP 47}
+     * @example "en", "en-GB", "es", "de", "zh-Hant"
      */
     "@xml:lang": string;
 
@@ -278,8 +263,9 @@ export interface AttributeConsumingService {
    */
   ServiceDescription?: {
     /**
-     * Language code (e.g., "en", "es", "fr")
-     * @example "en", "es", "fr", "de"
+     * Language tag identifying the language of the text, as defined by BCP 47.
+     * @see {@link https://www.rfc-editor.org/info/bcp47 BCP 47}
+     * @example "en", "en-GB", "es", "de", "zh-Hant"
      */
     "@xml:lang": string;
 
@@ -295,21 +281,28 @@ export interface AttributeConsumingService {
    */
   RequestedAttribute: {
     /**
-     * Name of the requested attribute, typically an OID.
-     * Common values:
+     * Name of the requested attribute, typically an OID or URI.
+     *
+     * Any value is permitted. The entries of {@link COMMON_SAML_ATTRIBUTES} are
+     * offered as suggestions:
      * - `urn:oid:2.5.4.42` (givenName)
      * - `urn:oid:2.5.4.4` (sn/surname)
      * - `urn:oid:1.2.840.113549.1.9.1` (emailAddress)
      * - `urn:oid:2.5.4.3` (cn/commonName)
      * - `urn:oid:0.9.2342.19200300.100.1.3` (mail)
+     * - `urn:oid:2.5.4.10` (o/organizationName)
+     * - `urn:oid:2.5.4.11` (ou/organizationalUnitName)
+     * - `urn:oid:1.2.840.113556.1.4.656` (userPrincipalName)
+     * - `urn:oid:2.5.4.49` (dn/distinguishedName)
      */
-    "@Name": string;
+    "@Name": CommonSamlAttributeName | (string & {});
 
     /**
-     * Format of the attribute name
+     * Format of the attribute name. SAML 2.0 Core, section 8.2 defines the
+     * permitted values, which {@link SAML_ATTRIBUTE_NAME_FORMATS} enumerates.
      * @default "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"
      */
-    "@NameFormat"?: string;
+    "@NameFormat"?: SamlAttributeNameFormat | (string & {});
 
     /**
      * Human-readable name of the attribute
@@ -322,16 +315,13 @@ export interface AttributeConsumingService {
      * @default false
      */
     "@isRequired"?: boolean;
-
-    /**
-     * Specific values the attribute can take (optional constraint)
-     */
-    AttributeValue?: {
-      "#text": string;
-    }[];
   }[];
 }
 
+/**
+ * The options required to use a SAML strategy
+ * These may be provided by means of defaults specified in the constructor
+ */
 export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlOptions {
   // Core
   entryPoint?: string;

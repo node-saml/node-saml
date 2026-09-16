@@ -5,7 +5,14 @@ import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { Profile, SamlConfig, ValidateInResponseTo, XMLOutput } from "../src/types";
+import {
+  COMMON_SAML_ATTRIBUTES,
+  Profile,
+  SAML_ATTRIBUTE_NAME_FORMATS,
+  SamlConfig,
+  ValidateInResponseTo,
+  XMLOutput,
+} from "../src/types";
 import { RacComparison } from "../src/types.js";
 import { expect } from "chai";
 import * as assert from "assert";
@@ -721,6 +728,62 @@ describe("node-saml /", function () {
 
         const expectedMetadata = fs.readFileSync(
           __dirname + "/static/expected_metadata_metadataExtensions.xml",
+          "utf-8",
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
+      });
+
+      it("generateServiceProviderMetadata contains metadataAttributeConsumingServices", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          idpCert: FAKE_CERT,
+          attributeConsumingServiceIndex: "0",
+          metadataAttributeConsumingServices: [
+            {
+              "@index": "0",
+              "@isDefault": true,
+              ServiceName: [
+                { "@xml:lang": "en", "#text": "Employee Portal" },
+                { "@xml:lang": "es", "#text": "Portal del Empleado" },
+              ],
+              ServiceDescription: [
+                { "@xml:lang": "en", "#text": "Authentication for the employee portal" },
+              ],
+              RequestedAttribute: [
+                {
+                  "@Name": COMMON_SAML_ATTRIBUTES.MAIL,
+                  "@NameFormat": SAML_ATTRIBUTE_NAME_FORMATS.URI,
+                  "@FriendlyName": "mail",
+                  "@isRequired": true,
+                },
+                { "@Name": COMMON_SAML_ATTRIBUTES.GIVEN_NAME },
+              ],
+            },
+            {
+              // Deliberately declared out of order, to prove that the children are
+              // emitted in the order the metadata schema sequences them rather than
+              // the order they are written in here.
+              RequestedAttribute: [
+                {
+                  "@Name": COMMON_SAML_ATTRIBUTES.SURNAME,
+                  "@isRequired": false,
+                },
+              ],
+              ServiceName: [{ "@xml:lang": "en", "#text": "Reporting" }],
+              "@isDefault": false,
+              "@index": "1",
+            },
+          ],
+          generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_attributeConsumingServices.xml",
           "utf-8",
         );
 
