@@ -16,6 +16,12 @@ import {
   IdpCertCallback,
   AuthOptions,
   SamlStatusError,
+  AttributeConsumingService,
+  GenerateServiceProviderMetadataParams,
+  COMMON_SAML_ATTRIBUTES,
+  SAML_ATTRIBUTE_NAME_FORMATS,
+  CommonSamlAttributeName,
+  SamlAttributeNameFormat,
 } from "./types";
 
 export {
@@ -36,4 +42,10 @@ export {
   IdpCertCallback,
   AuthOptions,
   SamlStatusError,
+  AttributeConsumingService,
+  GenerateServiceProviderMetadataParams,
+  COMMON_SAML_ATTRIBUTES,
+  SAML_ATTRIBUTE_NAME_FORMATS,
+  CommonSamlAttributeName,
+  SamlAttributeNameFormat,
 };
