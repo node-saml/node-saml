@@ -226,7 +226,7 @@ Lines shorter than 64 characters are left at the width they arrived at, so the o
 
 What it accepts is more liberal than `stricttextualmsg`:
 
-- whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64 encoding tool is fine, as is a leading byte order mark;
+- whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64 encoding tool is fine, as is a leading UTF-8 byte order mark, whether the value arrives as a string or a `Buffer`;
 - any of the three line-ending conventions will do;
 - blanks at the end of a line are ignored, and a blank line may follow the `-----BEGIN ...-----` boundary;
 - the encoded data may be wrapped at any width, or not wrapped at all;

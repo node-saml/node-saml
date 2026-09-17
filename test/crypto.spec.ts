@@ -357,9 +357,25 @@ describe("crypto.ts", function () {
         expect(certificate).to.equal(expectedCert);
       });
 
+      // A UTF-8 BOM only reaches trim() as U+FEFF when the value was decoded as
+      // utf8. The Buffer and latin1 forms are what a file read actually yields,
+      // including the one README documents.
       it("should return certificate in PEM format for certificate read from a file with a BOM", function () {
         const certificate = keyInfoToPem(`\uFEFF${expectedCert}`, "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for a Buffer carrying a UTF-8 BOM", function () {
+        const withBom = Buffer.concat([Buffer.from("\uFEFF", "utf8"), Buffer.from(expectedCert)]);
+        expect(keyInfoToPem(withBom, "CERTIFICATE")).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for a BOM read as latin1", function () {
+        const withBom = Buffer.concat([
+          Buffer.from("\uFEFF", "utf8"),
+          Buffer.from(expectedCert),
+        ]).toString("latin1");
+        expect(keyInfoToPem(withBom, "CERTIFICATE")).to.equal(expectedCert);
       });
 
       it("should return certificate in PEM format for certificate with an empty line after the header", function () {

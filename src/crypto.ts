@@ -17,8 +17,8 @@ import { PemLabel } from "./types";
  *  - 'preeb' and 'posteb' lines are limited to 64 characters, but
  *     should not cause any issues in context of PKIX, PKCS and CMS.
  *  - whitespace surrounding the message is discarded, the '*W' of
- *     'laxtextualmsg' in section 3 Figure 2. String.trim() also takes U+FEFF,
- *     so a BOM is accepted, which section 2 invites outside US-ASCII.
+ *     'laxtextualmsg' in section 3 Figure 2, and a leading UTF-8 BOM with it,
+ *     which section 2 invites outside US-ASCII.
  *  - blanks at the ends of lines are discarded, which Figure 1 permits after
  *     'preeb', 'base64line' and 'posteb'. Leading and interior blanks are
  *     rejected; section 2 treats those as far less compatible.
@@ -78,9 +78,14 @@ const normalizePemFile = (pem: string): string => {
 };
 
 // latin1 keeps every byte of a Buffer intact; utf8 would fold anything outside
-// the ASCII that PEM and Base64 use into U+FFFD and lose the evidence.
+// the ASCII that PEM and Base64 use into U+FFFD and lose the evidence. It also
+// leaves a UTF-8 BOM as three characters rather than the U+FEFF that trim()
+// would take, so the mark is removed in either representation.
+const BOM_REGEX = /^(?:\uFEFF|\u00EF\u00BB\u00BF)/;
 const keyInfoToString = (keyInfo: string | Buffer): string => {
-  return Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
+  const text = Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
+
+  return text.replace(BOM_REGEX, "");
 };
 
 // Stripped rather than matched: '[ \t]+' against an anchor is quadratic in the
