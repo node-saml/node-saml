@@ -48,8 +48,12 @@ const normalizePemFile = (pem: string): string => {
   ).join("\n")}\n`;
 };
 
-const bufferToString = (keyInfo: string | Buffer): string => {
-  return Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
+// latin1 keeps every byte of a Buffer intact; utf8 would fold anything outside
+// the ASCII that PEM and Base64 use into U+FFFD and lose the evidence. String()
+// is for JavaScript callers who reach here with neither a string nor a Buffer,
+// so they get the message naming the option rather than a TypeError from trim().
+const keyInfoToString = (keyInfo: string | Buffer): string => {
+  return Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : String(keyInfo ?? "");
 };
 
 /**
@@ -60,7 +64,7 @@ export const keyInfoToPem = (
   pemLabel: PemLabel,
   optionName = "keyInfo",
 ): string => {
-  const keyData = bufferToString(keyInfo)?.trim();
+  const keyData = keyInfoToString(keyInfo).trim();
   assertRequired(keyData, `${optionName} is not provided`);
 
   if (PEM_FORMAT_REGEX.test(keyData)) {

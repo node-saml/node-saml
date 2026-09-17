@@ -36,7 +36,9 @@ describe("crypto.ts", function () {
       });
 
       it("should throw with false", function () {
-        expect(() => keyInfoToPem(false as never, "CERTIFICATE")).to.throw();
+        expect(() => keyInfoToPem(false as never, "CERTIFICATE")).to.throw(
+          /not in PEM format or in base64 format/,
+        );
       });
 
       it("should throw with empty string", function () {
