@@ -113,26 +113,34 @@ All three of these require `entryPoint` to be set.
 **HTTP-Redirect binding** — build a URL and redirect to it:
 
 ```javascript
-const url = await saml.getAuthorizeUrlAsync(relayState, host, options);
+const url = await saml.getAuthorizeUrlAsync(relayState, options);
 res.redirect(url);
 ```
 
 `relayState` is echoed back by the IdP and is omitted from the request when it is an empty string.
-`host` is accepted for signature compatibility and is not used. `options` is an `AuthOptions`, whose
-`additionalParams` override anything set by `additionalParams`/`additionalAuthorizeParams` in the
-constructor.
+`options` is an `AuthOptions`, whose `additionalParams` override anything set by
+`additionalParams`/`additionalAuthorizeParams` in the constructor.
+
+All three of these methods also accept a deprecated three-argument form with a `host` between
+`relayState` and `options`. That argument has never been read; pass the two-argument form instead,
+since the three-argument one is removed in the next major:
+
+```javascript
+await saml.getAuthorizeUrlAsync(relayState, host, options); // deprecated
+await saml.getAuthorizeUrlAsync(relayState, options); // use this
+```
 
 **HTTP-POST binding** — return a self-submitting form:
 
 ```javascript
-const html = await saml.getAuthorizeFormAsync(relayState, host, options);
+const html = await saml.getAuthorizeFormAsync(relayState, options);
 res.send(html);
 ```
 
 This returns a complete HTML document that posts to `entryPoint` on load, with a `<noscript>`
 fallback button for browsers without JavaScript.
 
-If you would rather build the form yourself, `getAuthorizeMessageAsync(relayState, host, options)`
+If you would rather build the form yourself, `getAuthorizeMessageAsync(relayState, options)`
 returns the message as a plain object of form fields (`SAMLRequest` plus any additional parameters).
 
 ### Validate the response
