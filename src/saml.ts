@@ -47,15 +47,11 @@ import {
 
 const debugLog = util.debuglog("node-saml");
 
-// Resolves the two shapes the `getAuthorize*` methods accept while `host` is still supported.
-// `host` has never been read, but dropping it shifts `options` into its place, so a JavaScript
-// caller passing three arguments would have its `additionalParams` silently discarded rather
-// than erroring. Accepting both shapes lets callers move before the removal in #367.
-//
-// Module-level rather than a protected method so it adds nothing to the `SAML` class surface,
-// which subclasses inherit. `f(RelayState, undefined, undefined)` is not reported: it cannot be
-// told apart from `f(RelayState, undefined)` without reading `arguments`, and both mean "no host
-// and no options", so there is nothing to migrate either way.
+// `host` sits before `options`, so removing it outright would slide `options` into its place
+// and silently discard a JavaScript caller's `additionalParams`. Accepting both shapes lets
+// callers move first. Module-level so it adds nothing to the `SAML` class surface, which
+// subclasses inherit. Passing `undefined` for both cannot be told from passing neither, so
+// that case is not reported.
 function resolveAuthOptions(
   hostOrOptions: string | AuthOptions | undefined,
   legacyOptions: AuthOptions | undefined,
@@ -524,17 +520,11 @@ class SAML {
   }
 
   /**
-   * The `host` argument is deprecated and has never been read. Call
-   * `getAuthorizeUrlAsync(RelayState, options)` instead; passing `host` logs a warning under
-   * `NODE_DEBUG=node-saml`, and the argument is removed in the next major version.
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeUrlAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
    *
-   * Both shapes share one widened signature rather than two overloads: a second overload
-   * would make every existing subclass override of this method fail to type-check, which a
-   * minor release must not do.
-   *
-   * If you subclass `SAML` and override this method, migrate the override at the same time.
-   * A two-argument call dispatches straight into an override written for the old signature,
-   * which will see `options` in its `host` parameter.
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
    */
   async getAuthorizeUrlAsync(
     RelayState: string,
@@ -554,17 +544,11 @@ class SAML {
   }
 
   /**
-   * The `host` argument is deprecated and has never been read. Call
-   * `getAuthorizeMessageAsync(RelayState, options)` instead; passing `host` logs a warning under
-   * `NODE_DEBUG=node-saml`, and the argument is removed in the next major version.
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeMessageAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
    *
-   * Both shapes share one widened signature rather than two overloads: a second overload
-   * would make every existing subclass override of this method fail to type-check, which a
-   * minor release must not do.
-   *
-   * If you subclass `SAML` and override this method, migrate the override at the same time.
-   * A two-argument call dispatches straight into an override written for the old signature,
-   * which will see `options` in its `host` parameter.
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
    */
   async getAuthorizeMessageAsync(
     RelayState: string,
@@ -595,25 +579,18 @@ class SAML {
   }
 
   /**
-   * The `host` argument is deprecated and has never been read. Call
-   * `getAuthorizeFormAsync(RelayState, options)` instead; passing `host` logs a warning under
-   * `NODE_DEBUG=node-saml`, and the argument is removed in the next major version.
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeFormAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
    *
-   * Both shapes share one widened signature rather than two overloads: a second overload
-   * would make every existing subclass override of this method fail to type-check, which a
-   * minor release must not do.
-   *
-   * If you subclass `SAML` and override this method, migrate the override at the same time.
-   * A two-argument call dispatches straight into an override written for the old signature,
-   * which will see `options` in its `host` parameter.
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
    */
   async getAuthorizeFormAsync(
     RelayState: string,
     hostOrOptions?: string | AuthOptions,
     legacyOptions?: AuthOptions,
   ): Promise<string> {
-    // Called for the warning alone: the arguments are forwarded to `getAuthorizeMessageAsync`
-    // below as they arrived, so there is no resolved value for this method to use.
+    // Called for the warning; the arguments are forwarded below as they arrived.
     resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeFormAsync");
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
@@ -646,13 +623,7 @@ class SAML {
       );
     };
 
-    // Forwards the arguments exactly as received. Normalizing them here would change what a
-    // subclass override of this virtual method observes, which a minor release must not do.
-    //
-    // The cost is that a call passing `host` warns from both methods. Suppressing the second
-    // needs state saying "this resolve is our own forward", and the only place to keep it is
-    // module scope, live across a call into code that may be a subclass override. That is a
-    // trap for whoever later adds an `await` near it, which is a poor trade for one log line.
+    // Forwarded exactly as received: normalizing would change what a subclass override sees.
     const samlMessage = await this.getAuthorizeMessageAsync(
       RelayState,
       hostOrOptions,

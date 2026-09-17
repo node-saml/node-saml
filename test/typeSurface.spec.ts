@@ -8,13 +8,8 @@ const repoRoot = path.join(__dirname, "..");
 const tscEntry = path.join(repoRoot, "node_modules", "typescript", "bin", "tsc");
 const packageEntry = JSON.stringify(repoRoot);
 
-/**
- * Compiles `source` on its own against the declarations this package publishes and returns
- * whatever tsc reported.
- *
- * The checks below are about the emitted `.d.ts`, not the sources: a consumer sees the shape
- * TypeScript wrote out, and options like `declaration` can change it without changing `src`.
- */
+// Compiles `source` against the emitted `.d.ts` rather than the sources, because that is the
+// shape a consumer sees and `declaration` options can change it without changing `src`.
 function typeCheck(source: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "node-saml-type-surface-"));
   try {
@@ -50,17 +45,14 @@ describe("published type surface", function () {
   this.timeout(60000);
 
   before(function () {
-    // Always rebuild. `npm test` builds first, but running this spec alone after editing
-    // `src/` would otherwise check the previous build's declarations and pass on stale input,
-    // which is the one result this spec must never give.
+    // Always rebuild: running this spec alone after editing `src/` would otherwise pass
+    // against the previous build.
     const build = spawnSync(process.execPath, [tscEntry], { cwd: repoRoot, encoding: "utf8" });
     expect(build.status, `tsc failed to build lib/:\n${build.stdout}`).to.equal(0);
   });
 
-  // `SAML` is exported from the barrel, so subclassing it is part of the exposed surface and
-  // an override's signature is part of the semver contract. Adding a second overload to any of
-  // these methods makes every override written against the previous signature stop compiling,
-  // which is a major change; this test is what catches that.
+  // `SAML` is exported from the barrel, so an override's signature is part of the semver
+  // contract. A second overload on any of these methods breaks every existing override.
   it("keeps compiling a subclass written against the previous signatures", function () {
     const errors = typeCheck(`
       import { SAML, AuthOptions } from ${packageEntry};
@@ -136,8 +128,7 @@ describe("published type surface", function () {
     expect(errors).to.contain("error TS");
   });
 
-  // Without this, the two tests above would pass just as happily if `typeCheck` silently
-  // stopped reporting anything.
+  // Without this, the tests above would pass if `typeCheck` stopped reporting anything.
   it("reports an error when the consumer really is wrong", function () {
     const errors = typeCheck(`
       import { SAML } from ${packageEntry};
