@@ -139,11 +139,8 @@ describe("crypto.ts", function () {
         );
       });
 
-      // A long run of blanks with no line ending after it is the shape that
-      // makes '[ \t]+$' quadratic, which is why stripTrailingBlanks() does not
-      // use it. Like the case above this only asserts the rejection: what the
-      // stripping is held to is being linear, which an analyzer settles and a
-      // test cannot, so there is no timing assertion here.
+      // The shape that makes '[ \t]+$' quadratic. Asserts only the rejection:
+      // linearity is settled by an analyzer, not by timing one machine.
       it("should reject a body that is one long run of blanks", function () {
         const blanks = `-----BEGIN CERTIFICATE-----\n${" ".repeat(1024 * 1024 - 100)}x\n-----END CERTIFICATE-----`;
         expect(() => keyInfoToPem(blanks, "CERTIFICATE")).to.throw(
@@ -151,9 +148,8 @@ describe("crypto.ts", function () {
         );
       });
 
-      // The body is unpadded so that the blank line is the only thing wrong with
-      // it. Padding mid-body is now a second reason to reject, and that second
-      // reason would mask a regression in the blank-line handling under test.
+      // Unpadded so the blank line is the only thing wrong with it; mid-body
+      // padding would mask a regression in the behaviour under test.
       it("should throw if the encapsulated text has a blank line between body lines", function () {
         expect(() =>
           keyInfoToPem(
@@ -179,8 +175,7 @@ describe("crypto.ts", function () {
         ).to.throw(/not in PEM format or in base64 format/);
       });
 
-      // Section 2 puts blanks at the start of a line on the far side of the line
-      // it draws: only blanks at the *ends* of lines are widely ignored.
+      // RFC7468 section 2 ignores blanks only at the ends of lines.
       it("should throw if a line of the encapsulated text starts with a blank", function () {
         const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
         const indented = [` ${firstLine}`, ...rest].join("\n");
@@ -216,10 +211,8 @@ describe("crypto.ts", function () {
         ).to.throw(/not in PEM format or in base64 format/);
       });
 
-      // A final quantum has to be whole: RFC4648 section 4 allows a multiple of
-      // four characters, two followed by '==', or three followed by '='. These
-      // all passed the structural pattern when it carried an '={0,2}' of its
-      // own, which is why the data check no longer lives in that pattern.
+      // RFC4648 section 4: a multiple of four characters, two then '==', or
+      // three then '='. https://www.rfc-editor.org/rfc/rfc4648#section-4
       const partialQuanta = ["A", "A=", "AA", "AAA", "AAAA=", "AAA==", "AAAAA", "AAAA=="];
 
       partialQuanta.forEach(function (body) {
@@ -233,11 +226,8 @@ describe("crypto.ts", function () {
         });
       });
 
-      // The two forms are meant to differ only in whether boundaries are
-      // present, never in what data they will accept between them. Both are now
-      // checked by the same pattern with the line breaks removed; before that
-      // they disagreed in both directions, the PEM form taking partial quanta
-      // and the bare form refusing a line that did not end on a multiple of 4.
+      // The two forms differ only in whether boundaries are present, never in
+      // what data they accept between them.
       [
         ...partialQuanta,
         "QUJD=REVG",
@@ -261,11 +251,14 @@ describe("crypto.ts", function () {
               "CERTIFICATE",
             );
           const asBare = () => keyInfoToPem(body, "CERTIFICATE");
+          // A rejection has to be the format rejection, so that agreeing for
+          // two unrelated reasons cannot pass for equivalence.
           const accepted = (run: () => string) => {
             try {
               run();
               return true;
-            } catch {
+            } catch (error) {
+              expect((error as Error).message).to.match(/not in PEM format or in base64 format/);
               return false;
             }
           };
@@ -382,11 +375,8 @@ describe("crypto.ts", function () {
         expect(certificate).to.equal(expectedCert);
       });
 
-      // RFC7468 permits blanks at the end of every line of a textual message —
-      // 'preeb *WSP eol', 'base64line = 1*base64char *WSP eol' and 'posteb
-      // *WSP' in Figure 1 — and section 2 calls them the one stray whitespace
-      // extant parsers agree to ignore. They are stripped, not carried into the
-      // output, so normalizePemFile() never rewraps around them.
+      // RFC7468 section 3 Figure 1 permits '*WSP' before every 'eol'. Stripped
+      // rather than carried through, so normalizePemFile() cannot rewrap on one.
       it("should return certificate in PEM format for certificate with trailing blanks on a body line", function () {
         const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
         const padded = [`${firstLine} \t`, ...rest].join("\n");
@@ -462,24 +452,17 @@ describe("crypto.ts", function () {
         );
       });
 
-      // The bare form used to allow a line break only after a whole quantum,
-      // because its pattern described line breaks itself. Checking the data
-      // de-lined lifts that without relaxing a quantifier, and matches what a
-      // PEM body has always been allowed to do.
       it("should return certificate in PEM format for Base64 wrapped off the quantum", function () {
         const wrapped = TEST_CERT_SINGLELINE.replace(/(.{30})/g, "$1\n");
         const certificate = keyInfoToPem(wrapped, "CERTIFICATE");
-        // The 30-character wrapping survives, since normalizePemFile() splits
-        // long lines but never joins short ones, so this compares the data
-        // rather than the layout.
+        // normalizePemFile() splits long lines but never joins short ones, so
+        // the 30-character wrapping survives; compare data, not layout.
         expect(stripPemHeaderAndFooter(certificate).replace(/\n/g, "")).to.equal(
           TEST_CERT_SINGLELINE,
         );
       });
 
-      // 'base64finl' in Figure 1 permits a pad, an eol, then the second pad.
-      // Nothing emits it, but de-lining the data before checking it accepts it
-      // for free, so it is pinned here rather than left to chance.
+      // 'base64finl' in RFC7468 Figure 1 permits a pad, an 'eol', then a pad.
       it("should accept padding split across a line ending", function () {
         const certificate = keyInfoToPem("QUJDCg=\n=", "CERTIFICATE");
         expect(certificate).to.equal(
