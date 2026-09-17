@@ -156,7 +156,10 @@ describe("saml.ts", function () {
       assert.doesNotReject(samlObj.validatePostResponseAsync(samlResponseBody));
 
     beforeEach(() => {
-      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
     });
 
     afterEach(() => {
@@ -418,7 +421,10 @@ describe("saml.ts", function () {
       let fakeClock: sinon.SinonFakeTimers;
 
       beforeEach(function () {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:59:00Z"),
+          toFake: ["Date"],
+        });
       });
 
       afterEach(function () {

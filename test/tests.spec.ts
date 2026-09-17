@@ -678,7 +678,7 @@ describe("node-saml /", function () {
 
         const dom = await parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [publicCert])).to.be.true;
-        assert(getVerifiedXml(metadata, dom.documentElement, [publicCert]));
+        assert.ok(getVerifiedXml(metadata, dom.documentElement, [publicCert]));
       });
 
       it("generateServiceProviderMetadata contains metadataExtensions", function () {
@@ -817,7 +817,10 @@ describe("node-saml /", function () {
       });
 
       it("accept response with an attributeStatement element without attributeValue", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2015-08-31T08:55:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2015-08-31T08:55:00+00:00"),
+          toFake: ["Date"],
+        });
 
         const container = {
           SAMLResponse: fs
@@ -844,7 +847,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with multiple SubjectConfirmation should validate", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-24T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-24T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64",
@@ -872,7 +878,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with multiple SubjectConfirmation should fail if no one is valid", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T19:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T19:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64",
@@ -901,7 +910,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with multiple SubjectConfirmation should validate, first is expired so it should take the second one", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64",
@@ -929,7 +941,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with multiple SubjectConfirmations should fail if InResponseTo does not match a valid SubjectConfirmation", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64",
@@ -957,7 +972,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with no SubjectConfirmation should validate", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-no-subjectconfirmation.xml",
           "base64",
@@ -983,7 +1001,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with only empty SubjectConfirmation should not validate", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-empty-subjectconfirmation.xml",
           "base64",
@@ -1056,7 +1077,10 @@ describe("node-saml /", function () {
         let fakeClock: sinon.SinonFakeTimers;
 
         beforeEach(function () {
-          fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+          fakeClock = sinon.useFakeTimers({
+            now: Date.parse("2014-05-28T00:13:09Z"),
+            toFake: ["Date"],
+          });
         });
         afterEach(function () {
           fakeClock.restore();
@@ -1551,7 +1575,10 @@ describe("node-saml /", function () {
       let fakeClock: sinon.SinonFakeTimers;
 
       beforeEach(function () {
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
       });
 
       afterEach(function () {
@@ -2176,7 +2203,10 @@ describe("node-saml /", function () {
               };
               const samlObj = new SAML(samlConfig);
 
-              fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+              fakeClock = sinon.useFakeTimers({
+                now: Date.parse("2014-05-28T00:13:09Z"),
+                toFake: ["Date"],
+              });
 
               // Mock the SAML request being passed through Passport-SAML
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2207,7 +2237,10 @@ describe("node-saml /", function () {
               };
               const samlObj = new SAML(samlConfig);
 
-              fakeClock = sinon.useFakeTimers(Date.parse("2014-06-05T12:07:07.662Z"));
+              fakeClock = sinon.useFakeTimers({
+                now: Date.parse("2014-06-05T12:07:07.662Z"),
+                toFake: ["Date"],
+              });
 
               // Mock the SAML request being passed through Passport-SAML
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2241,7 +2274,10 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "InResponseTo is not valid",
         });
@@ -2264,7 +2300,10 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-06-05T12:07:07.662Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-06-05T12:07:07.662Z"),
+          toFake: ["Date"],
+        });
 
         // Mock the SAML request being passed through Passport-SAML
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2304,7 +2343,10 @@ describe("node-saml /", function () {
               };
               const samlObj = new SAML(samlConfig);
 
-              fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+              fakeClock = sinon.useFakeTimers({
+                now: Date.parse("2014-05-28T00:13:09Z"),
+                toFake: ["Date"],
+              });
               const { profile } = await samlObj.validatePostResponseAsync(container);
               assertRequired(profile, "profile must exist");
               expect(profile.nameID.startsWith("ploer")).to.be.true;
@@ -2331,7 +2373,10 @@ describe("node-saml /", function () {
               };
               const samlObj = new SAML(samlConfig);
 
-              fakeClock = sinon.useFakeTimers(Date.parse("2014-06-05T12:07:07.662Z"));
+              fakeClock = sinon.useFakeTimers({
+                now: Date.parse("2014-06-05T12:07:07.662Z"),
+                toFake: ["Date"],
+              });
 
               // Mock the SAML request being passed through Passport-SAML
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2369,7 +2414,10 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
         expect(profile.nameID.startsWith("ploer")).to.be.true;
@@ -2396,7 +2444,10 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-06-05T12:07:07.662Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-06-05T12:07:07.662Z"),
+          toFake: ["Date"],
+        });
 
         // Mock the SAML request being passed through Passport-SAML
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2428,7 +2479,10 @@ describe("node-saml /", function () {
       let fakeClock: sinon.SinonFakeTimers;
 
       beforeEach(function () {
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
       });
 
       afterEach(function () {
@@ -2448,7 +2502,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be within the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
@@ -2468,7 +2525,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be within the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:08Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:08Z"),
+          toFake: ["Date"],
+        });
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
@@ -2488,7 +2548,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be after the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "SAML assertion not yet valid",
         });
@@ -2513,7 +2576,10 @@ describe("node-saml /", function () {
         const samlObj = new SAML({ ...samlConfig, idpCert });
 
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "Error parsing NotBefore: 'INVALID-DATE' is not a valid date",
         });
@@ -2532,7 +2598,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be after the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:19:08Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:19:08Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "SAML assertion expired: clocks skewed too much",
         });
@@ -2551,7 +2620,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be after the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:19:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:19:09Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "SAML assertion expired: clocks skewed too much",
         });
@@ -2580,7 +2652,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be after the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:20:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:20:09Z"),
+          toFake: ["Date"],
+        });
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
@@ -2606,7 +2681,10 @@ describe("node-saml /", function () {
         const samlObj = new SAML({ ...samlConfig, idpCert });
 
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "Error parsing NotOnOrAfter: 'INVALID-DATE' is not a valid date",
         });
@@ -2631,7 +2709,10 @@ describe("node-saml /", function () {
         const samlObj = new SAML({ ...samlConfig, idpCert });
 
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "Error parsing NotOnOrAfter: 'INVALID-DATE' is not a valid date",
         });
@@ -2654,7 +2735,10 @@ describe("node-saml /", function () {
         // Fake the current date to be after the time limit set by maxAssertionAgeMs,
         // but before the limit set by NotOnOrAfter
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:17:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:17:09Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "SAML assertion expired: assertion too old",
         });
@@ -2676,7 +2760,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be before the time limit set by maxAssertionAgeMs
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:16:08Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:16:08Z"),
+          toFake: ["Date"],
+        });
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
@@ -2703,7 +2790,10 @@ describe("node-saml /", function () {
         const samlObj = new SAML({ ...samlConfig, idpCert });
 
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "Error parsing IssueInstant: 'INVALID-DATE' is not a valid date",
         });
@@ -2935,9 +3025,11 @@ describe("node-saml /", function () {
         "\t<child22><<</child>\n" +
         "\t<child/>\n" +
         "</xml>";
+      // The wording of the parse failure belongs to xmldom and changes between
+      // releases; what we require is that the document is rejected and that the
+      // error carries the position, which is why `parseDomFromString` passes a locator.
       await assert.rejects(parseDomFromString(badXml), {
-        message:
-          "[xmldom error]\telement parse error: Error: invalid tagName:<<\n" + "@#[line:3,col:11]",
+        message: /^\[xmldom error\]\telement parse error: Error: .+\n@#\[line:3,col:11\]$/,
       });
     });
 
@@ -3146,7 +3238,10 @@ describe("node-saml /", function () {
           {},
           JSON.parse(fs.readFileSync(__dirname + "/static/idp_slo_redirect.json", "utf8")),
         );
-        fakeClock = sinon.useFakeTimers(Date.parse("2018-04-11T14:08:00Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2018-04-11T14:08:00Z"),
+          toFake: ["Date"],
+        });
       });
       afterEach(function () {
         fakeClock.restore();
@@ -3169,7 +3264,10 @@ describe("node-saml /", function () {
       });
       it("errors if request has expired", async function () {
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2100-04-11T14:08:00Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2100-04-11T14:08:00Z"),
+          toFake: ["Date"],
+        });
 
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
