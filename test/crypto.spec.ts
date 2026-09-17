@@ -123,10 +123,14 @@ describe("crypto.ts", function () {
         );
       });
 
+      // The body is unpadded so that the blank line is the only thing wrong with
+      // it. Padding mid-body would be a second reason to reject, and this file
+      // does not enforce padding position today — if it ever did, that second
+      // reason would mask a regression in the blank-line handling under test.
       it("should throw if the encapsulated text has a blank line between body lines", function () {
         expect(() =>
           keyInfoToPem(
-            `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
+            "-----BEGIN CERTIFICATE-----\nQUJD\n\nREVG\n-----END CERTIFICATE-----",
             "CERTIFICATE",
           ),
         ).to.throw(/not in PEM format or in base64 format/);
