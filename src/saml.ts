@@ -1175,8 +1175,7 @@ class SAML {
 
         attributes.forEach((attribute) => {
           if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
-            // An attribute the IdP sent, with no value. Dropping it makes it indistinguishable
-            // from one the IdP never sent at all, which is a distinction a caller may need.
+            // Dropping it makes it indistinguishable from one the IdP never sent.
             // https://github.com/node-saml/node-saml/pull/413 keeps it as null instead.
             debugLog(
               'The SAML attribute "%s" has no AttributeValue child, so it is left out of the profile entirely and cannot be told apart from an attribute the identity provider never sent. The next major version keeps it with a null value. See https://github.com/node-saml/node-saml/pull/413',

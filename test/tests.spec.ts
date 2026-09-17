@@ -851,16 +851,14 @@ describe("node-saml /", function () {
       });
 
       // Both shapes reach the profile in a way a caller cannot act on, and
-      // https://github.com/node-saml/node-saml/pull/413 changes both in the next major. The
-      // warnings are the notice in front of that, so they need their own test.
+      // https://github.com/node-saml/node-saml/pull/413 changes both in the next major.
       describe("attributes with no usable value", function () {
         const staticDir = path.join(__dirname, "static");
         const responseXPath =
           '/*[local-name(.)="Response" and namespace-uri(.)="urn:oasis:names:tc:SAML:2.0:protocol"]';
 
-        // The committed fixture covers an `<Attribute/>` with no child at all. Nothing covers
-        // an `<AttributeValue/>` that is present but empty, and the fixture is signed, so the
-        // extra attribute has to go in before it is signed rather than after.
+        // No committed fixture has an empty `<AttributeValue/>`, and the one that comes
+        // closest is signed, so the extra attribute has to go in before signing.
         function buildResponseWithAnEmptyAttributeValue(): string {
           const original = fs.readFileSync(
             path.join(staticDir, "response-with-uncomplete-attribute.xml"),
