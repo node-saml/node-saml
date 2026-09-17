@@ -3296,10 +3296,8 @@ describe("node-saml /", function () {
           sessionIndex: "_00bf7b2d5d9d3c970217eecefb1194bef3362a618e",
         });
       });
-      // Pins behavior that is scheduled to change, not behavior we want. A message with no
-      // Signature parameter is accepted with none of its contents authenticated. When this is
-      // made a rejection, this test must fail and be rewritten deliberately.
-      // https://github.com/node-saml/node-saml/issues/419
+      // Pins behavior scheduled to change, not behavior we want: when this becomes a
+      // rejection the test must fail and be rewritten. https://github.com/node-saml/node-saml/issues/419
       it("accepts a message with no Signature parameter, pending rejection in the next major", async function () {
         delete this.request.Signature;
         delete this.request.SigAlg;
@@ -3310,9 +3308,8 @@ describe("node-saml /", function () {
         );
         expect(loggedOut).to.be.true;
       });
-      // The warning is the whole of the migration notice for the change above, so it needs a
-      // test of its own. `util.debuglog` reads NODE_DEBUG once per process, so this runs in a
-      // child rather than mutating the environment the rest of the suite shares.
+      // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child rather
+      // than mutating the environment the rest of the suite shares.
       it("warns via NODE_DEBUG when it accepts a message with no Signature parameter", function () {
         this.timeout(20000); // Compiling the library in the child process is not fast.
         const script = `
@@ -3410,11 +3407,8 @@ describe("node-saml /", function () {
         expect(loggedOut).to.be.true;
       });
 
-      // As with the logout request, this pins behavior that is scheduled to change rather than
-      // behavior we want: the response is accepted with nothing about it authenticated, so the
-      // status it reports is the attacker's to choose. When this becomes a rejection, this test
-      // must fail and be rewritten deliberately.
-      // https://github.com/node-saml/node-saml/issues/419
+      // As above, pinned pending rejection: the status reported here is the attacker's to
+      // choose. https://github.com/node-saml/node-saml/issues/419
       it("accepts a response with no Signature parameter, pending rejection in the next major", async function () {
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
         delete this.request.Signature;
