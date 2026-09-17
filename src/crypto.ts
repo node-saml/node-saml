@@ -13,6 +13,9 @@ import { PemLabel } from "./types";
  *  - 'posteb' MAY have 'eol', but it is not mandatory.
  *  - 'preeb' and 'posteb' lines are limited to 64 characters, but
  *     should not cause any issues in context of PKIX, PKCS and CMS.
+ *  - whitespace around the message is discarded before validation. This is the
+ *     leading and trailing '*W' of 'laxtextualmsg' (Section 3, Figure 2) and
+ *     nothing else from it, so whitespace inside the message is still rejected.
  *
  * normalizePemFile() -function is returning PEM files conforming
  * RFC7468 'stricttextualmsg' definition.
