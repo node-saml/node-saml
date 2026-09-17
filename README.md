@@ -229,9 +229,12 @@ What it accepts is more liberal than `stricttextualmsg`:
 - whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64 encoding tool is fine, as is a leading byte order mark;
 - any of the three line-ending conventions will do;
 - blanks at the end of a line are ignored, and a blank line may follow the `-----BEGIN ...-----` boundary;
+- the encoded data may be wrapped at any width, or not wrapped at all;
 - several PEM messages may be concatenated in one value, optionally separated by blank lines.
 
-Blanks at the start of a line and whitespace within the encoded data are rejected, as is `=` padding anywhere but the end of the encoded data.
+Blanks at the start of a line and whitespace within the encoded data are rejected.
+The encoded data itself must be valid Base64 as [RFC4648](https://www.rfc-editor.org/rfc/rfc4648) section 4 defines it, so `=` padding has to sit at its end and the last group has to be complete — four characters, or two followed by `==`, or three followed by `=`.
+A value is judged by the same rules whether or not it carries `-----BEGIN ...-----` boundaries.
 Values larger than 1 MiB are rejected before parsing.
 
 Add it to strategy options like this:

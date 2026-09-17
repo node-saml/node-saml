@@ -7,7 +7,12 @@ import { PemLabel } from "./types";
  *
  * https://www.rfc-editor.org/rfc/rfc7468
  *
- * PEM_FORMAT_REGEX is validating given PEM file against RFC7468 'stricttextualmsg' definition.
+ * PEM_FORMAT_REGEX validates the structure of a PEM file — its boundaries and
+ * its line structure — against RFC7468 'textualmsg'. It deliberately does not
+ * validate the encapsulated data, which Section 2 defines as base64 of RFC4648
+ * Section 4 and which BASE64_REGEX checks once the line breaks are removed.
+ * Splitting the two keeps the structural pattern free of the counting a base64
+ * quantum needs, which is what a pattern spanning line breaks does badly.
  *
  * With few exceptions;
  *  - 'posteb' MAY have 'eol', but it is not mandatory.
@@ -34,11 +39,13 @@ import { PemLabel } from "./types";
  *     sizes other than 64. normalizePemFile() rewraps anything longer. Every
  *     body line still carries at least one base64 character, as 'base64line'
  *     requires, so a blank line may not appear between two of them.
- *  - padding is confined to the end of the encapsulated text, where all three
- *     figures of Section 3 put it. The one padded form Figure 1 allows and this
- *     rejects is a pad split across an 'eol' ('base64pad *WSP eol base64pad');
- *     no generator emits it. BASE64_REGEX has always confined padding this way,
- *     so a value is now judged the same with and without its boundaries.
+ *  - the encapsulated data is checked as one base64 value with the line breaks
+ *     removed, so padding is confined to its end and the final quantum has to
+ *     be whole: four characters, or two followed by '==', or three followed by
+ *     '='. Checking it de-lined is also what lets Figure 1's odd split pad
+ *     ('base64pad *WSP eol base64pad') through. The bare form below is checked
+ *     by the same two patterns, so a value is judged the same with and without
+ *     its boundaries — see the equivalence test in the spec.
  *  - several messages MAY be concatenated in one value, optionally separated by
  *     blank lines, as Section 2 allows for files holding several certificates.
  *  - the 'label' of 'preeb' and of 'posteb' are not required to match each
@@ -46,29 +53,38 @@ import { PemLabel } from "./types";
  *  - 'eol' is normalized to '\n' before either pattern runs, so both match only
  *     '\n'. See the note in keyInfoToPem(); this is not cosmetic.
  *
- * BASE64_REGEX validates the bare base64 form, which this library accepts as a
- * convenience. RFC7468 does not define it — a textual message always carries
- * encapsulation boundaries — so the notes above do not apply to it.
+ * BASE64_REGEX validates encapsulated data, and validates the bare base64 form
+ * that this library accepts as a convenience. RFC7468 does not define that bare
+ * form — a textual message always carries encapsulation boundaries — but it is
+ * held to the same data rules, so only the notes above about boundaries and
+ * line structure fail to apply to it.
  *
- * Its '{4}' must stay fixed-width. Relaxing it to '{1,4}', the obvious way to
- * accept a line length that is not a multiple of four, makes the group
- * ambiguous and the match exponential: ~14x per added character, which is a
- * denial of service on any input an attacker can influence.
+ * It runs on the value with its line breaks already removed, so it never has to
+ * describe where a line may end. That matters: its '{4}' must stay fixed-width,
+ * and '{1,4}' — the obvious way to let a line end anywhere — makes the group
+ * ambiguous and the match exponential, ~14x per added character, which is a
+ * denial of service on any input an attacker can influence. De-lining first
+ * reaches the same tolerance with no quantifier to relax. BASE64_LINES_REGEX
+ * carries what is left: no line of a bare value may be empty.
  *
- * normalizePemFile() -function is returning PEM files conforming
- * RFC7468 'stricttextualmsg' definition.
+ * normalizePemFile() -function is returning PEM files close to the RFC7468
+ * 'stricttextualmsg' definition, but see the second note below.
  *
  * With couple of notes:
  *  - 'eol' is normalized to '\n'
  *  - lines longer than 64 characters are split, but shorter lines are left as
  *     they are rather than reflowed, so a body that arrives wrapped at some
- *     other width keeps that width. The result is a well-formed PEM message
- *     that every parser accepts; it is not literally 'stricttextualmsg', whose
- *     'base64fullline' is exactly 64 characters.
+ *     other width keeps that width. That is not literally 'stricttextualmsg',
+ *     whose 'base64fullline' is exactly 64 characters; Section 2 says parsers
+ *     MAY handle other line sizes, which is permission rather than a guarantee
+ *     about any particular parser.
  */
 const PEM_FORMAT_REGEX =
-  /^(?:-----BEGIN [A-Z\x20]{1,48}-----\n+(?:[A-Za-z0-9+/]+\n)*[A-Za-z0-9+/]+={0,2}\n-----END [A-Z\x20]{1,48}-----\n*)+$/;
-const BASE64_REGEX = /^(?:[A-Za-z0-9+/]{4}\n?)*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+  /^(?:-----BEGIN [A-Z\x20]{1,48}-----\n+(?:[A-Za-z0-9+/=]+\n)+-----END [A-Z\x20]{1,48}-----\n*)+$/;
+const PEM_BODY_REGEX =
+  /-----BEGIN [A-Z\x20]{1,48}-----\n+((?:[A-Za-z0-9+/=]+\n)+)-----END [A-Z\x20]{1,48}-----/g;
+const BASE64_LINES_REGEX = /^(?:[A-Za-z0-9+/=]+\n)*[A-Za-z0-9+/=]+$/;
+const BASE64_REGEX = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 /**
  * A certificate, key, or bundle of them is kilobytes. This cap bounds the
@@ -126,6 +142,33 @@ const stripTrailingBlanks = (text: string): string => {
     .join("\n");
 };
 
+// The encapsulated data of every message in the value, in order. PEM_BODY_REGEX
+// describes the same message PEM_FORMAT_REGEX does, so once that has matched the
+// whole value this finds exactly the messages it validated. The loop always runs
+// to exhaustion, which leaves lastIndex back at 0 for the next call.
+const pemBodies = (pem: string): string[] => {
+  const bodies: string[] = [];
+  PEM_BODY_REGEX.lastIndex = 0;
+  let message = PEM_BODY_REGEX.exec(pem);
+  while (message !== null) {
+    bodies.push(message[1]);
+    message = PEM_BODY_REGEX.exec(pem);
+  }
+  return bodies;
+};
+
+// Base64 is checked with the line breaks taken out, so where a line ends is a
+// question of structure and never of the data. A PEM body has had its structure
+// checked by PEM_FORMAT_REGEX already; a bare value has not, so it is checked
+// here — every line of it has to carry something.
+const isBase64Data = (text: string): boolean => {
+  return BASE64_REGEX.test(text.replace(/\n/g, ""));
+};
+
+const isBareBase64 = (text: string): boolean => {
+  return BASE64_LINES_REGEX.test(text) && isBase64Data(text);
+};
+
 /**
  * This function currently expects to get data in PEM format or in base64 format.
  */
@@ -165,11 +208,18 @@ export const keyInfoToPem = (
   assertRequired(keyData, `${optionName} is not provided`);
 
   if (PEM_FORMAT_REGEX.test(keyData)) {
+    assertRequired(
+      pemBodies(keyData).every(isBase64Data) || undefined,
+      `${optionName} is not in PEM format or in base64 format`,
+    );
+
     return normalizePemFile(keyData);
   }
 
-  const isBase64 = BASE64_REGEX.test(keyData);
-  assertRequired(isBase64 || undefined, `${optionName} is not in PEM format or in base64 format`);
+  assertRequired(
+    isBareBase64(keyData) || undefined,
+    `${optionName} is not in PEM format or in base64 format`,
+  );
 
   const pem = `-----BEGIN ${pemLabel}-----\n${keyData}\n-----END ${pemLabel}-----`;
 

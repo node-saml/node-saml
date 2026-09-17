@@ -216,19 +216,61 @@ describe("crypto.ts", function () {
         ).to.throw(/not in PEM format or in base64 format/);
       });
 
-      // The bare form has always confined padding to the end. The PEM form did
-      // not until the padding rule was made to match, so this pins them together.
-      it("should judge a padded-in-the-middle value the same with and without boundaries", function () {
-        const body = "QUJD=REVG";
-        expect(() => keyInfoToPem(body, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
-        );
-        expect(() =>
-          keyInfoToPem(
-            `-----BEGIN CERTIFICATE-----\n${body}\n-----END CERTIFICATE-----`,
-            "CERTIFICATE",
-          ),
-        ).to.throw(/not in PEM format or in base64 format/);
+      // A final quantum has to be whole: RFC4648 section 4 allows a multiple of
+      // four characters, two followed by '==', or three followed by '='. These
+      // all passed the structural pattern when it carried an '={0,2}' of its
+      // own, which is why the data check no longer lives in that pattern.
+      const partialQuanta = ["A", "A=", "AA", "AAA", "AAAA=", "AAA==", "AAAAA", "AAAA=="];
+
+      partialQuanta.forEach(function (body) {
+        it(`should throw if the encapsulated text ends in the partial quantum ${body}`, function () {
+          expect(() =>
+            keyInfoToPem(
+              `-----BEGIN CERTIFICATE-----\n${body}\n-----END CERTIFICATE-----`,
+              "CERTIFICATE",
+            ),
+          ).to.throw(/not in PEM format or in base64 format/);
+        });
+      });
+
+      // The two forms are meant to differ only in whether boundaries are
+      // present, never in what data they will accept between them. Both are now
+      // checked by the same pattern with the line breaks removed; before that
+      // they disagreed in both directions, the PEM form taking partial quanta
+      // and the bare form refusing a line that did not end on a multiple of 4.
+      [
+        ...partialQuanta,
+        "QUJD=REVG",
+        "AAAA=BBB=",
+        "=",
+        "==",
+        "QUJD\n\nREVG",
+        "AAAA",
+        "AA==",
+        "AAA=",
+        "QUJDCg==",
+        "AAAA\nBBBB",
+        "QUJD\nRE\nVG",
+        "QU\nJD",
+        "QUJDCg=\n=",
+      ].forEach(function (body) {
+        it(`should judge ${JSON.stringify(body)} the same with and without boundaries`, function () {
+          const asPem = () =>
+            keyInfoToPem(
+              `-----BEGIN CERTIFICATE-----\n${body}\n-----END CERTIFICATE-----`,
+              "CERTIFICATE",
+            );
+          const asBare = () => keyInfoToPem(body, "CERTIFICATE");
+          const accepted = (run: () => string) => {
+            try {
+              run();
+              return true;
+            } catch {
+              return false;
+            }
+          };
+          expect(accepted(asPem)).to.equal(accepted(asBare));
+        });
       });
 
       it("should throw if the encapsulated text is not base64", function () {
@@ -417,6 +459,31 @@ describe("crypto.ts", function () {
         const certificate = keyInfoToPem("QUJDCg== \n", "CERTIFICATE");
         expect(certificate).to.equal(
           "-----BEGIN CERTIFICATE-----\nQUJDCg==\n-----END CERTIFICATE-----\n",
+        );
+      });
+
+      // The bare form used to allow a line break only after a whole quantum,
+      // because its pattern described line breaks itself. Checking the data
+      // de-lined lifts that without relaxing a quantifier, and matches what a
+      // PEM body has always been allowed to do.
+      it("should return certificate in PEM format for Base64 wrapped off the quantum", function () {
+        const wrapped = TEST_CERT_SINGLELINE.replace(/(.{30})/g, "$1\n");
+        const certificate = keyInfoToPem(wrapped, "CERTIFICATE");
+        // The 30-character wrapping survives, since normalizePemFile() splits
+        // long lines but never joins short ones, so this compares the data
+        // rather than the layout.
+        expect(stripPemHeaderAndFooter(certificate).replace(/\n/g, "")).to.equal(
+          TEST_CERT_SINGLELINE,
+        );
+      });
+
+      // 'base64finl' in Figure 1 permits a pad, an eol, then the second pad.
+      // Nothing emits it, but de-lining the data before checking it accepts it
+      // for free, so it is pinned here rather than left to chance.
+      it("should accept padding split across a line ending", function () {
+        const certificate = keyInfoToPem("QUJDCg=\n=", "CERTIFICATE");
+        expect(certificate).to.equal(
+          "-----BEGIN CERTIFICATE-----\nQUJDCg=\n=\n-----END CERTIFICATE-----\n",
         );
       });
 
