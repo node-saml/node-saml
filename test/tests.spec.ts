@@ -1,5 +1,8 @@
 "use strict";
 import { SAML } from "../src/saml";
+import { spawnSync } from "child_process";
+import * as os from "os";
+import * as path from "path";
 import { URL } from "url";
 import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
@@ -13,6 +16,7 @@ import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
 import { getVerifiedXml, parseDomFromString, validateSignature } from "../src/xml";
 import { generateServiceProviderMetadata } from "../src/metadata";
+import { signSamlPost } from "../src/saml-post-signing";
 
 const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -844,6 +848,117 @@ describe("node-saml /", function () {
         expect(profile).to.have.property("evil-corp.egroupid", "vincent.vega@evil-corp.com");
         // attributes without attributeValue child should be ignored
         expect(profile).to.not.have.property("evilcorp.roles");
+      });
+
+      // Both shapes reach the profile in a way a caller cannot act on, and
+      // https://github.com/node-saml/node-saml/pull/413 changes both in the next major. The
+      // warnings are the notice in front of that, so they need their own test.
+      describe("attributes with no usable value", function () {
+        const staticDir = path.join(__dirname, "static");
+        const responseXPath =
+          '/*[local-name(.)="Response" and namespace-uri(.)="urn:oasis:names:tc:SAML:2.0:protocol"]';
+
+        // The committed fixture covers an `<Attribute/>` with no child at all. Nothing covers
+        // an `<AttributeValue/>` that is present but empty, and the fixture is signed, so the
+        // extra attribute has to go in before it is signed rather than after.
+        function buildResponseWithAnEmptyAttributeValue(): string {
+          const original = fs.readFileSync(
+            path.join(staticDir, "response-with-uncomplete-attribute.xml"),
+            "utf8",
+          );
+          const unsigned = original
+            .replace(/<ds:Signature[\s\S]*?<\/ds:Signature>/, "")
+            .replace(
+              '<Attribute Name="evilcorp.roles"/>',
+              '<Attribute Name="evilcorp.roles"/><Attribute Name="evilcorp.empty"><AttributeValue/></Attribute>',
+            );
+          return signSamlPost(unsigned, responseXPath, {
+            privateKey: fs.readFileSync(path.join(staticDir, "key.pem")),
+            signatureAlgorithm: "sha1",
+          });
+        }
+
+        const samlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
+          audience: false as const,
+          issuer: "onesaml_login",
+          wantAssertionsSigned: false,
+        };
+
+        let fakeClock: sinon.SinonFakeTimers;
+
+        beforeEach(function () {
+          fakeClock = sinon.useFakeTimers({
+            now: Date.parse("2015-08-31T08:55:00+00:00"),
+            toFake: ["Date"],
+          });
+        });
+
+        afterEach(function () {
+          fakeClock.restore();
+        });
+
+        it("drops one with no AttributeValue, and yields undefined for an empty one", async () => {
+          const samlObj = new SAML({
+            ...samlConfig,
+            idpCert: fs.readFileSync(path.join(staticDir, "cert.pem"), "utf-8"),
+          });
+          const { profile } = await samlObj.validatePostResponseAsync({
+            SAMLResponse: Buffer.from(buildResponseWithAnEmptyAttributeValue()).toString("base64"),
+          });
+          assertRequired(profile, "profile must exist");
+
+          // Indistinguishable from an attribute the IdP never sent. Becomes null.
+          expect(profile).to.not.have.property("evilcorp.roles");
+          // Present, but holding nothing a caller can use. Becomes "".
+          expect(profile).to.have.property("evilcorp.empty");
+          expect(profile["evilcorp.empty"]).to.be.undefined;
+        });
+
+        it("warns about each of them", function () {
+          this.timeout(20000);
+          const responseFile = path.join(
+            fs.mkdtempSync(path.join(os.tmpdir(), "node-saml-attrs-")),
+            "response.xml",
+          );
+          fs.writeFileSync(responseFile, buildResponseWithAnEmptyAttributeValue());
+
+          const script = `
+            const fs = require("fs");
+            const sinon = require(${JSON.stringify(path.join(__dirname, "..", "node_modules", "sinon"))});
+            const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+            sinon.useFakeTimers({
+              now: Date.parse("2015-08-31T08:55:00+00:00"),
+              toFake: ["Date"],
+            });
+            const samlObj = new SAML({
+              ...${JSON.stringify(samlConfig)},
+              idpCert: fs.readFileSync(${JSON.stringify(path.join(staticDir, "cert.pem"))}, "utf-8"),
+            });
+            samlObj
+              .validatePostResponseAsync({
+                SAMLResponse: fs.readFileSync(${JSON.stringify(responseFile)}).toString("base64"),
+              })
+              .catch((err) => {
+                console.error("FAILED", err);
+                process.exit(1);
+              });
+          `;
+          const child = spawnSync(
+            process.execPath,
+            ["--require", "ts-node/register/transpile-only", "--eval", script],
+            { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+          );
+          fs.rmSync(path.dirname(responseFile), { recursive: true, force: true });
+          expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+
+          expect(child.stderr).to.contain(
+            'The SAML attribute "evilcorp.roles" has no AttributeValue child',
+          );
+          expect(child.stderr).to.contain(
+            'The SAML attribute "evilcorp.empty" has an empty AttributeValue',
+          );
+        });
       });
 
       it("valid xml document with multiple SubjectConfirmation should validate", async () => {

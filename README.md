@@ -349,6 +349,23 @@ Previous request id's generated for SAML requests will eventually expire. This i
 passed into the Node-SAML config. The default is 28,800,000 ms (8 hours). Once expired, a subsequent SAML response
 received with an `InResponseTo` equal to the expired id will not validate and an error will be returned.
 
+## Attributes with no value
+
+Two shapes of `Attribute` reach the profile in a way callers cannot act on today:
+
+```xml
+<Attribute Name="roles"/>                              <!-- left out of the profile entirely -->
+<Attribute Name="team"><AttributeValue/></Attribute>   <!-- present, but `undefined` -->
+```
+
+The first is dropped, so it cannot be told apart from an attribute the identity provider never
+sent. The second arrives as `undefined`, which for most consumers is the same as absent.
+
+The next major version keeps the first with a `null` value and represents the second as an
+empty string, so both stay distinguishable from an attribute that was not sent
+([#413](https://github.com/node-saml/node-saml/pull/413)). Until then, run with
+`NODE_DEBUG=node-saml` to be told when either occurs in a response you received.
+
 ## Cache Provider
 
 When `InResponseTo` validation is turned on, Node SAML will store generated request ids used in SAML requests to the IdP. The implementation

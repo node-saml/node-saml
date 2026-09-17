@@ -1175,7 +1175,13 @@ class SAML {
 
         attributes.forEach((attribute) => {
           if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
-            // if attributes has no AttributeValue child, continue
+            // An attribute the IdP sent, with no value. Dropping it makes it indistinguishable
+            // from one the IdP never sent at all, which is a distinction a caller may need.
+            // https://github.com/node-saml/node-saml/pull/413 keeps it as null instead.
+            debugLog(
+              'The SAML attribute "%s" has no AttributeValue child, so it is left out of the profile entirely and cannot be told apart from an attribute the identity provider never sent. The next major version keeps it with a null value. See https://github.com/node-saml/node-saml/pull/413',
+              attribute.$.Name,
+            );
             return;
           }
 
@@ -1184,6 +1190,15 @@ class SAML {
             attribute.AttributeValue.length === 1
               ? attrValueMapper(attribute.AttributeValue[0])
               : attribute.AttributeValue.map(attrValueMapper);
+
+          // `<AttributeValue/>` has no character data, so xml2js leaves `_` unset and the
+          // mapper yields `undefined`. SAML Core says such a value is the empty string.
+          if (Array.isArray(value) ? value.some((one) => one === undefined) : value === undefined) {
+            debugLog(
+              'The SAML attribute "%s" has an empty AttributeValue, which reaches the profile as `undefined`. The next major version represents it as an empty string. See https://github.com/node-saml/node-saml/pull/413',
+              name,
+            );
+          }
 
           profileAttributes[name] = value;
 
