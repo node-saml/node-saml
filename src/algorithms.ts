@@ -1,8 +1,7 @@
 import * as crypto from "crypto";
 
-// The short names the switches below recognize. Every one of them falls through to SHA-1 for
-// anything else, so a typo downgrades signing silently. `initialize()` warns against this list
-// rather than letting that happen unannounced.
+// The short names the switches below recognize. Anything else falls through to SHA-1, so
+// `initialize()` warns against this list rather than let a typo downgrade signing silently.
 export const SUPPORTED_ALGORITHMS = ["sha1", "sha256", "sha512"];
 
 export function isSupportedAlgorithm(shortName: string): boolean {

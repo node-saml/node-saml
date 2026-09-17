@@ -154,10 +154,8 @@ class SAML {
       throw new TypeError("validateInResponseTo must be one of ['never', 'ifPresent', 'always']");
     }
 
-    // These two defaults are the ones a caller is least likely to have chosen on purpose,
-    // because choosing them looks exactly like saying nothing. Both change in the next major,
-    // and silence is what is being removed, so the migration has to warn at the point the
-    // option is absent rather than at a call site. See AGENTS.md, "Deprecation strategy".
+    // Choosing either of these looks exactly like saying nothing, so the notice for a change
+    // in the next major has to come from the option being absent rather than from a call site.
     if (ctorOptions.validateInResponseTo === undefined) {
       debugLog(
         "`validateInResponseTo` is not set, so it defaults to `never` and an InResponseTo is not checked against a request this library issued. A SAML response can then be replayed, or delivered unsolicited. The next major version defaults to `always`; set it explicitly to choose for yourself. See https://github.com/node-saml/node-saml/pull/399",
@@ -170,9 +168,8 @@ class SAML {
       );
     }
 
-    // A value the algorithm switches do not recognize is not an error today: it falls through
-    // to SHA-1. That turns a typo, or a casing slip like "SHA256", into a silent downgrade of
-    // the signature the caller believed they had asked for.
+    // An unrecognized value is not an error today: it falls through to SHA-1, so a casing slip
+    // like "SHA256" silently downgrades the signature the caller asked for.
     for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
       const value = ctorOptions[option];
       if (value !== undefined && !algorithms.isSupportedAlgorithm(value)) {

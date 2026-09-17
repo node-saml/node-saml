@@ -27,9 +27,8 @@ describe("saml.ts", function () {
     ).to.throw("value is set but not boolean");
   });
 
-  // `util.debuglog` reads NODE_DEBUG once per process and the suite runs in randomized order,
-  // so these run in a child rather than mutating the shared environment. Every case shares one
-  // child because spawning is by far the slowest part.
+  // `util.debuglog` reads NODE_DEBUG once per process and the suite order is randomized, so
+  // these run in one child rather than mutating the shared environment.
   describe("warnings on defaults that change in the next major", function () {
     let stderr: string;
 
