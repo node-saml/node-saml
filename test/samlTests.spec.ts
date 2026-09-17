@@ -11,6 +11,7 @@ import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
 import { spawnSync } from "child_process";
 import * as path from "path";
+import * as querystring from "querystring";
 
 const noop = (): void => undefined;
 
@@ -289,7 +290,7 @@ describe("saml.ts", function () {
 
     // `host` has never been read, but it sits between `RelayState` and `options`, so removing it
     // outright would slide `options` into its place and silently discard a JavaScript caller's
-    // `additionalParams`. Both shapes are accepted until the three-argument form is removed.
+    // `additionalParams`. Both shapes are accepted until `host` is removed.
     // https://github.com/node-saml/node-saml/pull/367
     describe("deprecated `host` argument", function () {
       it("applies additionalParams whether or not `host` is passed", async () => {
@@ -315,6 +316,76 @@ describe("saml.ts", function () {
         const form = await saml.getAuthorizeFormAsync("", options);
         expect(form).to.contain('name="additionalKey"');
         expect(form).to.contain('value="additionalValue"');
+      });
+
+      // The compatibility defect this deprecation had to avoid was a runtime one:
+      // `getAuthorizeFormAsync` must keep calling an override with the arguments it was given,
+      // not with the pair it resolved them to. Normalizing hands an override written for the
+      // old signature the `AuthOptions` object in its `host` parameter and `undefined` where
+      // its options belong. The emitted-type test cannot see that, so it is pinned here.
+      it("calls a subclass override with the arguments it received, not normalized ones", async () => {
+        const received: Array<[string, string | undefined, AuthOptions | undefined]> = [];
+
+        class RecordingSaml extends SAML {
+          async getAuthorizeMessageAsync(
+            RelayState: string,
+            host?: string,
+            options?: AuthOptions,
+          ): Promise<querystring.ParsedUrlQueryInput> {
+            received.push([RelayState, host, options]);
+            return super.getAuthorizeMessageAsync(RelayState, host, options);
+          }
+        }
+
+        const subclass = new RecordingSaml({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "https://exampleidp.com/path?key=value",
+          idpCert: FAKE_CERT,
+          issuer: "onesaml_login",
+        });
+
+        const form = await subclass.getAuthorizeFormAsync("rs", "host.example", options);
+
+        expect(received).to.have.lengthOf(1);
+        expect(received[0][0]).to.equal("rs");
+        expect(received[0][1]).to.equal("host.example");
+        expect(received[0][2]).to.equal(options);
+        // And the override's work still reaches the caller.
+        expect(form).to.contain('name="additionalKey"');
+      });
+
+      // The other direction: a caller who has migrated, against a subclass that has not. The
+      // override then sees the shape it was not written for, which is why each method's JSDoc
+      // says to migrate an override alongside the calls.
+      it("hands a two-argument call straight to an unmigrated override", async () => {
+        const received: Array<[string, unknown, unknown]> = [];
+
+        class RecordingSaml extends SAML {
+          async getAuthorizeMessageAsync(
+            RelayState: string,
+            host?: string,
+            options?: AuthOptions,
+          ): Promise<querystring.ParsedUrlQueryInput> {
+            received.push([RelayState, host, options]);
+            return super.getAuthorizeMessageAsync(RelayState, host, options);
+          }
+        }
+
+        const subclass = new RecordingSaml({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "https://exampleidp.com/path?key=value",
+          idpCert: FAKE_CERT,
+          issuer: "onesaml_login",
+        });
+
+        const form = await subclass.getAuthorizeFormAsync("rs", options);
+
+        expect(received).to.have.lengthOf(1);
+        // The options land in the `host` parameter, because the call went straight to the
+        // override. The base class resolves by shape afterwards, so the form is still correct.
+        expect(received[0][1]).to.equal(options);
+        expect(received[0][2]).to.be.undefined;
+        expect(form).to.contain('name="additionalKey"');
       });
 
       // The warning is the whole of the migration notice, so it needs its own test.
@@ -347,7 +418,7 @@ describe("saml.ts", function () {
         expect(stderr).to.contain("getAuthorizeUrlAsync was called with a `host` argument");
         expect(stderr).to.contain("getAuthorizeFormAsync was called with a `host` argument");
         // `getAuthorizeFormAsync` forwards its arguments to `getAuthorizeMessageAsync`
-        // unchanged, so a three-argument call to it warns from both methods. Forwarding them
+        // unchanged, so a call to it that passes `host` warns from both methods. Forwarding them
         // normalized instead would spare the second warning but would change what a subclass
         // override of that method receives, which costs more than the extra line.
         expect(stderr).to.contain("getAuthorizeMessageAsync was called with a `host` argument");

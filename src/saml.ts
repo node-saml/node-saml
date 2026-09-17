@@ -526,7 +526,7 @@ class SAML {
   /**
    * The `host` argument is deprecated and has never been read. Call
    * `getAuthorizeUrlAsync(RelayState, options)` instead; passing `host` logs a warning under
-   * `NODE_DEBUG=node-saml` and the three-argument form is removed in the next major version.
+   * `NODE_DEBUG=node-saml`, and the argument is removed in the next major version.
    *
    * Both shapes share one widened signature rather than two overloads: a second overload
    * would make every existing subclass override of this method fail to type-check, which a
@@ -556,7 +556,7 @@ class SAML {
   /**
    * The `host` argument is deprecated and has never been read. Call
    * `getAuthorizeMessageAsync(RelayState, options)` instead; passing `host` logs a warning under
-   * `NODE_DEBUG=node-saml` and the three-argument form is removed in the next major version.
+   * `NODE_DEBUG=node-saml`, and the argument is removed in the next major version.
    *
    * Both shapes share one widened signature rather than two overloads: a second overload
    * would make every existing subclass override of this method fail to type-check, which a
@@ -597,7 +597,7 @@ class SAML {
   /**
    * The `host` argument is deprecated and has never been read. Call
    * `getAuthorizeFormAsync(RelayState, options)` instead; passing `host` logs a warning under
-   * `NODE_DEBUG=node-saml` and the three-argument form is removed in the next major version.
+   * `NODE_DEBUG=node-saml`, and the argument is removed in the next major version.
    *
    * Both shapes share one widened signature rather than two overloads: a second overload
    * would make every existing subclass override of this method fail to type-check, which a
@@ -648,6 +648,11 @@ class SAML {
 
     // Forwards the arguments exactly as received. Normalizing them here would change what a
     // subclass override of this virtual method observes, which a minor release must not do.
+    //
+    // The cost is that a call passing `host` warns from both methods. Suppressing the second
+    // needs state saying "this resolve is our own forward", and the only place to keep it is
+    // module scope, live across a call into code that may be a subclass override. That is a
+    // trap for whoever later adds an `await` near it, which is a poor trade for one log line.
     const samlMessage = await this.getAuthorizeMessageAsync(
       RelayState,
       hostOrOptions,
