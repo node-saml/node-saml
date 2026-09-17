@@ -11,7 +11,7 @@ import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
 import { spawnSync } from "child_process";
 import * as path from "path";
-import * as querystring from "querystring";
+import type * as querystring from "querystring";
 
 const noop = (): void => undefined;
 
