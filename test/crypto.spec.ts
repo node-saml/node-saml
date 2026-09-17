@@ -89,6 +89,42 @@ describe("crypto.ts", function () {
           ),
         ).to.throw();
       });
+
+      it("should throw if the encapsulated text contains a space", function () {
+        const spaced = TEST_CERT_MULTILINE.replace("M", "M ");
+        expect(() =>
+          keyInfoToPem(
+            `-----BEGIN CERTIFICATE-----\n${spaced}\n-----END CERTIFICATE-----`,
+            "CERTIFICATE",
+          ),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
+      it("should throw if the encapsulated text has trailing blanks on a line", function () {
+        const padded = TEST_CERT_MULTILINE.replace("\n", " \n");
+        expect(() =>
+          keyInfoToPem(
+            `-----BEGIN CERTIFICATE-----\n${padded}\n-----END CERTIFICATE-----`,
+            "CERTIFICATE",
+          ),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
+      it("should throw if the encapsulated text is not base64", function () {
+        expect(() =>
+          keyInfoToPem(
+            "-----BEGIN CERTIFICATE-----\nI'm not base64\n-----END CERTIFICATE-----",
+            "CERTIFICATE",
+          ),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
+      it("should throw if concatenated certificates are separated by other text", function () {
+        const certificate = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`;
+        expect(() =>
+          keyInfoToPem(`${certificate}\nBag Attributes\n${certificate}`, "CERTIFICATE"),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
     });
 
     describe("when key info is provided in PEM format", function () {
@@ -146,6 +182,14 @@ describe("crypto.ts", function () {
           "PRIVATE KEY",
         );
         expect(privateKey).to.equal(expectedPrivateKey);
+      });
+
+      it("should return certificate in PEM format for certificate with an empty line after the header", function () {
+        const certificate = keyInfoToPem(
+          `-----BEGIN CERTIFICATE-----\n\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
+          "CERTIFICATE",
+        );
+        expect(certificate).to.equal(expectedCert);
       });
 
       it("should return certificate in PEM format for certificate with surrounding whitespace", function () {

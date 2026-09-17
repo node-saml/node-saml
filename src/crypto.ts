@@ -16,6 +16,11 @@ import { PemLabel } from "./types";
  *  - whitespace around the message is discarded before validation. This is the
  *     leading and trailing '*W' of 'laxtextualmsg' (Section 3, Figure 2) and
  *     nothing else from it, so whitespace inside the message is still rejected.
+ *  - the encapsulated text is only checked for base64 characters; neither line
+ *     length nor the position of the padding is enforced, since Section 2 lets
+ *     parsers handle line sizes other than 64. normalizePemFile() rewraps them.
+ *  - several messages MAY be concatenated in one value, which Section 2 allows
+ *     for files holding several certificates.
  *
  * normalizePemFile() -function is returning PEM files conforming
  * RFC7468 'stricttextualmsg' definition.
@@ -24,7 +29,7 @@ import { PemLabel } from "./types";
  *  - 'eol' is normalized to '\n'
  */
 const PEM_FORMAT_REGEX =
-  /^(-----BEGIN [A-Z\x20]{1,48}-----(\r\n|\r|\n){1}.*(\r\n|\r|\n){1}-----END [A-Z\x20]{1,48}-----(\r\n|\r|\n){0,1})$/s;
+  /^(?:-----BEGIN [A-Z\x20]{1,48}-----(?:\r\n|\r|\n)(?:[A-Za-z0-9+/=]*(?:\r\n|\r|\n))+-----END [A-Z\x20]{1,48}-----(?:\r\n|\r|\n)?)+$/;
 const BASE64_REGEX =
   /^(?:[A-Za-z0-9\+\/]{4}\n{0,1})*(?:[A-Za-z0-9\+\/]{2}==|[A-Za-z0-9\+\/]{3}=)?$/s; // eslint-disable-line no-useless-escape
 
