@@ -49,6 +49,12 @@ describe("crypto.ts", function () {
         expect(() => keyInfoToPem(Buffer.from(""), "CERTIFICATE")).to.throw();
       });
 
+      it("should throw if Base64 lines are separated by blanks", function () {
+        expect(() => keyInfoToPem(TEST_CERT_MULTILINE.replace("\n", " "), "CERTIFICATE")).to.throw(
+          /not in PEM format or in base64 format/,
+        );
+      });
+
       it("should throw with only whitespace", function () {
         expect(() => keyInfoToPem(" \t\r\n ", "CERTIFICATE")).to.throw(/is not provided/);
       });
@@ -228,6 +234,16 @@ describe("crypto.ts", function () {
     describe("when key info is provided in Base64 format", function () {
       it("should return certificate in PEM format for Base64 certificate with a trailing newline", function () {
         const certificate = keyInfoToPem(`${TEST_CERT_MULTILINE}\n`, "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for Base64 certificate with CRLF line endings", function () {
+        const certificate = keyInfoToPem(TEST_CERT_MULTILINE.replace(/\n/g, "\r\n"), "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for Base64 certificate with CR line endings", function () {
+        const certificate = keyInfoToPem(TEST_CERT_MULTILINE.replace(/\n/g, "\r"), "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);
       });
 

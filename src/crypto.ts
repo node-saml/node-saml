@@ -24,6 +24,16 @@ import { PemLabel } from "./types";
  *  - several messages MAY be concatenated in one value, which Section 2 allows
  *     for files holding several certificates.
  *
+ * BASE64_REGEX validates the bare base64 form, which this library accepts as a
+ * convenience. RFC7468 does not define it — a textual message always carries
+ * encapsulation boundaries — so the notes above do not apply to it, but it does
+ * take the same 'eol' conventions Section 2 requires parsers to handle.
+ *
+ * Its '{4}' must stay fixed-width. Relaxing it to '{1,4}', the obvious way to
+ * accept a line length that is not a multiple of four, makes the group
+ * ambiguous and the match exponential: ~14x per added character, which is a
+ * denial of service on any input an attacker can influence.
+ *
  * normalizePemFile() -function is returning PEM files conforming
  * RFC7468 'stricttextualmsg' definition.
  *
@@ -33,7 +43,7 @@ import { PemLabel } from "./types";
 const PEM_FORMAT_REGEX =
   /^(?:-----BEGIN [A-Z\x20]{1,48}-----(?:\r\n|\r|\n)(?:[A-Za-z0-9+/=]*(?:\r\n|\r|\n))+-----END [A-Z\x20]{1,48}-----(?:\r\n|\r|\n)?)+$/;
 const BASE64_REGEX =
-  /^(?:[A-Za-z0-9\+\/]{4}\n{0,1})*(?:[A-Za-z0-9\+\/]{2}==|[A-Za-z0-9\+\/]{3}=)?$/s; // eslint-disable-line no-useless-escape
+  /^(?:[A-Za-z0-9+/]{4}(?:\r\n|\r|\n)?)*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 /**
  * -----BEGIN [LABEL]-----
