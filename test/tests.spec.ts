@@ -870,7 +870,11 @@ describe("node-saml /", function () {
             .replace(/<ds:Signature[\s\S]*?<\/ds:Signature>/, "")
             .replace(
               '<Attribute Name="evilcorp.roles"/>',
-              '<Attribute Name="evilcorp.roles"/><Attribute Name="evilcorp.empty"><AttributeValue/></Attribute>',
+              '<Attribute Name="evilcorp.roles"/>' +
+                '<Attribute Name="evilcorp.empty"><AttributeValue/></Attribute>' +
+                '<Attribute Name="evilcorp.multi">' +
+                "<AttributeValue>first</AttributeValue><AttributeValue/>" +
+                "</Attribute>",
             );
           return signSamlPost(unsigned, responseXPath, {
             privateKey: fs.readFileSync(path.join(staticDir, "key.pem")),
@@ -913,6 +917,8 @@ describe("node-saml /", function () {
           // Present, but holding nothing a caller can use. Becomes "".
           expect(profile).to.have.property("evilcorp.empty");
           expect(profile["evilcorp.empty"]).to.be.undefined;
+          // Only one of several values is empty, so the hole is inside the array.
+          expect(profile["evilcorp.multi"]).to.deep.equal(["first", undefined]);
         });
 
         it("warns about each of them", function () {
@@ -957,6 +963,9 @@ describe("node-saml /", function () {
           );
           expect(child.stderr).to.contain(
             'The SAML attribute "evilcorp.empty" has an empty AttributeValue',
+          );
+          expect(child.stderr).to.contain(
+            'The SAML attribute "evilcorp.multi" has an empty AttributeValue',
           );
         });
       });
