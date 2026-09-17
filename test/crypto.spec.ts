@@ -96,6 +96,15 @@ describe("crypto.ts", function () {
         ).to.throw();
       });
 
+      // Timing guard, not just a rejection: if the patterns regain an ambiguous
+      // eol alternation this input backtracks exponentially and mocha times out.
+      it("should reject a malformed CRLF certificate without backtracking", function () {
+        const malformed = `-----BEGIN CERTIFICATE-----\r\n${"AAAA\r\n".repeat(40)}!`;
+        expect(() => keyInfoToPem(malformed, "CERTIFICATE")).to.throw(
+          /not in PEM format or in base64 format/,
+        );
+      });
+
       it("should throw if the encapsulated text is empty", function () {
         expect(() =>
           keyInfoToPem("-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----", "CERTIFICATE"),
@@ -170,6 +179,13 @@ describe("crypto.ts", function () {
           "PUBLIC KEY",
         );
         expect(publicKey).to.equal(expectedPublicKey);
+      });
+
+      it("normalizes PEM which has multiple certificates separated by blank lines", function () {
+        const multipleCertificates = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n\n-----BEGIN CERTIFICATE-----\n${TEST_CERT_SINGLELINE}\n-----END CERTIFICATE-----`;
+        const expectedMultipleCerts = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\n`;
+        const normalizedPem = keyInfoToPem(multipleCertificates, "CERTIFICATE");
+        expect(normalizedPem).to.equal(expectedMultipleCerts);
       });
 
       it("normalizes PEM which has multiple certificates", function () {

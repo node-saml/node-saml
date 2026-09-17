@@ -21,13 +21,14 @@ import { PemLabel } from "./types";
  *  - the encapsulated text is only checked for base64 characters; neither line
  *     length nor the position of the padding is enforced, since Section 2 lets
  *     parsers handle line sizes other than 64. normalizePemFile() rewraps them.
- *  - several messages MAY be concatenated in one value, which Section 2 allows
- *     for files holding several certificates.
+ *  - several messages MAY be concatenated in one value, optionally separated by
+ *     blank lines, as Section 2 allows for files holding several certificates.
+ *  - 'eol' is normalized to '\n' before either pattern runs, so both match only
+ *     '\n'. See the note in keyInfoToPem(); this is not cosmetic.
  *
  * BASE64_REGEX validates the bare base64 form, which this library accepts as a
  * convenience. RFC7468 does not define it — a textual message always carries
- * encapsulation boundaries — so the notes above do not apply to it, but it does
- * take the same 'eol' conventions Section 2 requires parsers to handle.
+ * encapsulation boundaries — so the notes above do not apply to it.
  *
  * Its '{4}' must stay fixed-width. Relaxing it to '{1,4}', the obvious way to
  * accept a line length that is not a multiple of four, makes the group
@@ -41,9 +42,8 @@ import { PemLabel } from "./types";
  *  - 'eol' is normalized to '\n'
  */
 const PEM_FORMAT_REGEX =
-  /^(?:-----BEGIN [A-Z\x20]{1,48}-----(?:\r\n|\r|\n)(?:[A-Za-z0-9+/=]*(?:\r\n|\r|\n))+-----END [A-Z\x20]{1,48}-----(?:\r\n|\r|\n)?)+$/;
-const BASE64_REGEX =
-  /^(?:[A-Za-z0-9+/]{4}(?:\r\n|\r|\n)?)*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+  /^(?:-----BEGIN [A-Z\x20]{1,48}-----\n(?:[A-Za-z0-9+/=]*\n)+-----END [A-Z\x20]{1,48}-----\n*)+$/;
+const BASE64_REGEX = /^(?:[A-Za-z0-9+/]{4}\n?)*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 /**
  * -----BEGIN [LABEL]-----
@@ -84,7 +84,15 @@ export const keyInfoToPem = (
   pemLabel: PemLabel,
   optionName = "keyInfo",
 ): string => {
-  const keyData = keyInfoToString(keyInfo).trim();
+  // Line endings are normalized here rather than matched in the patterns. An
+  // alternation like '(?:\r\n|\r|\n)' inside a repeated group lets CRLF parse
+  // two ways — one eol, or CR followed by an empty line — so a value that fails
+  // to match backtracks exponentially, and a malformed certificate stalls the
+  // event loop. Section 2 asks parsers to handle every convention; doing it
+  // once here keeps both patterns unambiguous.
+  const keyData = keyInfoToString(keyInfo)
+    .trim()
+    .replace(/\r\n|\r/g, "\n");
   assertRequired(keyData, `${optionName} is not provided`);
 
   if (PEM_FORMAT_REGEX.test(keyData)) {
