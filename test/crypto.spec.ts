@@ -90,6 +90,12 @@ describe("crypto.ts", function () {
         ).to.throw();
       });
 
+      it("should throw if the encapsulated text is empty", function () {
+        expect(() =>
+          keyInfoToPem("-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----", "CERTIFICATE"),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
       it("should throw if the encapsulated text contains a space", function () {
         const spaced = TEST_CERT_MULTILINE.replace("M", "M ");
         expect(() =>
@@ -182,6 +188,21 @@ describe("crypto.ts", function () {
           "PRIVATE KEY",
         );
         expect(privateKey).to.equal(expectedPrivateKey);
+      });
+
+      it("should return certificate in PEM format for certificate with CRLF line endings", function () {
+        const certificate = keyInfoToPem(expectedCert.replace(/\n/g, "\r\n"), "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for certificate with CR line endings", function () {
+        const certificate = keyInfoToPem(expectedCert.replace(/\n/g, "\r"), "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for certificate read from a file with a BOM", function () {
+        const certificate = keyInfoToPem(`\uFEFF${expectedCert}`, "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
       });
 
       it("should return certificate in PEM format for certificate with an empty line after the header", function () {

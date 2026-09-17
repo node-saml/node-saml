@@ -16,6 +16,8 @@ import { PemLabel } from "./types";
  *  - whitespace around the message is discarded before validation. This is the
  *     leading and trailing '*W' of 'laxtextualmsg' (Section 3, Figure 2) and
  *     nothing else from it, so whitespace inside the message is still rejected.
+ *     String.trim() is wider than 'W' — it also takes U+FEFF, so a file saved
+ *     with a BOM is accepted, which Section 2 invites outside of US-ASCII.
  *  - the encapsulated text is only checked for base64 characters; neither line
  *     length nor the position of the padding is enforced, since Section 2 lets
  *     parsers handle line sizes other than 64. normalizePemFile() rewraps them.
