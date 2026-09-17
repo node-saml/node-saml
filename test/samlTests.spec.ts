@@ -9,6 +9,9 @@ import { AuthOptions, IdpCertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
+import { spawnSync } from "child_process";
+import * as path from "path";
+import type * as querystring from "querystring";
 
 const noop = (): void => undefined;
 
@@ -282,6 +285,129 @@ describe("saml.ts", function () {
       it("calls callback with saml request object", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
+      });
+    });
+
+    // Both shapes are accepted until `host` is removed, so both are exercised here.
+    describe("deprecated `host` argument", function () {
+      it("applies additionalParams whether or not `host` is passed", async () => {
+        const withHost = await saml.getAuthorizeUrlAsync("", req.headers.host, options);
+        const withoutHost = await saml.getAuthorizeUrlAsync("", options);
+
+        for (const target of [withHost, withoutHost]) {
+          expect(new URL(target).searchParams.get("additionalKey")).to.equal("additionalValue");
+        }
+      });
+
+      it("applies additionalParams when `host` is passed as undefined", async () => {
+        const target = await saml.getAuthorizeUrlAsync("", undefined, options);
+        expect(new URL(target).searchParams.get("additionalKey")).to.equal("additionalValue");
+      });
+
+      it("treats a lone options argument as options on getAuthorizeMessageAsync", async () => {
+        const message = await saml.getAuthorizeMessageAsync("", options);
+        expect(message.additionalKey).to.equal("additionalValue");
+      });
+
+      it("treats a lone options argument as options on getAuthorizeFormAsync", async () => {
+        const form = await saml.getAuthorizeFormAsync("", options);
+        expect(form).to.contain('name="additionalKey"');
+        expect(form).to.contain('value="additionalValue"');
+      });
+
+      // Dispatch is the half the emitted-type test cannot see.
+      it("calls a subclass override with the arguments it received, not normalized ones", async () => {
+        const received: Array<[string, string | undefined, AuthOptions | undefined]> = [];
+
+        class RecordingSaml extends SAML {
+          async getAuthorizeMessageAsync(
+            RelayState: string,
+            host?: string,
+            options?: AuthOptions,
+          ): Promise<querystring.ParsedUrlQueryInput> {
+            received.push([RelayState, host, options]);
+            return super.getAuthorizeMessageAsync(RelayState, host, options);
+          }
+        }
+
+        const subclass = new RecordingSaml({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "https://exampleidp.com/path?key=value",
+          idpCert: FAKE_CERT,
+          issuer: "onesaml_login",
+        });
+
+        const form = await subclass.getAuthorizeFormAsync("rs", "host.example", options);
+
+        expect(received).to.have.lengthOf(1);
+        expect(received[0][0]).to.equal("rs");
+        expect(received[0][1]).to.equal("host.example");
+        expect(received[0][2]).to.equal(options);
+        expect(form).to.contain('name="additionalKey"');
+      });
+
+      // The other direction: a migrated caller against an override that has not migrated.
+      it("hands a two-argument call straight to an unmigrated override", async () => {
+        const received: Array<[string, unknown, unknown]> = [];
+
+        class RecordingSaml extends SAML {
+          async getAuthorizeMessageAsync(
+            RelayState: string,
+            host?: string,
+            options?: AuthOptions,
+          ): Promise<querystring.ParsedUrlQueryInput> {
+            received.push([RelayState, host, options]);
+            return super.getAuthorizeMessageAsync(RelayState, host, options);
+          }
+        }
+
+        const subclass = new RecordingSaml({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "https://exampleidp.com/path?key=value",
+          idpCert: FAKE_CERT,
+          issuer: "onesaml_login",
+        });
+
+        const form = await subclass.getAuthorizeFormAsync("rs", options);
+
+        expect(received).to.have.lengthOf(1);
+        // The base class resolves by shape afterwards, so the form is still correct.
+        expect(received[0][1]).to.equal(options);
+        expect(received[0][2]).to.be.undefined;
+        expect(form).to.contain('name="additionalKey"');
+      });
+
+      // `util.debuglog` reads NODE_DEBUG once per process and the suite order is randomized,
+      // so this runs in a child rather than mutating the shared environment.
+      it("warns for the calls that pass `host`, and not at all otherwise", function () {
+        this.timeout(20000);
+        const script = `
+          const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+          const saml = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            issuer: "onesaml_login",
+            idpCert: ${JSON.stringify(FAKE_CERT)},
+            entryPoint: "https://exampleidp.com/path?key=value",
+          });
+          (async () => {
+            await saml.getAuthorizeUrlAsync("", "a.example.com", {});
+            await saml.getAuthorizeFormAsync("", "a.example.com", {});
+            await saml.getAuthorizeUrlAsync("", {});
+            await saml.getAuthorizeFormAsync("", {});
+          })();
+        `;
+        const { stderr } = spawnSync(
+          process.execPath,
+          ["--require", "ts-node/register/transpile-only", "--eval", script],
+          { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+        );
+
+        expect(stderr).to.contain("getAuthorizeUrlAsync was called with a `host` argument");
+        expect(stderr).to.contain("getAuthorizeFormAsync was called with a `host` argument");
+        // `getAuthorizeFormAsync` forwards unchanged, so a call passing `host` warns twice.
+        expect(stderr).to.contain("getAuthorizeMessageAsync was called with a `host` argument");
+        // Three in total, so neither of the two-argument calls warned.
+        expect(stderr.match(/was called with a `host` argument/g)).to.have.lengthOf(3);
       });
     });
 
