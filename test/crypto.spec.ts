@@ -47,6 +47,10 @@ describe("crypto.ts", function () {
         expect(() => keyInfoToPem(Buffer.from(""), "CERTIFICATE")).to.throw();
       });
 
+      it("should throw with only whitespace", function () {
+        expect(() => keyInfoToPem(" \t\r\n ", "CERTIFICATE")).to.throw(/is not provided/);
+      });
+
       it("should throw if string is not in PEM format or not in Base64 format", function () {
         expect(() => keyInfoToPem("I'm not pem file", "CERTIFICATE")).to.throw();
       });
@@ -142,6 +146,11 @@ describe("crypto.ts", function () {
         expect(privateKey).to.equal(expectedPrivateKey);
       });
 
+      it("should return certificate in PEM format for certificate with surrounding whitespace", function () {
+        const certificate = keyInfoToPem(`\n${expectedCert}\n`, "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
+      });
+
       it("handles key info as Buffer properly", function () {
         const certificateBuffer = Buffer.from(expectedCert);
         const certificate = keyInfoToPem(certificateBuffer, "CERTIFICATE");
@@ -150,24 +159,34 @@ describe("crypto.ts", function () {
     });
 
     describe("when key info is provided in Base64 format", function () {
-      it("should allow Base64 without padding but with trailing whitespace", function () {
+      it("should return certificate in PEM format for Base64 certificate with a trailing newline", function () {
+        const certificate = keyInfoToPem(`${TEST_CERT_MULTILINE}\n`, "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for Base64 certificate with surrounding whitespace", function () {
+        const certificate = keyInfoToPem(` \n${TEST_CERT_SINGLELINE} \t\r\n`, "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should discard whitespace around Base64 without padding", function () {
         const certificate = keyInfoToPem("QUIK \n", "CERTIFICATE");
         expect(certificate).to.equal(
-          "-----BEGIN CERTIFICATE-----\nQUIK \n-----END CERTIFICATE-----\n",
+          "-----BEGIN CERTIFICATE-----\nQUIK\n-----END CERTIFICATE-----\n",
         );
       });
 
-      it("should allow one Base64 pad with trailing whitespace", function () {
+      it("should discard whitespace around Base64 with one pad", function () {
         const certificate = keyInfoToPem("QQo= \n", "CERTIFICATE");
         expect(certificate).to.equal(
-          "-----BEGIN CERTIFICATE-----\nQQo= \n-----END CERTIFICATE-----\n",
+          "-----BEGIN CERTIFICATE-----\nQQo=\n-----END CERTIFICATE-----\n",
         );
       });
 
-      it("should allow two Base64 pads with trailing whitespace", function () {
+      it("should discard whitespace around Base64 with two pads", function () {
         const certificate = keyInfoToPem("QUJDCg== \n", "CERTIFICATE");
         expect(certificate).to.equal(
-          "-----BEGIN CERTIFICATE-----\nQUJDCg== \n-----END CERTIFICATE-----\n",
+          "-----BEGIN CERTIFICATE-----\nQUJDCg==\n-----END CERTIFICATE-----\n",
         );
       });
 
@@ -193,6 +212,12 @@ describe("crypto.ts", function () {
 
       it("handles key info as Buffer properly", function () {
         const base64CertificateBuffer = Buffer.from(TEST_CERT_SINGLELINE);
+        const certificate = keyInfoToPem(base64CertificateBuffer, "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("handles key info as Buffer with a trailing newline properly", function () {
+        const base64CertificateBuffer = Buffer.from(`${TEST_CERT_SINGLELINE}\n`);
         const certificate = keyInfoToPem(base64CertificateBuffer, "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);
       });
