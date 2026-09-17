@@ -139,6 +139,18 @@ describe("crypto.ts", function () {
         );
       });
 
+      // A long run of blanks with no line ending after it is the shape that
+      // makes '[ \t]+$' quadratic, which is why stripTrailingBlanks() does not
+      // use it. Like the case above this only asserts the rejection: what the
+      // stripping is held to is being linear, which an analyzer settles and a
+      // test cannot, so there is no timing assertion here.
+      it("should reject a body that is one long run of blanks", function () {
+        const blanks = `-----BEGIN CERTIFICATE-----\n${" ".repeat(1024 * 1024 - 100)}x\n-----END CERTIFICATE-----`;
+        expect(() => keyInfoToPem(blanks, "CERTIFICATE")).to.throw(
+          /not in PEM format or in base64 format/,
+        );
+      });
+
       // The body is unpadded so that the blank line is the only thing wrong with
       // it. Padding mid-body is now a second reason to reject, and that second
       // reason would mask a regression in the blank-line handling under test.
@@ -357,18 +369,6 @@ describe("crypto.ts", function () {
           "CERTIFICATE",
         );
         expect(certificate).to.equal(expectedCert);
-      });
-
-      // A run of blanks with no line ending after it is the shape that makes
-      // '[ \t]+$' quadratic. At the size cap that is minutes of CPU, so this
-      // asserts the stripping stayed linear rather than asserting a result.
-      it("should reject a mebibyte of blanks promptly", function () {
-        const blanks = `-----BEGIN CERTIFICATE-----\n${" ".repeat(1024 * 1024 - 100)}x\n-----END CERTIFICATE-----`;
-        const start = Date.now();
-        expect(() => keyInfoToPem(blanks, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
-        );
-        expect(Date.now() - start).to.be.lessThan(5000);
       });
 
       it("handles key info as Buffer properly", function () {

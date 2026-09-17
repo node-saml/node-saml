@@ -115,11 +115,10 @@ const keyInfoToString = (keyInfo: string | Buffer): string => {
 // Blanks at the ends of lines are removed here rather than matched, for the
 // same reason line endings are: '[ \t]+' against an anchor is quadratic, since
 // the engine retries the run from every position inside it. A mebibyte of
-// blanks — permitted by MAX_KEY_INFO_LENGTH — takes minutes that way, which
-// would reintroduce as a parser the denial of service the patterns avoid.
-// split/trimEnd/join is linear, and runs in single-digit milliseconds at the
-// cap. Only the ends of lines are touched; blanks anywhere else survive to be
-// rejected by the patterns.
+// blanks — permitted by MAX_KEY_INFO_LENGTH — is quadratic in that length,
+// which would reintroduce as a parser the denial of service the patterns are
+// shaped to avoid. split/trimEnd/join is linear in it instead. Only the ends of
+// lines are touched; blanks anywhere else survive to be rejected below.
 const stripTrailingBlanks = (text: string): string => {
   return text
     .split("\n")
