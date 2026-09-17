@@ -21,6 +21,8 @@ import { PemLabel } from "./types";
  *  - the encapsulated text is only checked for base64 characters; neither line
  *     length nor the position of the padding is enforced, since Section 2 lets
  *     parsers handle line sizes other than 64. normalizePemFile() rewraps them.
+ *     Every body line carries at least one base64 character, as 'base64line'
+ *     requires; empty lines are the 'eolWSP' Figure 1 allows after 'preeb' only.
  *  - several messages MAY be concatenated in one value, optionally separated by
  *     blank lines, as Section 2 allows for files holding several certificates.
  *  - 'eol' is normalized to '\n' before either pattern runs, so both match only
@@ -42,7 +44,7 @@ import { PemLabel } from "./types";
  *  - 'eol' is normalized to '\n'
  */
 const PEM_FORMAT_REGEX =
-  /^(?:-----BEGIN [A-Z\x20]{1,48}-----\n(?:[A-Za-z0-9+/=]*\n)+-----END [A-Z\x20]{1,48}-----\n*)+$/;
+  /^(?:-----BEGIN [A-Z\x20]{1,48}-----\n+(?:[A-Za-z0-9+/=]+\n)+-----END [A-Z\x20]{1,48}-----\n*)+$/;
 const BASE64_REGEX = /^(?:[A-Za-z0-9+/]{4}\n?)*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 /**

@@ -50,7 +50,9 @@ describe("crypto.ts", function () {
       });
 
       it("should throw if Base64 lines are separated by blanks", function () {
-        expect(() => keyInfoToPem(TEST_CERT_MULTILINE.replace("\n", " "), "CERTIFICATE")).to.throw(
+        const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
+        const spaced = [`${firstLine} `, ...rest].join("");
+        expect(() => keyInfoToPem(spaced, "CERTIFICATE")).to.throw(
           /not in PEM format or in base64 format/,
         );
       });
@@ -121,6 +123,15 @@ describe("crypto.ts", function () {
         );
       });
 
+      it("should throw if the encapsulated text has a blank line between body lines", function () {
+        expect(() =>
+          keyInfoToPem(
+            `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
+            "CERTIFICATE",
+          ),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
       it("should throw if the encapsulated text is empty", function () {
         expect(() =>
           keyInfoToPem("-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----", "CERTIFICATE"),
@@ -138,7 +149,8 @@ describe("crypto.ts", function () {
       });
 
       it("should throw if the encapsulated text has trailing blanks on a line", function () {
-        const padded = TEST_CERT_MULTILINE.replace("\n", " \n");
+        const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
+        const padded = [`${firstLine} `, ...rest].join("\n");
         expect(() =>
           keyInfoToPem(
             `-----BEGIN CERTIFICATE-----\n${padded}\n-----END CERTIFICATE-----`,
