@@ -242,9 +242,18 @@ export interface Profile {
   mail?: string; // InCommon Attribute urn:oid:0.9.2342.19200300.100.1.3
   email?: string; // `mail` if not present in the assertion
   ["urn:oid:0.9.2342.19200300.100.1.3"]?: string;
-  getAssertionXml?(): string; // get the raw assertion XML
-  getAssertion?(): Record<string, unknown>; // get the assertion XML parsed as a JavaScript object
-  getSamlResponseXml?(): string; // get the raw SAML response XML
+  getAssertionXml?(): string; // get the raw assertion XML, as verified
+  getAssertion?(): Record<string, unknown>; // get the verified assertion XML parsed as a JavaScript object
+  /**
+   * Returns the raw SAML response XML **as received**, not the bytes whose signature was
+   * verified. A response carries unsigned material around the assertion, and an attacker
+   * supplies it, so nothing read from here is authenticated — including the issuer and the
+   * status. Use `getAssertionXml()` or `getAssertion()`, which return the verified assertion.
+   *
+   * @deprecated Returns unverified XML. Removed in the next major version; see
+   * https://github.com/node-saml/node-saml/issues/424
+   */
+  getSamlResponseXml?(): string;
   [attributeName: string]: unknown; // arbitrary `AttributeValue`s
 }
 
