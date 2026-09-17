@@ -319,9 +319,9 @@ describe("saml.ts", function () {
 
       // The warning is the whole of the migration notice, so it needs its own test.
       // `util.debuglog` reads NODE_DEBUG once per process, and the suite runs in randomized
-      // order, so this runs in a child rather than mutating the shared environment. All three
+      // order, so this runs in a child rather than mutating the shared environment. All four
       // calls share one child because spawning is by far the slowest part.
-      it("warns once per call that passes `host`, and not at all otherwise", function () {
+      it("warns for the calls that pass `host`, and not at all otherwise", function () {
         this.timeout(20000);
         const script = `
           const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
@@ -346,8 +346,13 @@ describe("saml.ts", function () {
 
         expect(stderr).to.contain("getAuthorizeUrlAsync was called with a `host` argument");
         expect(stderr).to.contain("getAuthorizeFormAsync was called with a `host` argument");
-        // Exactly the two calls that passed `host`, so the two-argument calls stayed silent.
-        expect(stderr.match(/was called with a `host` argument/g)).to.have.lengthOf(2);
+        // `getAuthorizeFormAsync` forwards its arguments to `getAuthorizeMessageAsync`
+        // unchanged, so a three-argument call to it warns from both methods. Forwarding them
+        // normalized instead would spare the second warning but would change what a subclass
+        // override of that method receives, which costs more than the extra line.
+        expect(stderr).to.contain("getAuthorizeMessageAsync was called with a `host` argument");
+        // Three in total, so neither of the two-argument calls warned.
+        expect(stderr.match(/was called with a `host` argument/g)).to.have.lengthOf(3);
       });
     });
 

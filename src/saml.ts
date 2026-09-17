@@ -47,6 +47,40 @@ import {
 
 const debugLog = util.debuglog("node-saml");
 
+/**
+ * Resolves the two shapes the `getAuthorize*` methods accept while `host` is still supported.
+ *
+ * `host` has never been read. Dropping it shifts `options` into its place, so a JavaScript
+ * caller that keeps passing three arguments would have its `additionalParams` silently
+ * discarded rather than erroring. Accepting both shapes lets callers move to the two-argument
+ * form before the three-argument form is removed in the next major.
+ *
+ * This is a module-level function rather than a protected method so that it adds nothing to the
+ * `SAML` class surface, which subclasses inherit.
+ *
+ * `f(RelayState, undefined, undefined)` is not reported, because it cannot be told apart from
+ * `f(RelayState, undefined)` without reading `arguments`. Both mean "no host and no options",
+ * so there is nothing to migrate in either case.
+ *
+ * @see https://github.com/node-saml/node-saml/pull/367
+ */
+function resolveAuthOptions(
+  hostOrOptions: string | AuthOptions | undefined,
+  legacyOptions: AuthOptions | undefined,
+  methodName: string,
+): AuthOptions | undefined {
+  if (typeof hostOrOptions === "string" || legacyOptions !== undefined) {
+    debugLog(
+      "%s was called with a `host` argument. It is unused and is removed in the next major version; call %s(RelayState, options) instead.",
+      methodName,
+      methodName,
+    );
+    return legacyOptions;
+  }
+
+  return hostOrOptions;
+}
+
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -498,48 +532,20 @@ class SAML {
   }
 
   /**
-   * Resolves the two shapes the `getAuthorize*` methods accept while `host` is still supported.
+   * The `host` argument is deprecated and has never been read. Call
+   * `getAuthorizeUrlAsync(RelayState, options)` instead; passing `host` logs a warning under
+   * `NODE_DEBUG=node-saml` and the three-argument form is removed in the next major version.
    *
-   * `host` has never been read. Dropping it shifts `options` into its place, so a JavaScript
-   * caller that keeps passing three arguments would have its `additionalParams` silently
-   * discarded rather than erroring. Accepting both shapes lets callers move to the two-argument
-   * form before the three-argument form is removed in the next major.
-   *
-   * @see https://github.com/node-saml/node-saml/pull/367
-   */
-  protected resolveAuthOptions(
-    hostOrOptions: string | AuthOptions | undefined,
-    legacyOptions: AuthOptions | undefined,
-    methodName: string,
-  ): AuthOptions | undefined {
-    if (typeof hostOrOptions === "string" || legacyOptions !== undefined) {
-      debugLog(
-        "%s was called with a `host` argument. It is unused and is removed in the next major version; call %s(RelayState, options) instead.",
-        methodName,
-        methodName,
-      );
-      return legacyOptions;
-    }
-
-    return hostOrOptions;
-  }
-
-  /**
-   * @deprecated The `host` argument is unused. Call `getAuthorizeUrlAsync(RelayState, options)`
-   * instead; this three-argument form is removed in the next major version.
+   * Both shapes share one widened signature rather than two overloads: a second overload
+   * would make every existing subclass override of this method fail to type-check, which a
+   * minor release must not do.
    */
   async getAuthorizeUrlAsync(
     RelayState: string,
-    host: string | undefined,
-    options: AuthOptions,
-  ): Promise<string>;
-  async getAuthorizeUrlAsync(RelayState: string, options: AuthOptions): Promise<string>;
-  async getAuthorizeUrlAsync(
-    RelayState: string,
-    hostOrOptions: string | AuthOptions | undefined,
+    hostOrOptions?: string | AuthOptions,
     legacyOptions?: AuthOptions,
   ): Promise<string> {
-    const options = this.resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeUrlAsync");
+    const options = resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeUrlAsync");
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
     const overrideParams = options ? options.additionalParams || {} : {};
@@ -552,29 +558,20 @@ class SAML {
   }
 
   /**
-   * @deprecated The `host` argument is unused. Call
-   * `getAuthorizeMessageAsync(RelayState, options)` instead; this three-argument form is removed
-   * in the next major version.
+   * The `host` argument is deprecated and has never been read. Call
+   * `getAuthorizeMessageAsync(RelayState, options)` instead; passing `host` logs a warning under
+   * `NODE_DEBUG=node-saml` and the three-argument form is removed in the next major version.
+   *
+   * Both shapes share one widened signature rather than two overloads: a second overload
+   * would make every existing subclass override of this method fail to type-check, which a
+   * minor release must not do.
    */
-  async getAuthorizeMessageAsync(
-    RelayState: string,
-    host: string | undefined,
-    options?: AuthOptions,
-  ): Promise<querystring.ParsedUrlQueryInput>;
-  async getAuthorizeMessageAsync(
-    RelayState: string,
-    options?: AuthOptions,
-  ): Promise<querystring.ParsedUrlQueryInput>;
   async getAuthorizeMessageAsync(
     RelayState: string,
     hostOrOptions?: string | AuthOptions,
     legacyOptions?: AuthOptions,
   ): Promise<querystring.ParsedUrlQueryInput> {
-    const options = this.resolveAuthOptions(
-      hostOrOptions,
-      legacyOptions,
-      "getAuthorizeMessageAsync",
-    );
+    const options = resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeMessageAsync");
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true);
@@ -598,21 +595,22 @@ class SAML {
   }
 
   /**
-   * @deprecated The `host` argument is unused. Call `getAuthorizeFormAsync(RelayState, options)`
-   * instead; this three-argument form is removed in the next major version.
+   * The `host` argument is deprecated and has never been read. Call
+   * `getAuthorizeFormAsync(RelayState, options)` instead; passing `host` logs a warning under
+   * `NODE_DEBUG=node-saml` and the three-argument form is removed in the next major version.
+   *
+   * Both shapes share one widened signature rather than two overloads: a second overload
+   * would make every existing subclass override of this method fail to type-check, which a
+   * minor release must not do.
    */
-  async getAuthorizeFormAsync(
-    RelayState: string,
-    host: string | undefined,
-    options?: AuthOptions,
-  ): Promise<string>;
-  async getAuthorizeFormAsync(RelayState: string, options?: AuthOptions): Promise<string>;
   async getAuthorizeFormAsync(
     RelayState: string,
     hostOrOptions?: string | AuthOptions,
     legacyOptions?: AuthOptions,
   ): Promise<string> {
-    const options = this.resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeFormAsync");
+    // Called for the warning alone: the arguments are forwarded to `getAuthorizeMessageAsync`
+    // below as they arrived, so there is no resolved value for this method to use.
+    resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeFormAsync");
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     // The quoteattr() function is used in a context, where the result will not be evaluated by javascript
@@ -644,7 +642,13 @@ class SAML {
       );
     };
 
-    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, options);
+    // Forwards the arguments exactly as received. Normalizing them here would change what a
+    // subclass override of this virtual method observes, which a minor release must not do.
+    const samlMessage = await this.getAuthorizeMessageAsync(
+      RelayState,
+      hostOrOptions,
+      legacyOptions,
+    );
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {
