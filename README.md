@@ -221,9 +221,18 @@ signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
 ### Configuration option `privateKey`
 
 To sign authentication requests, private key needs to be provide in the PEM format via the `privateKey` configuration property.
-Node-SAML normalizes what it accepts to the [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` format for PEM files.
-What it accepts is more liberal than that format: whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64 encoding tool is fine, and any of the three line-ending conventions will do.
-Whitespace within the encoded data is still rejected.
+Node-SAML normalizes what it accepts to a well-formed [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) PEM message: line endings become `\n`, lines longer than 64 characters are split, and the message is emitted with a trailing newline.
+Lines shorter than 64 characters are left at the width they arrived at, so the output is not necessarily the literal `stricttextualmsg` form.
+
+What it accepts is more liberal than `stricttextualmsg`:
+
+- whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64 encoding tool is fine, as is a leading byte order mark;
+- any of the three line-ending conventions will do;
+- blanks at the end of a line are ignored, and a blank line may follow the `-----BEGIN ...-----` boundary;
+- several PEM messages may be concatenated in one value, optionally separated by blank lines.
+
+Blanks at the start of a line and whitespace within the encoded data are rejected, as is `=` padding anywhere but the end of the encoded data.
+Values larger than 1 MiB are rejected before parsing.
 
 Add it to strategy options like this:
 
@@ -257,7 +266,7 @@ or
 It is important to validate the signatures of the incoming SAML Responses.
 For this, provide the Identity Provider's public X.509 signing certificate(s) or public key(s) in [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) PEM format
 via the `idpCert` configuration property.
-As with `privateKey`, the value is normalized to `stricttextualmsg` on the way in: whitespace surrounding it and the choice of line ending are both ignored, while whitespace within the encoded data is rejected.
+The same normalization and the same tolerances described under [`privateKey`](#configuration-option-privatekey) apply here, including the 1 MiB size limit.
 
 > **Important**, provided public key MUST always be in PEM format!
 
