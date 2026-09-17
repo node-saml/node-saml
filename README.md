@@ -222,6 +222,7 @@ signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
 
 To sign authentication requests, private key needs to be provide in the PEM format via the `privateKey` configuration property.
 Node-SAML is enforcing [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` format for PEM files.
+Whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64 encoding tool is accepted; whitespace within the encoded data is still rejected.
 
 Add it to strategy options like this:
 
@@ -255,6 +256,7 @@ or
 It is important to validate the signatures of the incoming SAML Responses.
 For this, provide the Identity Provider's public X.509 signing certificate(s) or public key(s) in [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` PEM format
 via the `idpCert` configuration property.
+As with `privateKey`, whitespace surrounding the value is ignored, but whitespace within the encoded data is still rejected.
 
 > **Important**, provided public key MUST always be in PEM format!
 
