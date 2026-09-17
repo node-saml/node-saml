@@ -9,6 +9,8 @@ import { AuthOptions, IdpCertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
+import { spawnSync } from "child_process";
+import * as path from "path";
 
 const noop = (): void => undefined;
 
@@ -282,6 +284,70 @@ describe("saml.ts", function () {
       it("calls callback with saml request object", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
+      });
+    });
+
+    // `host` has never been read, but it sits between `RelayState` and `options`, so removing it
+    // outright would slide `options` into its place and silently discard a JavaScript caller's
+    // `additionalParams`. Both shapes are accepted until the three-argument form is removed.
+    // https://github.com/node-saml/node-saml/pull/367
+    describe("deprecated `host` argument", function () {
+      it("applies additionalParams whether or not `host` is passed", async () => {
+        const withHost = await saml.getAuthorizeUrlAsync("", req.headers.host, options);
+        const withoutHost = await saml.getAuthorizeUrlAsync("", options);
+
+        for (const target of [withHost, withoutHost]) {
+          expect(new URL(target).searchParams.get("additionalKey")).to.equal("additionalValue");
+        }
+      });
+
+      it("applies additionalParams when `host` is passed as undefined", async () => {
+        const target = await saml.getAuthorizeUrlAsync("", undefined, options);
+        expect(new URL(target).searchParams.get("additionalKey")).to.equal("additionalValue");
+      });
+
+      it("treats a lone options argument as options on getAuthorizeMessageAsync", async () => {
+        const message = await saml.getAuthorizeMessageAsync("", options);
+        expect(message.additionalKey).to.equal("additionalValue");
+      });
+
+      it("treats a lone options argument as options on getAuthorizeFormAsync", async () => {
+        const form = await saml.getAuthorizeFormAsync("", options);
+        expect(form).to.contain('name="additionalKey"');
+        expect(form).to.contain('value="additionalValue"');
+      });
+
+      // The warning is the whole of the migration notice, so it needs its own test.
+      // `util.debuglog` reads NODE_DEBUG once per process, and the suite runs in randomized
+      // order, so this runs in a child rather than mutating the shared environment. All three
+      // calls share one child because spawning is by far the slowest part.
+      it("warns once per call that passes `host`, and not at all otherwise", function () {
+        this.timeout(20000);
+        const script = `
+          const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+          const saml = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            issuer: "onesaml_login",
+            idpCert: ${JSON.stringify(FAKE_CERT)},
+            entryPoint: "https://exampleidp.com/path?key=value",
+          });
+          (async () => {
+            await saml.getAuthorizeUrlAsync("", "a.example.com", {});
+            await saml.getAuthorizeFormAsync("", "a.example.com", {});
+            await saml.getAuthorizeUrlAsync("", {});
+            await saml.getAuthorizeFormAsync("", {});
+          })();
+        `;
+        const { stderr } = spawnSync(
+          process.execPath,
+          ["--require", "ts-node/register/transpile-only", "--eval", script],
+          { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+        );
+
+        expect(stderr).to.contain("getAuthorizeUrlAsync was called with a `host` argument");
+        expect(stderr).to.contain("getAuthorizeFormAsync was called with a `host` argument");
+        // Exactly the two calls that passed `host`, so the two-argument calls stayed silent.
+        expect(stderr.match(/was called with a `host` argument/g)).to.have.lengthOf(2);
       });
     });
 

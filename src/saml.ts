@@ -497,11 +497,49 @@ class SAML {
     );
   }
 
+  /**
+   * Resolves the two shapes the `getAuthorize*` methods accept while `host` is still supported.
+   *
+   * `host` has never been read. Dropping it shifts `options` into its place, so a JavaScript
+   * caller that keeps passing three arguments would have its `additionalParams` silently
+   * discarded rather than erroring. Accepting both shapes lets callers move to the two-argument
+   * form before the three-argument form is removed in the next major.
+   *
+   * @see https://github.com/node-saml/node-saml/pull/367
+   */
+  protected resolveAuthOptions(
+    hostOrOptions: string | AuthOptions | undefined,
+    legacyOptions: AuthOptions | undefined,
+    methodName: string,
+  ): AuthOptions | undefined {
+    if (typeof hostOrOptions === "string" || legacyOptions !== undefined) {
+      debugLog(
+        "%s was called with a `host` argument. It is unused and is removed in the next major version; call %s(RelayState, options) instead.",
+        methodName,
+        methodName,
+      );
+      return legacyOptions;
+    }
+
+    return hostOrOptions;
+  }
+
+  /**
+   * @deprecated The `host` argument is unused. Call `getAuthorizeUrlAsync(RelayState, options)`
+   * instead; this three-argument form is removed in the next major version.
+   */
   async getAuthorizeUrlAsync(
     RelayState: string,
     host: string | undefined,
     options: AuthOptions,
+  ): Promise<string>;
+  async getAuthorizeUrlAsync(RelayState: string, options: AuthOptions): Promise<string>;
+  async getAuthorizeUrlAsync(
+    RelayState: string,
+    hostOrOptions: string | AuthOptions | undefined,
+    legacyOptions?: AuthOptions,
   ): Promise<string> {
+    const options = this.resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeUrlAsync");
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
     const overrideParams = options ? options.additionalParams || {} : {};
@@ -513,11 +551,30 @@ class SAML {
     );
   }
 
+  /**
+   * @deprecated The `host` argument is unused. Call
+   * `getAuthorizeMessageAsync(RelayState, options)` instead; this three-argument form is removed
+   * in the next major version.
+   */
   async getAuthorizeMessageAsync(
     RelayState: string,
-    host?: string,
+    host: string | undefined,
     options?: AuthOptions,
+  ): Promise<querystring.ParsedUrlQueryInput>;
+  async getAuthorizeMessageAsync(
+    RelayState: string,
+    options?: AuthOptions,
+  ): Promise<querystring.ParsedUrlQueryInput>;
+  async getAuthorizeMessageAsync(
+    RelayState: string,
+    hostOrOptions?: string | AuthOptions,
+    legacyOptions?: AuthOptions,
   ): Promise<querystring.ParsedUrlQueryInput> {
+    const options = this.resolveAuthOptions(
+      hostOrOptions,
+      legacyOptions,
+      "getAuthorizeMessageAsync",
+    );
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true);
@@ -540,11 +597,22 @@ class SAML {
     return samlMessage;
   }
 
+  /**
+   * @deprecated The `host` argument is unused. Call `getAuthorizeFormAsync(RelayState, options)`
+   * instead; this three-argument form is removed in the next major version.
+   */
   async getAuthorizeFormAsync(
     RelayState: string,
-    host?: string,
+    host: string | undefined,
     options?: AuthOptions,
+  ): Promise<string>;
+  async getAuthorizeFormAsync(RelayState: string, options?: AuthOptions): Promise<string>;
+  async getAuthorizeFormAsync(
+    RelayState: string,
+    hostOrOptions?: string | AuthOptions,
+    legacyOptions?: AuthOptions,
   ): Promise<string> {
+    const options = this.resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeFormAsync");
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     // The quoteattr() function is used in a context, where the result will not be evaluated by javascript
@@ -576,7 +644,7 @@ class SAML {
       );
     };
 
-    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, host, options);
+    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, options);
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {
