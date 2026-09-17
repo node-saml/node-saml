@@ -234,11 +234,14 @@ const originalQuery = req.url.slice(req.url.indexOf("?") + 1);
 const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, originalQuery);
 ```
 
-> **Note:** on the Redirect binding, the signature is checked when the message carries a `Signature`
-> query parameter. A message that arrives without one is not signature-checked, because the binding
-> makes signing optional. If your IdP signs its logout messages — and it should — reject unsigned
-> ones at your own edge, or use the POST binding, where `validatePostRequestAsync` always requires a
-> valid signature.
+> **Note:** on the Redirect binding, a signature is only checked when the message carries a
+> `Signature` query parameter, because the binding makes signing optional. A message arriving
+> without one is accepted with none of its contents authenticated — the issuer and the timestamps
+> are read from the same unsigned bytes, so `idpIssuer` does not constrain it either. Run with
+> `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
+> messages; a future major version will reject unsigned ones
+> ([#419](https://github.com/node-saml/node-saml/issues/419)). The POST binding is unaffected:
+> `validatePostRequestAsync` always requires a valid signature.
 
 ### Service provider metadata
 
