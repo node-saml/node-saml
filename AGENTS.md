@@ -59,9 +59,12 @@ the exact bytes, so re-indenting or reflowing one silently invalidates its signa
 the resulting failure can look unrelated to what you touched.
 
 `.prettierignore` excludes the whole directory. Keep it that way. Prettier has no XML
-parser today, so that entry looks redundant — it isn't. It is what makes "run the
-formatter over everything" unconditionally safe, and it is what stops someone adding an
-XML plugin from quietly corrupting every signature in the suite.
+parser of its own today, so that entry looks redundant — it isn't. It is what makes "run
+the formatter over everything" unconditionally safe, and it is what keeps an XML formatter
+from silently invalidating every signature in the suite if one is ever added. That
+combination is the pattern to follow: xml-crypto formats its XML with
+`@prettier/plugin-xml` and keeps its signed fixtures ignored, so the plugin is welcome
+here too — the ignore entry is what makes adding it safe rather than something to avoid.
 
 When you need a new signed fixture, generate it (`docs/xml-signing-example.js` produces
 the `DigestValue` and `SignatureValue`) rather than hand-editing an existing one.
