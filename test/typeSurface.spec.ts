@@ -50,11 +50,11 @@ describe("published type surface", function () {
   this.timeout(60000);
 
   before(function () {
-    // `npm test` builds first, but a bare mocha run need not have.
-    if (!fs.existsSync(path.join(repoRoot, "lib", "index.d.ts"))) {
-      const build = spawnSync(process.execPath, [tscEntry], { cwd: repoRoot, encoding: "utf8" });
-      expect(build.status, `tsc failed to build lib/:\n${build.stdout}`).to.equal(0);
-    }
+    // Always rebuild. `npm test` builds first, but running this spec alone after editing
+    // `src/` would otherwise check the previous build's declarations and pass on stale input,
+    // which is the one result this spec must never give.
+    const build = spawnSync(process.execPath, [tscEntry], { cwd: repoRoot, encoding: "utf8" });
+    expect(build.status, `tsc failed to build lib/:\n${build.stdout}`).to.equal(0);
   });
 
   // `SAML` is exported from the barrel, so subclassing it is part of the exposed surface and
@@ -114,9 +114,26 @@ describe("published type surface", function () {
       void saml.getAuthorizeFormAsync("rs", "host.example", options);
       void saml.getAuthorizeFormAsync("rs", undefined, options);
       void saml.getAuthorizeFormAsync("rs", options);
+
+      // Both of these took every argument optionally before the deprecation.
+      void saml.getAuthorizeMessageAsync("rs");
+      void saml.getAuthorizeFormAsync("rs");
     `);
 
     expect(errors).to.equal("");
+  });
+
+  // `getAuthorizeUrlAsync` required both `host` and `options`, and the shape replacing them
+  // still requires `options`, so widening must not quietly make the argument optional.
+  it("still requires an argument after RelayState on getAuthorizeUrlAsync", function () {
+    const errors = typeCheck(`
+      import { SAML } from ${packageEntry};
+
+      declare const saml: SAML;
+      void saml.getAuthorizeUrlAsync("rs");
+    `);
+
+    expect(errors).to.contain("error TS");
   });
 
   // Without this, the two tests above would pass just as happily if `typeCheck` silently

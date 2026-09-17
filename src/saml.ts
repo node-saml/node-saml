@@ -47,23 +47,15 @@ import {
 
 const debugLog = util.debuglog("node-saml");
 
-/**
- * Resolves the two shapes the `getAuthorize*` methods accept while `host` is still supported.
- *
- * `host` has never been read. Dropping it shifts `options` into its place, so a JavaScript
- * caller that keeps passing three arguments would have its `additionalParams` silently
- * discarded rather than erroring. Accepting both shapes lets callers move to the two-argument
- * form before the three-argument form is removed in the next major.
- *
- * This is a module-level function rather than a protected method so that it adds nothing to the
- * `SAML` class surface, which subclasses inherit.
- *
- * `f(RelayState, undefined, undefined)` is not reported, because it cannot be told apart from
- * `f(RelayState, undefined)` without reading `arguments`. Both mean "no host and no options",
- * so there is nothing to migrate in either case.
- *
- * @see https://github.com/node-saml/node-saml/pull/367
- */
+// Resolves the two shapes the `getAuthorize*` methods accept while `host` is still supported.
+// `host` has never been read, but dropping it shifts `options` into its place, so a JavaScript
+// caller passing three arguments would have its `additionalParams` silently discarded rather
+// than erroring. Accepting both shapes lets callers move before the removal in #367.
+//
+// Module-level rather than a protected method so it adds nothing to the `SAML` class surface,
+// which subclasses inherit. `f(RelayState, undefined, undefined)` is not reported: it cannot be
+// told apart from `f(RelayState, undefined)` without reading `arguments`, and both mean "no host
+// and no options", so there is nothing to migrate either way.
 function resolveAuthOptions(
   hostOrOptions: string | AuthOptions | undefined,
   legacyOptions: AuthOptions | undefined,
@@ -539,10 +531,14 @@ class SAML {
    * Both shapes share one widened signature rather than two overloads: a second overload
    * would make every existing subclass override of this method fail to type-check, which a
    * minor release must not do.
+   *
+   * If you subclass `SAML` and override this method, migrate the override at the same time.
+   * A two-argument call dispatches straight into an override written for the old signature,
+   * which will see `options` in its `host` parameter.
    */
   async getAuthorizeUrlAsync(
     RelayState: string,
-    hostOrOptions?: string | AuthOptions,
+    hostOrOptions: string | AuthOptions | undefined,
     legacyOptions?: AuthOptions,
   ): Promise<string> {
     const options = resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeUrlAsync");
@@ -565,6 +561,10 @@ class SAML {
    * Both shapes share one widened signature rather than two overloads: a second overload
    * would make every existing subclass override of this method fail to type-check, which a
    * minor release must not do.
+   *
+   * If you subclass `SAML` and override this method, migrate the override at the same time.
+   * A two-argument call dispatches straight into an override written for the old signature,
+   * which will see `options` in its `host` parameter.
    */
   async getAuthorizeMessageAsync(
     RelayState: string,
@@ -602,6 +602,10 @@ class SAML {
    * Both shapes share one widened signature rather than two overloads: a second overload
    * would make every existing subclass override of this method fail to type-check, which a
    * minor release must not do.
+   *
+   * If you subclass `SAML` and override this method, migrate the override at the same time.
+   * A two-argument call dispatches straight into an override written for the old signature,
+   * which will see `options` in its `host` parameter.
    */
   async getAuthorizeFormAsync(
     RelayState: string,
