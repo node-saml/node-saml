@@ -13,6 +13,8 @@ import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
 import { getVerifiedXml, parseDomFromString, validateSignature } from "../src/xml";
 import { generateServiceProviderMetadata } from "../src/metadata";
+import { spawnSync } from "child_process";
+import * as path from "path";
 
 const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -3293,6 +3295,51 @@ describe("node-saml /", function () {
           nameIDFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
           sessionIndex: "_00bf7b2d5d9d3c970217eecefb1194bef3362a618e",
         });
+      });
+      // Pins behavior that is scheduled to change, not behavior we want. A message with no
+      // Signature parameter is accepted with none of its contents authenticated. When this is
+      // made a rejection, this test must fail and be rewritten deliberately.
+      // https://github.com/node-saml/node-saml/issues/419
+      it("accepts a message with no Signature parameter, pending rejection in the next major", async function () {
+        delete this.request.Signature;
+        delete this.request.SigAlg;
+
+        const { loggedOut } = await samlObj.validateRedirectAsync(
+          this.request,
+          this.request.originalQuery,
+        );
+        expect(loggedOut).to.be.true;
+      });
+      // The warning is the whole of the migration notice for the change above, so it needs a
+      // test of its own. `util.debuglog` reads NODE_DEBUG once per process, so this runs in a
+      // child rather than mutating the environment the rest of the suite shares.
+      it("warns via NODE_DEBUG when it accepts a message with no Signature parameter", function () {
+        this.timeout(20000); // Compiling the library in the child process is not fast.
+        const script = `
+          const fs = require("fs");
+          const { SAML } = require("${path.join(__dirname, "..", "src").replace(/\\/g, "/")}");
+          const request = JSON.parse(fs.readFileSync("${path
+            .join(__dirname, "static", "idp_slo_redirect.json")
+            .replace(/\\/g, "/")}", "utf8"));
+          delete request.Signature;
+          delete request.SigAlg;
+          new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            idpCert: fs.readFileSync("${path
+              .join(__dirname, "static", "acme_tools_com.cert")
+              .replace(/\\/g, "/")}", "ascii"),
+            issuer: "onesaml_login",
+            acceptedClockSkewMs: -1,
+          }).validateRedirectAsync(request, request.originalQuery);
+        `;
+        const { stderr } = spawnSync(
+          process.execPath,
+          ["--require", "ts-node/register/transpile-only", "--eval", script],
+          { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+        );
+
+        expect(stderr).to.contain("no Signature parameter");
+        expect(stderr).to.contain("unverified");
       });
     });
     describe("sp slo", function () {

@@ -938,6 +938,14 @@ class SAML {
         throw new Error("Invalid query signature");
       }
     } else {
+      // Nothing about an unsigned message is authenticated: its issuer and its timestamps are
+      // read from the same bytes an attacker would supply. Accepting it is retained only for
+      // backward compatibility and becomes a rejection in the next major; see
+      // https://github.com/node-saml/node-saml/issues/419
+      debugLog(
+        "Accepted a %s over the Redirect binding with no Signature parameter. Its contents are unverified. Configure the identity provider to sign logout messages; a future major version will reject unsigned ones.",
+        container.SAMLRequest ? "SAMLRequest" : "SAMLResponse",
+      );
       return true;
     }
   }
