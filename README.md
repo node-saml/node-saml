@@ -121,14 +121,18 @@ res.redirect(url);
 `options` is an `AuthOptions`, whose `additionalParams` override anything set by
 `additionalParams`/`additionalAuthorizeParams` in the constructor.
 
-All three of these methods also accept a deprecated three-argument form with a `host` between
-`relayState` and `options`. That argument has never been read; pass the two-argument form instead,
-since the three-argument one is removed in the next major:
+All three of these methods also accept a deprecated `host` argument between `relayState` and
+`options`. It has never been read, and it is removed in the next major version
+([#367](https://github.com/node-saml/node-saml/pull/367)), so pass `options` directly:
 
 ```javascript
 await saml.getAuthorizeUrlAsync(relayState, host, options); // deprecated
 await saml.getAuthorizeUrlAsync(relayState, options); // use this
 ```
+
+If you subclass `SAML` and override one of these, migrate the override at the same time: a
+two-argument call reaches it directly, so an override written for the old signature receives
+`options` as `host`.
 
 **HTTP-POST binding** — return a self-submitting form:
 
