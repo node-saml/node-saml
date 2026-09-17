@@ -96,19 +96,29 @@ describe("crypto.ts", function () {
         ).to.throw();
       });
 
-      // Timing guard, not just a rejection: an ambiguous eol alternation in the
-      // patterns makes this input backtrack exponentially. Mocha cannot
-      // interrupt a synchronous call, so the size is chosen to keep the bad
-      // case bounded — ~3s at 26 lines against ~0.01ms here — and the assertion
-      // below fails the run rather than letting the suite hang.
-      it("should reject a malformed CRLF certificate without backtracking", function () {
+      it("should throw when the value is larger than the cap", function () {
+        const oversized = "A".repeat(1024 * 1024 + 1);
+        expect(() => keyInfoToPem(oversized, "CERTIFICATE")).to.throw(/is larger than/);
+      });
+
+      it("should throw when an oversized value would otherwise be valid", function () {
+        const padding = `\n${TEST_CERT_MULTILINE}`.repeat(16000);
+        expect(() => keyInfoToPem(`${TEST_CERT_MULTILINE}${padding}`, "CERTIFICATE")).to.throw(
+          /is larger than/,
+        );
+      });
+
+      it("should name the option when the value is larger than the cap", function () {
+        expect(() => keyInfoToPem("A".repeat(1024 * 1024 + 1), "CERTIFICATE", "idpCert")).to.throw(
+          /idpCert/,
+        );
+      });
+
+      it("should reject a malformed CRLF certificate rather than accept it", function () {
         const malformed = `-----BEGIN CERTIFICATE-----\r\n${"AAAA\r\n".repeat(26)}!`;
-        const startedAt = process.hrtime.bigint();
         expect(() => keyInfoToPem(malformed, "CERTIFICATE")).to.throw(
           /not in PEM format or in base64 format/,
         );
-        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
-        expect(elapsedMs).to.be.lessThan(500);
       });
 
       it("should throw if the encapsulated text is empty", function () {

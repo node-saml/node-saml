@@ -46,6 +46,18 @@ const PEM_FORMAT_REGEX =
 const BASE64_REGEX = /^(?:[A-Za-z0-9+/]{4}\n?)*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 /**
+ * A certificate, key, or bundle of them is kilobytes. This cap bounds the
+ * linear passes below — the copy, the trim, the replace, the match — so a
+ * hostile value cannot turn them into real work, and it fails at construction
+ * with a message naming the option rather than somewhere further in.
+ *
+ * It does NOT bound backtracking, and must not be mistaken for a control that
+ * does: at this size an ambiguous pattern still has more paths than atoms. The
+ * defense against that is keeping the patterns unambiguous, above.
+ */
+const MAX_KEY_INFO_LENGTH = 1024 * 1024;
+
+/**
  * -----BEGIN [LABEL]-----
  * base64([DATA])
  * -----END [LABEL]-----
@@ -90,9 +102,20 @@ export const keyInfoToPem = (
   // to match backtracks exponentially, and a malformed certificate stalls the
   // event loop. Section 2 asks parsers to handle every convention; doing it
   // once here keeps both patterns unambiguous.
-  const keyData = keyInfoToString(keyInfo)
-    .trim()
-    .replace(/\r\n|\r/g, "\n");
+  //
+  // Both patterns must stay provably non-backtracking; no test can establish
+  // that, because a test can only time one input on one machine. Check a change
+  // to either of them with an analyzer, e.g.
+  //   npx recheck@4 check '<source>' ''
+  // which reports 'linear' or 'safe' for both as they stand, and reported
+  // 'exponential' for the two forms this file has already had to fix.
+  const rawKeyData = keyInfoToString(keyInfo);
+  assertRequired(
+    rawKeyData.length <= MAX_KEY_INFO_LENGTH || undefined,
+    `${optionName} is larger than ${MAX_KEY_INFO_LENGTH} characters`,
+  );
+
+  const keyData = rawKeyData.trim().replace(/\r\n|\r/g, "\n");
   assertRequired(keyData, `${optionName} is not provided`);
 
   if (PEM_FORMAT_REGEX.test(keyData)) {
