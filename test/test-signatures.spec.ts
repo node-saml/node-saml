@@ -84,7 +84,10 @@ describe("Signatures", function () {
     let fakeClock: sinon.SinonFakeTimers;
 
     beforeEach(function () {
-      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
     });
 
     afterEach(function () {
@@ -246,7 +249,10 @@ describe("Signatures", function () {
     let fakeClock: sinon.SinonFakeTimers;
 
     beforeEach(function () {
-      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
     });
 
     afterEach(function () {
@@ -353,7 +359,10 @@ describe("Signatures", function () {
     let fakeClock: sinon.SinonFakeTimers;
 
     beforeEach(function () {
-      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
     });
 
     afterEach(function () {
@@ -422,7 +431,10 @@ describe("Signatures", function () {
     let fakeClock: sinon.SinonFakeTimers;
 
     beforeEach(function () {
-      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
     });
 
     afterEach(function () {
@@ -451,7 +463,10 @@ describe("Signatures", function () {
     let fakeClock: sinon.SinonFakeTimers;
 
     beforeEach(function () {
-      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
     });
 
     afterEach(function () {
@@ -477,7 +492,10 @@ describe("Signatures", function () {
     let fakeClock: sinon.SinonFakeTimers;
 
     beforeEach(function () {
-      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
     });
 
     afterEach(function () {
