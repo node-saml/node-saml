@@ -75,9 +75,8 @@ describe("Signatures", function () {
       );
   };
 
-  // `getSamlResponseXml()` is the one Profile accessor that hands back bytes nobody verified,
-  // which is the distinction this file exists to police. It is deprecated for that reason; see
-  // https://github.com/node-saml/node-saml/issues/424
+  // The one Profile accessor that hands back bytes nobody verified, which is the distinction
+  // this file exists to police.
   describe("Signatures - Profile.getSamlResponseXml returns unverified bytes", () => {
     const validResponse = "/valid/response.root-signed.assertion-signed.xml";
     // The fixture's assertion is long expired in real time, like every other valid one here.
@@ -111,8 +110,7 @@ describe("Signatures", function () {
       const assertionXml = profile.getAssertionXml?.();
       assert.ok(responseXml != null && assertionXml != null);
 
-      // The verified bytes are the assertion. The response wraps them in material the
-      // signature says nothing about, which is exactly what a caller must not read.
+      // The response wraps the verified assertion in material the signature does not cover.
       expect(assertionXml).to.not.contain(":Response");
       expect(responseXml).to.contain(":Response");
       expect(responseXml).to.not.equal(assertionXml);
