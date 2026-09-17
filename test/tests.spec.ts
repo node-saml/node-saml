@@ -2935,9 +2935,11 @@ describe("node-saml /", function () {
         "\t<child22><<</child>\n" +
         "\t<child/>\n" +
         "</xml>";
+      // The wording of the parse failure belongs to xmldom and changes between
+      // releases; what we require is that the document is rejected and that the
+      // error carries the position, which is why `parseDomFromString` passes a locator.
       await assert.rejects(parseDomFromString(badXml), {
-        message:
-          "[xmldom error]\telement parse error: Error: invalid tagName:<<\n" + "@#[line:3,col:11]",
+        message: /^\[xmldom error\]\telement parse error: Error: .+\n@#\[line:3,col:11\]$/,
       });
     });
 

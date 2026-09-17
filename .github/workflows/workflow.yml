@@ -14,14 +14,11 @@ jobs:
       CI: true
 
     strategy:
+      # Report every version that breaks, not just the first one.
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        node-version: [18, 20, 22]
-        experimental: [false]
-        include:
-          - os: ubuntu-latest
-            node-version: latest
-            experimental: true
+        node-version: [18, 20, 22, 24, 26]
 
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +42,9 @@ jobs:
       CI: true
 
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [18, 20, 22, 24, 26]
 
     steps:
       - uses: actions/checkout@v4
