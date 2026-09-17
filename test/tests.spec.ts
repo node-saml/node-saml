@@ -3410,6 +3410,22 @@ describe("node-saml /", function () {
         expect(loggedOut).to.be.true;
       });
 
+      // As with the logout request, this pins behavior that is scheduled to change rather than
+      // behavior we want: the response is accepted with nothing about it authenticated, so the
+      // status it reports is the attacker's to choose. When this becomes a rejection, this test
+      // must fail and be rewritten deliberately.
+      // https://github.com/node-saml/node-saml/issues/419
+      it("accepts a response with no Signature parameter, pending rejection in the next major", async function () {
+        await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
+        delete this.request.Signature;
+        delete this.request.SigAlg;
+        const { loggedOut } = await samlObj.validateRedirectAsync(
+          this.request,
+          this.request.originalQuery,
+        );
+        expect(loggedOut).to.be.true;
+      });
+
       it("accepts cert without header and footer line", async function () {
         samlObj.options.idpCert = fs.readFileSync(
           __dirname + "/static/acme_tools_com_without_header_and_footer.cert",
