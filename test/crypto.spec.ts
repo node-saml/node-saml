@@ -140,8 +140,7 @@ describe("crypto.ts", function () {
       });
 
       // The body is unpadded so that the blank line is the only thing wrong with
-      // it. Padding mid-body would be a second reason to reject, and this file
-      // does not enforce padding position today — if it ever did, that second
+      // it. Padding mid-body is now a second reason to reject, and that second
       // reason would mask a regression in the blank-line handling under test.
       it("should throw if the encapsulated text has a blank line between body lines", function () {
         expect(() =>
@@ -168,12 +167,53 @@ describe("crypto.ts", function () {
         ).to.throw(/not in PEM format or in base64 format/);
       });
 
-      it("should throw if the encapsulated text has trailing blanks on a line", function () {
+      // Section 2 puts blanks at the start of a line on the far side of the line
+      // it draws: only blanks at the *ends* of lines are widely ignored.
+      it("should throw if a line of the encapsulated text starts with a blank", function () {
         const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
-        const padded = [`${firstLine} `, ...rest].join("\n");
+        const indented = [` ${firstLine}`, ...rest].join("\n");
         expect(() =>
           keyInfoToPem(
-            `-----BEGIN CERTIFICATE-----\n${padded}\n-----END CERTIFICATE-----`,
+            `-----BEGIN CERTIFICATE-----\n${indented}\n-----END CERTIFICATE-----`,
+            "CERTIFICATE",
+          ),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
+      it("should throw if the encapsulated text is padded before its end", function () {
+        expect(() =>
+          keyInfoToPem(
+            "-----BEGIN CERTIFICATE-----\nQUJD=REVG\n-----END CERTIFICATE-----",
+            "CERTIFICATE",
+          ),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
+      it("should throw if a body line other than the last one is padded", function () {
+        expect(() =>
+          keyInfoToPem(
+            "-----BEGIN CERTIFICATE-----\nQUJDCg==\nQUJD\n-----END CERTIFICATE-----",
+            "CERTIFICATE",
+          ),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
+      it("should throw if the encapsulated text is nothing but padding", function () {
+        expect(() =>
+          keyInfoToPem("-----BEGIN CERTIFICATE-----\n==\n-----END CERTIFICATE-----", "CERTIFICATE"),
+        ).to.throw(/not in PEM format or in base64 format/);
+      });
+
+      // The bare form has always confined padding to the end. The PEM form did
+      // not until the padding rule was made to match, so this pins them together.
+      it("should judge a padded-in-the-middle value the same with and without boundaries", function () {
+        const body = "QUJD=REVG";
+        expect(() => keyInfoToPem(body, "CERTIFICATE")).to.throw(
+          /not in PEM format or in base64 format/,
+        );
+        expect(() =>
+          keyInfoToPem(
+            `-----BEGIN CERTIFICATE-----\n${body}\n-----END CERTIFICATE-----`,
             "CERTIFICATE",
           ),
         ).to.throw(/not in PEM format or in base64 format/);
@@ -286,6 +326,49 @@ describe("crypto.ts", function () {
       it("should return certificate in PEM format for certificate with surrounding whitespace", function () {
         const certificate = keyInfoToPem(`\n${expectedCert}\n`, "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);
+      });
+
+      // RFC7468 permits blanks at the end of every line of a textual message —
+      // 'preeb *WSP eol', 'base64line = 1*base64char *WSP eol' and 'posteb
+      // *WSP' in Figure 1 — and section 2 calls them the one stray whitespace
+      // extant parsers agree to ignore. They are stripped, not carried into the
+      // output, so normalizePemFile() never rewraps around them.
+      it("should return certificate in PEM format for certificate with trailing blanks on a body line", function () {
+        const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
+        const padded = [`${firstLine} \t`, ...rest].join("\n");
+        const certificate = keyInfoToPem(
+          `-----BEGIN CERTIFICATE-----\n${padded}\n-----END CERTIFICATE-----`,
+          "CERTIFICATE",
+        );
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for certificate with blanks after the boundaries", function () {
+        const certificate = keyInfoToPem(
+          `-----BEGIN CERTIFICATE----- \n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----\t `,
+          "CERTIFICATE",
+        );
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      it("should return certificate in PEM format for certificate with a blank line after the header", function () {
+        const certificate = keyInfoToPem(
+          `-----BEGIN CERTIFICATE-----\n \t \n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
+          "CERTIFICATE",
+        );
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      // A run of blanks with no line ending after it is the shape that makes
+      // '[ \t]+$' quadratic. At the size cap that is minutes of CPU, so this
+      // asserts the stripping stayed linear rather than asserting a result.
+      it("should reject a mebibyte of blanks promptly", function () {
+        const blanks = `-----BEGIN CERTIFICATE-----\n${" ".repeat(1024 * 1024 - 100)}x\n-----END CERTIFICATE-----`;
+        const start = Date.now();
+        expect(() => keyInfoToPem(blanks, "CERTIFICATE")).to.throw(
+          /not in PEM format or in base64 format/,
+        );
+        expect(Date.now() - start).to.be.lessThan(5000);
       });
 
       it("handles key info as Buffer properly", function () {

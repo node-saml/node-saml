@@ -13,18 +13,36 @@ import { PemLabel } from "./types";
  *  - 'posteb' MAY have 'eol', but it is not mandatory.
  *  - 'preeb' and 'posteb' lines are limited to 64 characters, but
  *     should not cause any issues in context of PKIX, PKCS and CMS.
- *  - whitespace around the message is discarded before validation. This is the
- *     leading and trailing '*W' of 'laxtextualmsg' (Section 3, Figure 2) and
- *     nothing else from it, so whitespace inside the message is still rejected.
- *     String.trim() is wider than 'W' — it also takes U+FEFF, so a file saved
- *     with a BOM is accepted, which Section 2 invites outside of US-ASCII.
- *  - the encapsulated text is only checked for base64 characters; neither line
- *     length nor the position of the padding is enforced, since Section 2 lets
- *     parsers handle line sizes other than 64. normalizePemFile() rewraps them.
- *     Every body line carries at least one base64 character, as 'base64line'
- *     requires; empty lines are the 'eolWSP' Figure 1 allows after 'preeb' only.
+ *  - whitespace surrounding the message is discarded before validation. That is
+ *     the leading and trailing '*W' of 'laxtextualmsg' (Section 3, Figure 2)
+ *     and nothing else from that figure. String.trim() is wider than 'W' — it
+ *     also takes U+FEFF, so a file saved with a BOM is accepted, which Section
+ *     2 invites outside of US-ASCII.
+ *  - blanks at the end of a line are discarded before validation as well. These
+ *     are not a 'laxtextualmsg' concession: plain 'textualmsg' (Figure 1)
+ *     already permits them at every position this accepts them — 'preeb *WSP
+ *     eol', 'base64line = 1*base64char *WSP eol' and 'posteb *WSP'. Section 2
+ *     singles them out as the one stray whitespace parsers agree on: "Most
+ *     extant parsers ignore blanks at the ends of lines; blanks at the
+ *     beginnings of lines or in the middle of the base64-encoded data are far
+ *     less compatible." Leading and interior blanks are therefore still
+ *     rejected. String.trimEnd() is wider than 'WSP' in the same way trim() is.
+ *  - a line holding nothing but whitespace MAY follow 'preeb', which is the
+ *     '*eolWSP' of Figure 1. It is emptied by the step above and matched by
+ *     the '\n+' below.
+ *  - line length is not enforced, since Section 2 lets parsers handle line
+ *     sizes other than 64. normalizePemFile() rewraps anything longer. Every
+ *     body line still carries at least one base64 character, as 'base64line'
+ *     requires, so a blank line may not appear between two of them.
+ *  - padding is confined to the end of the encapsulated text, where all three
+ *     figures of Section 3 put it. The one padded form Figure 1 allows and this
+ *     rejects is a pad split across an 'eol' ('base64pad *WSP eol base64pad');
+ *     no generator emits it. BASE64_REGEX has always confined padding this way,
+ *     so a value is now judged the same with and without its boundaries.
  *  - several messages MAY be concatenated in one value, optionally separated by
  *     blank lines, as Section 2 allows for files holding several certificates.
+ *  - the 'label' of 'preeb' and of 'posteb' are not required to match each
+ *     other, nor to match pemLabel. That gap predates this pattern.
  *  - 'eol' is normalized to '\n' before either pattern runs, so both match only
  *     '\n'. See the note in keyInfoToPem(); this is not cosmetic.
  *
@@ -42,16 +60,22 @@ import { PemLabel } from "./types";
  *
  * With couple of notes:
  *  - 'eol' is normalized to '\n'
+ *  - lines longer than 64 characters are split, but shorter lines are left as
+ *     they are rather than reflowed, so a body that arrives wrapped at some
+ *     other width keeps that width. The result is a well-formed PEM message
+ *     that every parser accepts; it is not literally 'stricttextualmsg', whose
+ *     'base64fullline' is exactly 64 characters.
  */
 const PEM_FORMAT_REGEX =
-  /^(?:-----BEGIN [A-Z\x20]{1,48}-----\n+(?:[A-Za-z0-9+/=]+\n)+-----END [A-Z\x20]{1,48}-----\n*)+$/;
+  /^(?:-----BEGIN [A-Z\x20]{1,48}-----\n+(?:[A-Za-z0-9+/]+\n)*[A-Za-z0-9+/]+={0,2}\n-----END [A-Z\x20]{1,48}-----\n*)+$/;
 const BASE64_REGEX = /^(?:[A-Za-z0-9+/]{4}\n?)*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 /**
  * A certificate, key, or bundle of them is kilobytes. This cap bounds the
- * linear passes below — the copy, the trim, the replace, the match — so a
- * hostile value cannot turn them into real work, and it fails at construction
- * with a message naming the option rather than somewhere further in.
+ * linear passes below — the copy, the trim, the replace, the blank stripping,
+ * the match — so a hostile value cannot turn them into real work, and it fails
+ * at construction with a message naming the option rather than somewhere
+ * further in.
  *
  * It does NOT bound backtracking, and must not be mistaken for a control that
  * does: at this size an ambiguous pattern still has more paths than atoms. The
@@ -86,6 +110,21 @@ const normalizePemFile = (pem: string): string => {
 // the ASCII that PEM and Base64 use into U+FFFD and lose the evidence.
 const keyInfoToString = (keyInfo: string | Buffer): string => {
   return Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
+};
+
+// Blanks at the ends of lines are removed here rather than matched, for the
+// same reason line endings are: '[ \t]+' against an anchor is quadratic, since
+// the engine retries the run from every position inside it. A mebibyte of
+// blanks — permitted by MAX_KEY_INFO_LENGTH — takes minutes that way, which
+// would reintroduce as a parser the denial of service the patterns avoid.
+// split/trimEnd/join is linear, and runs in single-digit milliseconds at the
+// cap. Only the ends of lines are touched; blanks anywhere else survive to be
+// rejected by the patterns.
+const stripTrailingBlanks = (text: string): string => {
+  return text
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n");
 };
 
 /**
@@ -123,9 +162,7 @@ export const keyInfoToPem = (
     `${optionName} is larger than ${MAX_KEY_INFO_LENGTH} characters`,
   );
 
-  const keyData = keyInfoToString(keyInfo)
-    .trim()
-    .replace(/\r\n|\r/g, "\n");
+  const keyData = stripTrailingBlanks(keyInfoToString(keyInfo).replace(/\r\n|\r/g, "\n")).trim();
   assertRequired(keyData, `${optionName} is not provided`);
 
   if (PEM_FORMAT_REGEX.test(keyData)) {
