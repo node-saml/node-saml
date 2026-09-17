@@ -96,13 +96,19 @@ describe("crypto.ts", function () {
         ).to.throw();
       });
 
-      // Timing guard, not just a rejection: if the patterns regain an ambiguous
-      // eol alternation this input backtracks exponentially and mocha times out.
+      // Timing guard, not just a rejection: an ambiguous eol alternation in the
+      // patterns makes this input backtrack exponentially. Mocha cannot
+      // interrupt a synchronous call, so the size is chosen to keep the bad
+      // case bounded — ~3s at 26 lines against ~0.01ms here — and the assertion
+      // below fails the run rather than letting the suite hang.
       it("should reject a malformed CRLF certificate without backtracking", function () {
-        const malformed = `-----BEGIN CERTIFICATE-----\r\n${"AAAA\r\n".repeat(40)}!`;
+        const malformed = `-----BEGIN CERTIFICATE-----\r\n${"AAAA\r\n".repeat(26)}!`;
+        const startedAt = process.hrtime.bigint();
         expect(() => keyInfoToPem(malformed, "CERTIFICATE")).to.throw(
           /not in PEM format or in base64 format/,
         );
+        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+        expect(elapsedMs).to.be.lessThan(500);
       });
 
       it("should throw if the encapsulated text is empty", function () {
