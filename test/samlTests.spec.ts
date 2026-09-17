@@ -1,5 +1,7 @@
 "use strict";
+import { spawnSync } from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 import * as sinon from "sinon";
 import { URL } from "url";
 import { expect } from "chai";
@@ -23,6 +25,83 @@ describe("saml.ts", function () {
           callbackUrl: "callback",
         }),
     ).to.throw("value is set but not boolean");
+  });
+
+  // `util.debuglog` reads NODE_DEBUG once per process and the suite order is randomized, so
+  // these run in one child rather than mutating the shared environment.
+  describe("warnings on defaults that change in the next major", function () {
+    let stderr: string;
+
+    before(function () {
+      this.timeout(20000);
+      const script = `
+        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        const base = {
+          issuer: "onesaml_login",
+          idpCert: ${JSON.stringify(FAKE_CERT)},
+          callbackUrl: "http://localhost/saml/consume",
+        };
+        console.error("<<says-nothing>>");
+        new SAML({ ...base });
+        console.error("<<casing-slip>>");
+        new SAML({ ...base, validateInResponseTo: "always", signatureAlgorithm: "SHA256" });
+        console.error("<<digest-typo>>");
+        new SAML({
+          ...base,
+          validateInResponseTo: "always",
+          signatureAlgorithm: "sha256",
+          digestAlgorithm: "sha-256",
+        });
+        console.error("<<everything-chosen>>");
+        new SAML({
+          ...base,
+          validateInResponseTo: "always",
+          signatureAlgorithm: "sha256",
+          digestAlgorithm: "sha256",
+        });
+        console.error("<<end>>");
+      `;
+      const child = spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+      expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+      stderr = child.stderr;
+    });
+
+    // Returns only what was logged while constructing the case named by `marker`, so one case
+    // staying silent cannot be masked by another case warning.
+    function warningsFor(marker: string): string {
+      const section = stderr.split(`<<${marker}>>`)[1] ?? "";
+      return section.split("<<")[0].trim();
+    }
+
+    it("warns that `validateInResponseTo` defaults to never validating", function () {
+      expect(warningsFor("says-nothing")).to.contain("`validateInResponseTo` is not set");
+      expect(warningsFor("says-nothing")).to.contain("replayed");
+    });
+
+    it("warns that `signatureAlgorithm` defaults to sha1", function () {
+      expect(warningsFor("says-nothing")).to.contain("`signatureAlgorithm` is not set");
+      expect(warningsFor("says-nothing")).to.contain("defaults to `sha1`");
+    });
+
+    // "SHA256" is accepted today and signs with SHA-1, which is the whole reason this warns.
+    it("warns that an unrecognized `signatureAlgorithm` downgrades to SHA-1", function () {
+      const warnings = warningsFor("casing-slip");
+      expect(warnings).to.contain('`signatureAlgorithm` is set to "SHA256"');
+      expect(warnings).to.contain("SHA-1 is used instead");
+      expect(warnings).to.contain("sha1, sha256, sha512");
+    });
+
+    it("warns that an unrecognized `digestAlgorithm` downgrades to SHA-1", function () {
+      expect(warningsFor("digest-typo")).to.contain('`digestAlgorithm` is set to "sha-256"');
+    });
+
+    it("says nothing when every one of them is chosen explicitly", function () {
+      expect(warningsFor("everything-chosen")).to.equal("");
+    });
   });
 
   describe("resolveAndParseKeyInfosToPem", function () {

@@ -66,7 +66,7 @@ const saml = new SAML(options);
 - `privateKey`: see [Security and signatures](#security-and-signatures).
 - `publicCert`: the service provider's public signing certificate used to embed in AuthnRequest in order for the IDP to validate the signatures of the incoming SAML Request, see [Security and signatures](#security-and-signatures)
 - `decryptionPvk`: optional private key that will be used to attempt to decrypt any encrypted assertions that are received
-- `signatureAlgorithm`: valid values are 'sha1', 'sha256', or 'sha512'
+- `signatureAlgorithm`: valid values are 'sha1', 'sha256', or 'sha512'. Defaults to 'sha1'; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm)
 - `digestAlgorithm`: optionally set the digest algorithm used to provide a digest for the signed data object, valid values are 'sha1' (default), 'sha256', or 'sha512'
 - `xmlSignatureTransforms`: optionally set an array of signature transforms to be used in HTTP-POST signatures. By default this is `[ 'http://www.w3.org/2000/09/xmldsig#enveloped-signature', 'http://www.w3.org/2001/10/xml-exc-c14n#' ]`
 - **Additional SAML behaviors**
@@ -118,6 +118,13 @@ const saml = new SAML(options);
   - if `"always"`, then InResponseTo will be validated from incoming SAML responses
   - if `"never"`(default), then InResponseTo won't be validated.
   - if `"ifPresent"`, then InResponseTo will only be validated if present in the incoming SAML response
+
+  > **Set this explicitly.** The default is `"never"`, which means an `InResponseTo` is not
+  > checked against a request this library issued, so a SAML response can be replayed or
+  > delivered unsolicited. `"always"` is the safe choice and becomes the default in the next
+  > major version ([#399](https://github.com/node-saml/node-saml/pull/399)). Until then, leaving
+  > it unset logs a warning under `NODE_DEBUG=node-saml`.
+
 - `requestIdExpirationPeriodMs`: Defines the expiration time when a Request ID generated for a SAML request will not be valid if seen in a SAML response in the `InResponseTo` field. Default is 8 hours.
 - `cacheProvider`: Defines the implementation for a cache provider used to store request Ids generated in SAML requests as part of `InResponseTo` validation. Default is a built-in in-memory cache provider. For details see the 'Cache Provider' section.
 - **Issuer Validation**
@@ -217,6 +224,16 @@ signatureAlgorithm: 'sha1' // (default, but not recommended anymore these days)
 signatureAlgorithm: 'sha256', // (preferred - your IDP should support it, otherwise think about upgrading it)
 signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
 ```
+
+> **Set this explicitly, and check the spelling.** Leaving it unset selects `sha1`, which is
+> no longer considered safe for signatures; the next major version defaults to `sha256`
+> ([#422](https://github.com/node-saml/node-saml/issues/422)). A value that is not one of the
+> three above — including a casing difference such as `'SHA256'` — is not an error today
+> either: it falls through to SHA-1, so a typo silently downgrades the signature you asked
+> for. The next major version rejects it instead
+> ([#423](https://github.com/node-saml/node-saml/issues/423)). The same applies to
+> `digestAlgorithm`, which is typed as a plain string and so is not checked by TypeScript at
+> all. Run with `NODE_DEBUG=node-saml` to be told when either happens.
 
 ### Configuration option `privateKey`
 
