@@ -45,7 +45,11 @@
     // "baseUrl": "./",                       /* Base directory to resolve non-absolute module names. */
     // "paths": {},                           /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
     // "typeRoots": [],                       /* List of folders to include type definitions from. */
-    // "types": [],                           /* Type declaration files to be included in compilation. */
+    /* Name the `@types` packages whose globals we rely on rather than inheriting whatever
+       happens to be installed. The shipped build needs only Node; the test globals are
+       added for ts-node below and in `tsconfig.eslint.json`. TypeScript 6 stops including
+       these automatically, so this is also what that upgrade will need. */
+    "types": ["node"],
     // "allowSyntheticDefaultImports": true,  /* Allow default imports from modules with no default export. This does not affect code emit, just typechecking. */
     // "esModuleInterop": true,                  /* Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports. Implies 'allowSyntheticDefaultImports'. */
     // "preserveSymlinks": true,              /* Do not resolve the real path of symlinks. */
@@ -65,5 +69,12 @@
     "skipLibCheck": true /* Skip type checking of declaration files. */,
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
   },
-  "exclude": ["node_modules", "docs", "lib", "test", "coverage"]
+  "exclude": ["node_modules", "docs", "lib", "test", "coverage"],
+  /* Mocha runs the specs through ts-node, which reads this file. The specs need the test
+     globals that the shipped build has no business seeing. */
+  "ts-node": {
+    "compilerOptions": {
+      "types": ["node", "mocha", "chai", "sinon"]
+    }
+  }
 }
