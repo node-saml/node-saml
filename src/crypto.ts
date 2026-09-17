@@ -83,11 +83,9 @@ const normalizePemFile = (pem: string): string => {
 };
 
 // latin1 keeps every byte of a Buffer intact; utf8 would fold anything outside
-// the ASCII that PEM and Base64 use into U+FFFD and lose the evidence. String()
-// is for JavaScript callers who reach here with neither a string nor a Buffer,
-// so they get the message naming the option rather than a TypeError from trim().
+// the ASCII that PEM and Base64 use into U+FFFD and lose the evidence.
 const keyInfoToString = (keyInfo: string | Buffer): string => {
-  return Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : String(keyInfo ?? "");
+  return Buffer.isBuffer(keyInfo) ? keyInfo.toString("latin1") : keyInfo;
 };
 
 /**
@@ -111,13 +109,23 @@ export const keyInfoToPem = (
   //   npx recheck@4 check '<source>' ''
   // which reports 'linear' or 'safe' for both as they stand, and reported
   // 'exponential' for the two forms this file has already had to fix.
-  const rawKeyData = keyInfoToString(keyInfo);
+  // A JavaScript caller reaching here with something else gets it coerced by the
+  // template literal below, and 'true' or '1234' happen to be four base64
+  // characters — so the wrong type would come back as a valid-looking PEM
+  // instead of an error naming the option. Refuse the type outright.
+  assertRequired(keyInfo, `${optionName} is not provided`);
   assertRequired(
-    rawKeyData.length <= MAX_KEY_INFO_LENGTH || undefined,
+    typeof keyInfo === "string" || Buffer.isBuffer(keyInfo) || undefined,
+    `${optionName} is not a string or a Buffer`,
+  );
+  assertRequired(
+    keyInfo.length <= MAX_KEY_INFO_LENGTH || undefined,
     `${optionName} is larger than ${MAX_KEY_INFO_LENGTH} characters`,
   );
 
-  const keyData = rawKeyData.trim().replace(/\r\n|\r/g, "\n");
+  const keyData = keyInfoToString(keyInfo)
+    .trim()
+    .replace(/\r\n|\r/g, "\n");
   assertRequired(keyData, `${optionName} is not provided`);
 
   if (PEM_FORMAT_REGEX.test(keyData)) {

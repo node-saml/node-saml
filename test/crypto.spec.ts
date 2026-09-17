@@ -37,8 +37,24 @@ describe("crypto.ts", function () {
 
       it("should throw with false", function () {
         expect(() => keyInfoToPem(false as never, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
+          /is not a string or a Buffer/,
         );
+      });
+
+      it("should throw with a number that looks like Base64", function () {
+        expect(() => keyInfoToPem(1234 as never, "CERTIFICATE")).to.throw(
+          /is not a string or a Buffer/,
+        );
+      });
+
+      it("should throw with true, which spells four Base64 characters", function () {
+        expect(() => keyInfoToPem(true as never, "CERTIFICATE")).to.throw(
+          /is not a string or a Buffer/,
+        );
+      });
+
+      it("should throw with an array, naming the option", function () {
+        expect(() => keyInfoToPem([] as never, "CERTIFICATE", "idpCert")).to.throw(/idpCert/);
       });
 
       it("should throw with empty string", function () {
