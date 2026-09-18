@@ -47,6 +47,28 @@ import {
 
 const debugLog = util.debuglog("node-saml");
 
+// `host` sits before `options`, so removing it outright would slide `options` into its place
+// and silently discard a JavaScript caller's `additionalParams`. Accepting both shapes lets
+// callers move first. Module-level so it adds nothing to the `SAML` class surface, which
+// subclasses inherit. Passing `undefined` for both cannot be told from passing neither, so
+// that case is not reported.
+function resolveAuthOptions(
+  hostOrOptions: string | AuthOptions | undefined,
+  legacyOptions: AuthOptions | undefined,
+  methodName: string,
+): AuthOptions | undefined {
+  if (typeof hostOrOptions === "string" || legacyOptions !== undefined) {
+    debugLog(
+      "%s was called with a `host` argument. It is unused and is removed in the next major version; call %s(RelayState, options) instead.",
+      methodName,
+      methodName,
+    );
+    return legacyOptions;
+  }
+
+  return hostOrOptions;
+}
+
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -497,11 +519,19 @@ class SAML {
     );
   }
 
+  /**
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeUrlAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
+   *
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
+   */
   async getAuthorizeUrlAsync(
     RelayState: string,
-    host: string | undefined,
-    options: AuthOptions,
+    hostOrOptions: string | AuthOptions | undefined,
+    legacyOptions?: AuthOptions,
   ): Promise<string> {
+    const options = resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeUrlAsync");
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
     const overrideParams = options ? options.additionalParams || {} : {};
@@ -513,11 +543,19 @@ class SAML {
     );
   }
 
+  /**
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeMessageAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
+   *
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
+   */
   async getAuthorizeMessageAsync(
     RelayState: string,
-    host?: string,
-    options?: AuthOptions,
+    hostOrOptions?: string | AuthOptions,
+    legacyOptions?: AuthOptions,
   ): Promise<querystring.ParsedUrlQueryInput> {
+    const options = resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeMessageAsync");
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true);
@@ -540,11 +578,20 @@ class SAML {
     return samlMessage;
   }
 
+  /**
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeFormAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
+   *
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
+   */
   async getAuthorizeFormAsync(
     RelayState: string,
-    host?: string,
-    options?: AuthOptions,
+    hostOrOptions?: string | AuthOptions,
+    legacyOptions?: AuthOptions,
   ): Promise<string> {
+    // Called for the warning; the arguments are forwarded below as they arrived.
+    resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeFormAsync");
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     // The quoteattr() function is used in a context, where the result will not be evaluated by javascript
@@ -576,7 +623,12 @@ class SAML {
       );
     };
 
-    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, host, options);
+    // Forwarded exactly as received: normalizing would change what a subclass override sees.
+    const samlMessage = await this.getAuthorizeMessageAsync(
+      RelayState,
+      hostOrOptions,
+      legacyOptions,
+    );
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {
