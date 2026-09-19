@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import { SAML } from "../src/saml";
 import { FAKE_CERT } from "./types";
 import * as zlib from "zlib";
@@ -6,6 +7,7 @@ import { parseStringPromise } from "xml2js";
 import { assertRequired } from "../src/utility";
 import { SamlConfig } from "../src/types";
 import * as assert from "assert";
+import { getVerifiedXml, parseDomFromString } from "../src/xml";
 
 describe("SAML request", function () {
   describe("Config with Extensions", function () {
@@ -542,6 +544,50 @@ describe("SAML request", function () {
     it("getAuthorizeFormAsync", async function () {
       await assert.rejects(oSAML.getAuthorizeFormAsync("http://localhost/saml/consume"), {
         message: "samlAuthnRequestExtensions should be Object",
+      });
+    });
+  });
+
+  describe("signing with the HTTP-POST binding", function () {
+    const readStatic = (name: string) => fs.readFileSync(`${__dirname}/static/${name}`, "utf-8");
+    const privateKey = readStatic("acme_tools_com.key");
+    const certificate = readStatic("acme_tools_com.cert");
+
+    const signedRequest = async (signing: Pick<SamlConfig, "privateKey" | "publicCert">) => {
+      const saml = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        entryPoint: "https://idp.example.com/saml",
+        issuer: "http://sp.example.com",
+        idpCert: FAKE_CERT,
+        authnRequestBinding: "HTTP-POST",
+        skipRequestCompression: true,
+        signatureAlgorithm: "sha256",
+        digestAlgorithm: "sha256",
+        ...signing,
+      });
+      const form = await saml.getAuthorizeFormAsync("");
+      const encoded = form.match(/<input.*name="SAMLRequest" value="([^"]*)"/)?.[1];
+      assertRequired(encoded);
+      return Buffer.from(encoded, "base64").toString("utf8");
+    };
+
+    it("signs with a private key given as Base64", async function () {
+      const request = await signedRequest({
+        privateKey: readStatic("single_line_acme_tools_com.key"),
+      });
+      const dom = await parseDomFromString(request);
+      assert.ok(getVerifiedXml(request, dom.documentElement, [certificate]));
+    });
+
+    it("publishes a certificate given as Base64 in KeyInfo", async function () {
+      const base64 = readStatic("acme_tools_com_without_header_and_footer.cert").replace(/\s/g, "");
+      const request = await signedRequest({ privateKey, publicCert: base64 });
+      expect(request).to.contain(`<X509Certificate>${base64}</X509Certificate>`);
+    });
+
+    it("should throw if publicCert is neither PEM nor Base64, naming it", async function () {
+      await assert.rejects(signedRequest({ privateKey, publicCert: "not a certificate" }), {
+        message: /^publicCert is not in PEM format or in base64 format: /,
       });
     });
   });

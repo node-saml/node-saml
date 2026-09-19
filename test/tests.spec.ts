@@ -773,6 +773,19 @@ describe("node-saml /", function () {
           );
         });
 
+        it("signs metadata with a private key given as Base64", async function () {
+          const metadata = generateServiceProviderMetadata({
+            ...params,
+            privateKey: readStatic("single_line_acme_tools_com.key"),
+            publicCerts: signingCert,
+            signMetadata: true,
+            signatureAlgorithm: "sha256",
+            digestAlgorithm: "sha256",
+          });
+          const dom = await parseDomFromString(metadata);
+          assert.ok(getVerifiedXml(metadata, dom.documentElement, [signingCert]));
+        });
+
         it("should throw if decryptionCert is not a certificate, naming the option", function () {
           expect(() => encryptionMetadata(FAKE_CERT)).to.throw(
             /^decryptionCert is not in PEM format or in base64 format: /,

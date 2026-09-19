@@ -16,6 +16,7 @@ import {
   XmlSignatureLocation,
 } from "./types";
 import { assertRequired } from "./utility";
+import { keyInfoToPem } from "./crypto";
 
 const debugLog = util.debuglog("node-saml");
 
@@ -272,8 +273,10 @@ export const signXml = (
     transforms,
     digestAlgorithm: algorithms.getDigestAlgorithm(options.digestAlgorithm),
   });
-  sig.privateKey = options.privateKey;
-  sig.publicCert = options.publicCert;
+  sig.privateKey = keyInfoToPem(options.privateKey, "PRIVATE KEY", "privateKey");
+  if (options.publicCert != null) {
+    sig.publicCert = keyInfoToPem(options.publicCert, "CERTIFICATE", "publicCert");
+  }
   sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
   sig.computeSignature(xml, { location });
 
