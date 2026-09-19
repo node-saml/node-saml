@@ -1,6 +1,6 @@
 # Node SAML
 
-[![Build Status](https://github.com/node-saml/node-saml/workflows/Build%20Status/badge.svg)](https://github.com/node-saml/node-saml/actions?query=workflow%3ABuild%Status)
+[![Build Status](https://github.com/node-saml/node-saml/actions/workflows/workflow.yml/badge.svg?branch=master)](https://github.com/node-saml/node-saml/actions/workflows/workflow.yml)
 [![npm version](https://badge.fury.io/js/@node-saml%2Fnode-saml.svg)](https://badge.fury.io/js/@node-saml%2Fnode-saml)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 [![codecov](https://codecov.io/gh/node-saml/node-saml/branch/master/graph/badge.svg?token=PQWCMBWBFB)](https://codecov.io/gh/node-saml/node-saml)
@@ -8,7 +8,34 @@
 
 [![NPM](https://nodei.co/npm/@node-saml/node-saml.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/@node-saml/node-saml)
 
-This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provider for Node.js.
+A [SAML 2.0](https://en.wikipedia.org/wiki/SAML_2.0) implementation for Node.js. It acts as the
+service provider (SP) half of a SAML exchange: it builds the `AuthnRequest` and logout messages you
+send to an identity provider (IdP), and it decides whether the responses that come back are
+trustworthy.
+
+This package is transport-agnostic and framework-agnostic — it takes strings in and hands strings
+out, and you wire it into whatever HTTP layer you already have. If your application uses
+[Passport](https://www.passportjs.org/), reach for
+[`@node-saml/passport-saml`](https://github.com/node-saml/passport-saml) instead; it wraps this
+library in a Passport strategy.
+
+- [Sponsors](#sponsors)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Create a `SAML` instance](#create-a-saml-instance)
+  - [Start a login](#start-a-login)
+  - [Validate the response](#validate-the-response)
+  - [The profile](#the-profile)
+  - [Single logout (SLO)](#single-logout-slo)
+  - [Service provider metadata](#service-provider-metadata)
+- [Config parameter details](#config-parameter-details)
+- [Security and signatures](#security-and-signatures)
+- [Response validation timestamps](#response-validation-timestamps)
+- [InResponseTo validation](#inresponseto-validation)
+- [Cache provider](#cache-provider)
+- [Node support policy](#node-support-policy)
+- [Contributing](#contributing)
+- [Changelog](#changelog)
 
 ## Sponsors
 
@@ -19,7 +46,7 @@ We gratefully acknowledge support from our sponsors:
     <picture>
       <source width="200px" media="(prefers-color-scheme: dark)" srcset="./sponsor/stytch-light.svg">
       <source width="200px" media="(prefers-color-scheme: light)" srcset="./sponsor/stytch-dark.svg">
-      <img width="200px" src="./sponsor/stytch-dark.svg" />
+      <img width="200px" alt="Stytch" src="./sponsor/stytch-dark.svg" />
     </picture>
   </a>
    <p align="center">
@@ -40,259 +67,488 @@ If your company benefits from node-saml being secure and up-to-date, consider as
 npm install @node-saml/node-saml
 ```
 
+TypeScript type definitions ship with the package; there is no separate `@types` package to install.
+See the [Node support policy](#node-support-policy) for supported runtimes.
+
 ## Usage
 
-The examples utilize the [Feide OpenIdp identity provider](https://openidp.feide.no/). You need an account there to log in with this. You also need to [register your site](https://openidp.feide.no/simplesaml/module.php/metaedit/index.php) as a service provider.
-
-### Configure strategy
-
-The SAML identity provider will redirect you to the URL provided by the `path` configuration.
+### Create a `SAML` instance
 
 ```javascript
+const fs = require("node:fs");
 const { SAML } = require("@node-saml/node-saml");
 
-const options = {};
-const saml = new SAML(options);
+const saml = new SAML({
+  // Required
+  callbackUrl: "https://sp.example.com/login/callback",
+  issuer: "https://sp.example.com/metadata",
+  idpCert: fs.readFileSync("./idp-signing-cert.pem", "utf-8"),
+
+  // Where to send the user to authenticate
+  entryPoint: "https://idp.example.com/sso",
+
+  // Sign our own requests. Set the algorithms explicitly; see "Security and signatures".
+  privateKey: fs.readFileSync("./sp-private-key.pem", "utf-8"),
+  publicCert: fs.readFileSync("./sp-public-cert.pem", "utf-8"),
+  signatureAlgorithm: "sha256",
+  digestAlgorithm: "sha256",
+});
 ```
 
-#### Config parameter details
+`callbackUrl`, `issuer`, and `idpCert` are required. Omitting one throws a `TypeError` naming the
+option, and so does passing a non-boolean to an option that gates behavior — for example the string
+`"false"`. All of this happens in the constructor, so a misconfiguration surfaces at startup rather
+than in the middle of someone's login.
 
-- **Core**
-- `callbackUrl`: full callbackUrl
-- `entryPoint`: identity provider entrypoint (is required to be spec-compliant when the request is signed)
-- `issuer`: issuer string to supply to identity provider
-- `audience`: expected saml response Audience, defaults to value of Issuer (if `false`, Audience won't be verified)
-- `idpCert`: the IDP's public signing certificate used to validate the signatures of the incoming SAML Responses, see [Security and signatures](#security-and-signatures)
-- `privateKey`: see [Security and signatures](#security-and-signatures).
-- `publicCert`: the service provider's public signing certificate used to embed in AuthnRequest in order for the IDP to validate the signatures of the incoming SAML Request, see [Security and signatures](#security-and-signatures)
-- `decryptionPvk`: optional private key that will be used to attempt to decrypt any encrypted assertions that are received
-- `signatureAlgorithm`: valid values are 'sha1', 'sha256', or 'sha512'
-- `digestAlgorithm`: optionally set the digest algorithm used to provide a digest for the signed data object, valid values are 'sha1' (default), 'sha256', or 'sha512'
-- `xmlSignatureTransforms`: optionally set an array of signature transforms to be used in HTTP-POST signatures. By default this is `[ 'http://www.w3.org/2000/09/xmldsig#enveloped-signature', 'http://www.w3.org/2001/10/xml-exc-c14n#' ]`
-- **Additional SAML behaviors**
-- `additionalParams`: dictionary of additional query params to add to all requests; if an object with this key is passed to `authenticate`, the dictionary of additional query params will be appended to those present on the returned URL, overriding any specified by initialization options' additional parameters (`additionalParams`, `additionalAuthorizeParams`, and `additionalLogoutParams`)
-- `additionalAuthorizeParams`: dictionary of additional query params to add to 'authorize' requests
-- `identifierFormat`: optional name identifier format to request from identity provider (default: `urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`)
-- `allowCreate`: grants permission to the identity provider to create a new subject identifier (default: `true`)
-- `spNameQualifier`: optionally specifies that the assertion subject's identifier be returned (or created) in the namespace of another service provider, or in the namespace of an affiliation of service providers
-- `wantAssertionsSigned`: if true, add `WantAssertionsSigned="true"` to the metadata, to specify that the IdP should always sign the assertions. It is on by default. Note: either the response or the assertion must be signed even if both are turned off.
-- `wantAuthnResponseSigned`: if true, require that all incoming authentication response messages be signed at the top level, not just at the assertions. It is on by default. Note: either the response or the assertion must be signed even if both are turned off.
-- `acceptedClockSkewMs`: Time in milliseconds of skew that is acceptable between client and server when checking `OnBefore` and `NotOnOrAfter` assertion condition validity timestamps. Setting to `-1` will disable checking these conditions entirely. Default is `0`.
-- `maxAssertionAgeMs`: Amount of time after which the framework should consider an assertion expired. If the limit imposed by this variable is stricter than the limit imposed by `NotOnOrAfter`, this limit will be used when determining if an assertion is expired.
-- `attributeConsumingServiceIndex`: optional `AttributeConsumingServiceIndex` attribute to add to AuthnRequest to instruct the IDP which attribute set to attach to the response ([link](http://blog.aniljohn.com/2014/01/data-minimization-front-channel-saml-attribute-requests.html))
-- `disableRequestedAuthnContext`: if truthy, do not request a specific authentication context.
-- `authnContext`: if truthy, name identifier format to request auth context (default: `urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport`); array of values is also supported
-- `racComparison`: Requested Authentication Context comparison type. Possible values are 'exact','minimum','maximum','better'. Default is 'exact'.
+In TypeScript, the constructor takes a `SamlConfig` and `saml.options` is a `SamlOptions`; both are
+exported from the package root, along with `Profile`, `CacheProvider`, `CacheItem`,
+`ValidateInResponseTo`, `RacComparison`, `SignatureAlgorithm`, `SamlScopingConfig`,
+`SamlIDPListConfig`, `SamlIDPEntryConfig`, `IdpCertCallback`, `AuthOptions`, `MandatorySamlOptions`,
+and `SamlStatusError`.
 
-- `forceAuthn`: if set to true, the initial SAML request from the service provider specifies that the IdP should force re-authentication of the user, even if they possess a valid session.
-- `passive`: if set to true, specifies that the IdP must not visibly take control of the user interface and interact with the user.
-- `providerName`: optional human-readable name of the requester for use by the presenter's user agent or the identity provider
-- `skipRequestCompression`: if set to true, the SAML request from the service provider won't be compressed.
-- `authnRequestBinding`: if set to `HTTP-POST`, will request authentication from IDP via HTTP POST binding, otherwise defaults to HTTP Redirect
-- `disableRequestAcsUrl`: if truthy, SAML AuthnRequest from the service provider will not include the optional AssertionConsumerServiceURL. Default is falsy so it is automatically included.
-- `generateUniqueId`: optional function which will be called to generate unique IDs for SAML requests.
-- `scoping`: An optional configuration which implements the functionality [explained in the SAML spec paragraph "3.4.1.2 Element <Scoping>"](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf). The config object is structured as following:
-- `signMetadata`: if true, adds a signature to the generated Service Provider metadata. `privateKey` must be set to use this option.
+### Start a login
+
+All three of these require `entryPoint` to be set.
+
+**HTTP-Redirect binding** — build a URL and redirect to it:
 
 ```javascript
-{
+const url = await saml.getAuthorizeUrlAsync(relayState, options);
+res.redirect(url);
+```
+
+`relayState` is echoed back by the IdP and is omitted from the request when it is an empty string.
+`options` is an `AuthOptions`, whose `additionalParams` override anything set by
+`additionalParams`/`additionalAuthorizeParams` in the constructor.
+
+All three of these methods also accept a deprecated `host` argument between `relayState` and
+`options`. It has never been read, and it is removed in the next major version
+([#367](https://github.com/node-saml/node-saml/pull/367)), so pass `options` directly:
+
+```javascript
+await saml.getAuthorizeUrlAsync(relayState, host, options); // deprecated
+await saml.getAuthorizeUrlAsync(relayState, options); // use this
+```
+
+If you subclass `SAML` and override one of these, migrate the override at the same time: a
+two-argument call reaches it directly, so an override written for the old signature receives
+`options` as `host`.
+
+**HTTP-POST binding** — return a self-submitting form:
+
+```javascript
+const html = await saml.getAuthorizeFormAsync(relayState, options);
+res.send(html);
+```
+
+This returns a complete HTML document that posts to `entryPoint` on load, with a `<noscript>`
+fallback button for browsers without JavaScript.
+
+If you would rather build the form yourself, `getAuthorizeMessageAsync(relayState, options)`
+returns the message as a plain object of form fields (`SAMLRequest` plus any additional parameters).
+
+### Validate the response
+
+The IdP posts the response back to your `callbackUrl` as a form-encoded `SAMLResponse` field, so the
+route needs a body parser.
+
+```javascript
+app.post("/login/callback", express.urlencoded({ extended: false }), async (req, res, next) => {
+  try {
+    const { profile, loggedOut } = await saml.validatePostResponseAsync(req.body);
+    // profile is the authenticated user; see "The profile" below
+  } catch (err) {
+    next(err);
+  }
+});
+```
+
+`validatePostResponseAsync` rejects with an `Error` on anything it cannot vouch for, and the message
+says what failed — an invalid signature, a mismatched audience, an expired assertion, and a missing
+decryption key are all distinguishable. Nothing is returned for a document that did not verify.
+
+Two cases resolve without a `profile`:
+
+- The IdP returned a `LogoutResponse` rather than an authentication response:
+  `{ profile: null, loggedOut: true }`.
+- A `passive` request could not be satisfied without user interaction (a `NoPassive` status on a
+  validly signed response): `{ profile: null, loggedOut: false }`.
+
+When the IdP reports a non-`Success` status, the rejection is a `SamlStatusError` whose `xmlStatus`
+property carries the `Status` element as XML, so you can surface the IdP's own reason to the user.
+Be aware that the signature requirement is applied first: many identity providers do not sign their
+error responses, and under the default `wantAuthnResponseSigned: true` such a response is rejected
+for the missing signature before its status is read.
+
+### The profile
+
+`profile` is a `Profile`: the fields the library understands, plus every `AttributeValue` in the
+assertion keyed by its `Name`. What is populated depends on the message, so check for the fields you
+rely on rather than assuming they are all present.
+
+| Field                              | Description                                                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `issuer`                           | The assertion's `Issuer`.                                                                                        |
+| `nameID`, `nameIDFormat`           | The subject's name identifier and its format.                                                                    |
+| `nameQualifier`, `spNameQualifier` | Name qualifiers, when the assertion carries them.                                                                |
+| `sessionIndex`                     | The `AuthnStatement`'s `SessionIndex`; you need it to build a logout request.                                    |
+| `inResponseTo`                     | The response's `InResponseTo`, when it carries one.                                                              |
+| `mail`, `email`                    | Convenience aliases. `mail` falls back to `urn:oid:0.9.2342.19200300.100.1.3`, and `email` falls back to `mail`. |
+| `attributes`                       | Every attribute as a `Name` → value map. Single-valued attributes are strings; repeated ones are arrays.         |
+| `getAssertionXml()`                | The assertion XML **that the signature covers**. This is the trustworthy copy.                                   |
+| `getAssertion()`                   | The same assertion, parsed into a JavaScript object.                                                             |
+| `getSamlResponseXml()`             | The raw response XML, **unsigned and unverified**. See the warning below.                                        |
+
+Attributes are also copied onto `profile` at the top level for convenience, but an attribute never
+overwrites a field the library set itself.
+
+The profile returned for a `LogoutRequest` by `validatePostRequestAsync` and `validateRedirectAsync`
+is a smaller thing: `ID` (the logout request's own ID), `issuer`, `nameID`, `nameIDFormat`, and
+`sessionIndex`. It carries no attributes and none of the getters, since there is no assertion.
+
+> **Warning:** `getSamlResponseXml()` returns the response document as it arrived, including parts no
+> signature covers. Never make a trust decision from it. Use `getAssertionXml()`, `getAssertion()`,
+> or the profile fields, all of which come from the verified content. This method exists for
+> backward compatibility and is a candidate for removal in a future major version.
+
+### Single logout (SLO)
+
+Node-SAML supports SP-initiated and IdP-initiated logout, over both the `Redirect` and `POST`
+bindings, including signature validation and decryption of encrypted name identifiers.
+
+**SP-initiated.** Build a `LogoutRequest` URL for a user you previously authenticated. The `profile`
+you pass needs at least `nameID`, `nameIDFormat`, and — if the IdP expects it — `sessionIndex`:
+
+```javascript
+const url = await saml.getLogoutUrlAsync(profile, relayState, options);
+res.redirect(url);
+```
+
+The request goes to `logoutUrl`, which defaults to `entryPoint`.
+
+**IdP-initiated over POST.** Validate the incoming `LogoutRequest`, then answer it:
+
+```javascript
+const { profile } = await saml.validatePostRequestAsync(req.body);
+const url = await saml.getLogoutResponseUrlAsync(profile, relayState, options, true);
+res.redirect(url);
+```
+
+`getLogoutResponseUrl(profile, relayState, options, success, callback)` is the callback-style
+equivalent of `getLogoutResponseUrlAsync`.
+
+**Over the Redirect binding.** Redirect-binding signatures are computed over the exact bytes of the
+query string, so you must hand the raw query string through unchanged — not a re-serialized copy of
+the parsed object:
+
+```javascript
+const originalQuery = req.url.slice(req.url.indexOf("?") + 1);
+const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, originalQuery);
+```
+
+> **Note:** on the Redirect binding, a signature is only checked when the message carries a
+> `Signature` query parameter, because the binding makes signing optional. A message arriving
+> without one is accepted with none of its contents authenticated — the issuer and the timestamps
+> are read from the same unsigned bytes, so `idpIssuer` does not constrain it either. Run with
+> `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
+> messages; a future major version will reject unsigned ones
+> ([#419](https://github.com/node-saml/node-saml/issues/419)). The POST binding is unaffected:
+> `validatePostRequestAsync` always requires a valid signature.
+
+### Service provider metadata
+
+Most identity providers will take a metadata document instead of asking you to type the same values
+into a form.
+
+```javascript
+const metadata = saml.generateServiceProviderMetadata(decryptionCert, publicCerts);
+```
+
+- `decryptionCert` — the public certificate matching `decryptionPvk`. Required if the instance was
+  configured with `decryptionPvk`; pass `null` otherwise.
+- `publicCerts` — the public certificate matching `privateKey`. Required if the instance was
+  configured with `privateKey`. Pass an array to support certificate rotation: the first entry must
+  match the current `privateKey`, and later entries publish upcoming certificates to the IdP before
+  you switch over.
+
+The underlying function is also exported directly, for generating metadata without constructing a
+`SAML` instance:
+
+```javascript
+const { generateServiceProviderMetadata } = require("@node-saml/node-saml");
+
+const metadata = generateServiceProviderMetadata({
+  issuer: "https://sp.example.com/metadata",
+  callbackUrl: "https://sp.example.com/login/callback",
+});
+```
+
+It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from the configuration tables below:
+`logoutCallbackUrl`, `identifierFormat`, `wantAssertionsSigned`, `decryptionPvk`, `decryptionCert`,
+`privateKey`, `publicCerts`, `signatureAlgorithm`, `digestAlgorithm`, `xmlSignatureTransforms`,
+`signMetadata`, `metadataContactPerson`, `metadataOrganization`, and `generateUniqueId`.
+
+## Config parameter details
+
+### Required
+
+| Option        | Type                                    | Description                                                                                                                                       |
+| ------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `callbackUrl` | `string`                                | The SP endpoint the IdP posts the response back to; becomes the `AssertionConsumerServiceURL`.                                                    |
+| `issuer`      | `string`                                | The issuer string identifying this service provider to the IdP.                                                                                   |
+| `idpCert`     | `string \| string[] \| IdpCertCallback` | The IdP's signing certificate(s) or public key(s), used to validate incoming signatures. See [Security and signatures](#security-and-signatures). |
+
+### Core
+
+| Option                   | Default                        | Description                                                                                                                                                                       |
+| ------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entryPoint`             | —                              | The IdP's SSO endpoint. Required to generate any authentication request, and required by the specification when the request is signed.                                            |
+| `audience`               | `issuer`                       | Expected `Audience` in the response. Set to `false` to skip the check — which removes a security control; see the note under [Security and signatures](#security-and-signatures). |
+| `privateKey`             | —                              | SP private key in PEM format, used to sign outgoing messages. See [Security and signatures](#security-and-signatures).                                                            |
+| `publicCert`             | —                              | SP public signing certificate, embedded in the `AuthnRequest` so the IdP can verify it. Must match `privateKey`.                                                                  |
+| `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers.                                                                                                  |
+| `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, or `"sha512"`. **Set this explicitly**; see [Security and signatures](#security-and-signatures).                                                            |
+| `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above.                                                                           |
+| `xmlSignatureTransforms` | enveloped-signature + exc-c14n | Signature transforms used in HTTP-POST signatures. The default is `["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"]`.         |
+| `generateUniqueId`       | built-in                       | Function returning the unique IDs used for outgoing SAML messages.                                                                                                                |
+
+### Response validation
+
+| Option                    | Default | Description                                                                                                                                                            |
+| ------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wantAssertionsSigned`    | `true`  | Require the assertion itself to be signed, and advertise `WantAssertionsSigned="true"` in the metadata.                                                                |
+| `wantAuthnResponseSigned` | `true`  | Require the response to be signed at the top level, not only at the assertion.                                                                                         |
+| `acceptedClockSkewMs`     | `0`     | Tolerance in milliseconds when checking `NotBefore` and `NotOnOrAfter`. `-1` disables those checks entirely.                                                           |
+| `maxAssertionAgeMs`       | `0`     | Reject an assertion older than this, measured from its `IssueInstant`. `0` means no limit beyond `NotOnOrAfter`. When set and stricter than `NotOnOrAfter`, this wins. |
+| `idpIssuer`               | —       | If set, the `Issuer` on incoming logout requests and responses must match it. For ADFS this looks like `https://acme_tools.windows.net/deadbeef`.                      |
+
+Turning both `wantAssertionsSigned` and `wantAuthnResponseSigned` off does not turn signature
+checking off: either the response or the assertion still has to carry a valid signature, or the
+document is rejected.
+
+### AuthnRequest content
+
+| Option                           | Default                                                                 | Description                                                                                                                                                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `identifierFormat`               | `urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`                | `NameID` format to request. Set to `null` to leave the `Format` attribute off the `NameIDPolicy` and the `NameIDFormat` element out of the metadata.                                                                |
+| `allowCreate`                    | `true`                                                                  | Let the IdP create a new subject identifier.                                                                                                                                                                        |
+| `spNameQualifier`                | —                                                                       | Request that the subject identifier be returned or created in another SP's namespace, or in that of an affiliation of service providers.                                                                            |
+| `authnContext`                   | `["urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"]` | Requested authentication context classes. Must be an array, even for a single value.                                                                                                                                |
+| `racComparison`                  | `"exact"`                                                               | How the IdP should compare the requested context: `"exact"`, `"minimum"`, `"maximum"`, or `"better"`.                                                                                                               |
+| `disableRequestedAuthnContext`   | `false`                                                                 | Omit `RequestedAuthnContext` entirely.                                                                                                                                                                              |
+| `forceAuthn`                     | `false`                                                                 | Ask the IdP to re-authenticate the user even if they hold a valid session.                                                                                                                                          |
+| `passive`                        | `false`                                                                 | Ask the IdP not to take visible control of the user interface. See the `NoPassive` case in [Validate the response](#validate-the-response).                                                                         |
+| `providerName`                   | —                                                                       | Human-readable name of the requester, for the presenter's user agent or the IdP.                                                                                                                                    |
+| `attributeConsumingServiceIndex` | —                                                                       | Tells the IdP which attribute set to attach to the response ([background](http://blog.aniljohn.com/2014/01/data-minimization-front-channel-saml-attribute-requests.html)).                                          |
+| `disableRequestAcsUrl`           | `false`                                                                 | Omit the optional `AssertionConsumerServiceURL` from the request.                                                                                                                                                   |
+| `skipRequestCompression`         | `false`                                                                 | Send the request uncompressed instead of DEFLATE-compressed.                                                                                                                                                        |
+| `authnRequestBinding`            | `"HTTP-Redirect"`                                                       | Recorded on the instance for consumers such as `passport-saml` to act on. Within this library the binding follows from the method you call — `getAuthorizeUrlAsync` for Redirect, `getAuthorizeFormAsync` for POST. |
+| `additionalParams`               | `{}`                                                                    | Query parameters added to every outgoing request.                                                                                                                                                                   |
+| `additionalAuthorizeParams`      | `{}`                                                                    | Query parameters added to authorize requests only.                                                                                                                                                                  |
+| `scoping`                        | —                                                                       | `Scoping` element contents; see below.                                                                                                                                                                              |
+
+`scoping` implements [SAML core §3.4.1.2, `<Scoping>`](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf):
+
+```javascript
+scoping: {
   idpList: [ // optional
     {
       entries: [ // required
         {
-          providerId: 'yourProviderId', // required for each entry
-          name: 'yourName', // optional
-          loc: 'yourLoc', // optional
-        }
+          providerId: "yourProviderId", // required for each entry
+          name: "yourName", // optional
+          loc: "yourLoc", // optional
+        },
       ],
-      getComplete: 'URI to your complete IDP list', // optional
+      getComplete: "URI to your complete IDP list", // optional
     },
   ],
   proxyCount: 2, // optional
-  requesterId: 'requesterId', // optional
+  requesterId: "requesterId", // optional; a string or an array of strings
 }
 ```
 
-- **InResponseTo Validation**
-- `validateInResponseTo`:
-  - if `"always"`, then InResponseTo will be validated from incoming SAML responses
-  - if `"never"`(default), then InResponseTo won't be validated.
-  - if `"ifPresent"`, then InResponseTo will only be validated if present in the incoming SAML response
-- `requestIdExpirationPeriodMs`: Defines the expiration time when a Request ID generated for a SAML request will not be valid if seen in a SAML response in the `InResponseTo` field. Default is 8 hours.
-- `cacheProvider`: Defines the implementation for a cache provider used to store request Ids generated in SAML requests as part of `InResponseTo` validation. Default is a built-in in-memory cache provider. For details see the 'Cache Provider' section.
-- **Issuer Validation**
-- `idpIssuer`: if provided, then the IdP issuer will be validated for incoming Logout Requests/Responses. For ADFS this looks like `https://acme_tools.windows.net/deadbeef`
-- **Passport**
-- `passReqToCallback`: if truthy, `req` will be passed as the first argument to the verify callback (default: `false`)
-- `name`: Optionally, provide a custom name. (default: `saml`). Useful If you want to instantiate the strategy multiple times with different configurations,
-  allowing users to authenticate against multiple different SAML targets from the same site. You'll need to use a unique set of URLs
-  for each target, and use this custom name when calling `passport.authenticate()` as well.
-- **Logout**
-- `logoutUrl`: base address to call with logout requests (default: `entryPoint`)
-- `additionalLogoutParams`: dictionary of additional query params to add to 'logout' requests
-- `logoutCallbackUrl`: The value with which to populate the `Location` attribute in the `SingleLogoutService` elements in the generated service provider metadata.
+### InResponseTo
 
-- **SAML Authn Request Extensions**
-- `samlAuthnRequestExtensions`: Optional, The SAML extension provides a more flexible structure for expressing which combination of Attributes are requested by service providers in comparison to the existing mechanisms, [More about extensions](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html). There are many possible values for the `samlAuthnRequestExtensions` element. It accepts fully customize [XMLBuilder](https://www.npmjs.com/package/xmlbuilder) type.
+| Option                        | Default         | Description                                                                                                                                                                                            |
+| ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `validateInResponseTo`        | `"never"`       | `"always"` validates `InResponseTo` on every response, `"ifPresent"` validates it only when the response carries one, `"never"` skips the check. The `ValidateInResponseTo` enum is exported for this. |
+| `requestIdExpirationPeriodMs` | `28800000` (8h) | How long a generated request ID stays valid for matching against an incoming `InResponseTo`.                                                                                                           |
+| `cacheProvider`               | in-memory       | Where request IDs are stored. See [Cache provider](#cache-provider).                                                                                                                                   |
+
+See [InResponseTo validation](#inresponseto-validation) below for what this protects against and how the IDs are consumed.
+
+### Logout
+
+| Option                   | Default      | Description                                                                                       |
+| ------------------------ | ------------ | ------------------------------------------------------------------------------------------------- |
+| `logoutUrl`              | `entryPoint` | Address to send logout requests to.                                                               |
+| `additionalLogoutParams` | `{}`         | Query parameters added to logout requests only.                                                   |
+| `logoutCallbackUrl`      | —            | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata. |
+
+### Metadata
+
+| Option                  | Default | Description                                                                                               |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `signMetadata`          | `false` | Sign the generated service provider metadata. Requires `privateKey`.                                      |
+| `metadataContactPerson` | —       | `ContactPerson` entries to include in the generated metadata. An array, since metadata may carry several. |
+| `metadataOrganization`  | —       | `Organization` details to include in the generated metadata.                                              |
 
 ```javascript
-// Example
+metadataContactPerson: [
+  {
+    "@contactType": "support", // "technical" | "support" | "administrative" | "billing" | "other"
+    GivenName: "test",
+    EmailAddress: ["test@node-saml"], // note: an array
+  },
+],
+metadataOrganization: {
+  OrganizationName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+  OrganizationDisplayName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+  OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml/node-saml" }],
+},
+```
+
+The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
+
+### Extensions
+
+`samlAuthnRequestExtensions` and `samlLogoutRequestExtensions` add an `Extensions` element to the
+generated `AuthnRequest` and `LogoutRequest`. They are useful for things like the
+[requested attributes protocol extension](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html),
+and accept any [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object, so any element is
+expressible.
+
+```javascript
 samlAuthnRequestExtensions: {
   "md:RequestedAttribute": {
     "@isRequired": "true",
     "@Name": "LastName",
-    "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata"
+    "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
   },
   vetuma: {
     "@xmlns": "urn:vetuma:SAML:2.0:extensions",
-    LG: {
-      "#text": "sv",
-    },
+    LG: { "#text": "sv" },
   },
 },
-```
 
-- **SAML Logout Request Extensions**
-- `samlLogoutRequestExtensions`: Optional, The SAML extension provides a more flexible structure for expressing which combination of Attributes are requested by service providers in comparison to the existing mechanisms, [More about extensions](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html). There are many possible values for the `samlLogoutRequestExtensions` element. It accepts fully customize [XMLBuilder](https://www.npmjs.com/package/xmlbuilder) type.
-
-```javascript
-// Example
 samlLogoutRequestExtensions: {
   vetuma: {
     "@xmlns": "urn:vetuma:SAML:2.0:extensions",
-    LG: {
-      "#text": "sv",
-    },
+    LG: { "#text": "sv" },
   },
 },
-```
-
-- **SAML metadata Extensions**
-- `metadataContactPerson`: Optional, this parameters can be used to include more metadata in the XML generated by `generateServiceProviderMetadata`. There are many possible values for the `metadataContactPerson` element. You can check the type definitions for help.
-- `metadataOrganization`: Optional, this parameters can be used to include more metadata in the XML generated by `generateServiceProviderMetadata`. There are many possible values for the `metadataOrganization` element. You can check the type definitions for help.
-
-```javascript
-// Example for metadataContactPerson
-metadataContactPerson:  [{
-  "@contactType": "support",
-  "GivenName": "test",
-  "EmailAddress": "test@node-saml",
-}],
-// ContactPerson is an array because there can be multiple ContactPerson fields
-```
-
-### generateServiceProviderMetadata( decryptionCert, publicCert )
-
-As a convenience, the strategy object exposes a `generateServiceProviderMetadata` method which will generate a service provider metadata document suitable for supplying to an identity provider.
-
-The `decryptionCert` argument should be a public certificate matching the `decryptionPvk` and is required if the strategy is configured with a `decryptionPvk`.
-
-The `publicCert` argument should be a public certificate matching the `privateKey` and is required if the strategy is configured with a `privateKey`. An array of certificates can be provided to support certificate rotation. When supplying an array of certificates, the first entry in the array should match the current `privateKey`. Additional entries in the array can be used to publish upcoming certificates to IdPs before changing the `privateKey`.
-
-### generateServiceProviderMetadata( params )
-
-The underlying `generateServiceProviderMetadata` function is also exported directly. This is useful if you want to generate metadata without creating a strategy object.
-
-```js
-const { generateServiceProviderMetadata } = require("@node-saml/node-saml");
-
-const metadata = generateServiceProviderMetadata({
-  issuer: "https://example.com",
-  callbackUrl: "https://example.com/callback",
-});
 ```
 
 ## Security and signatures
 
-Node-SAML uses the HTTP Redirect Binding for its `AuthnRequest`s (unless overridden with the `authnRequestBinding` parameter), and expects to receive the messages back via the HTTP POST binding.
+Node-SAML uses the HTTP-Redirect binding for its `AuthnRequest`s (unless you call
+`getAuthorizeFormAsync` for HTTP-POST) and expects the messages back over the HTTP-POST binding.
+
+Three properties hold throughout response validation, and they are worth knowing because they
+explain rejections that might otherwise look overly strict:
+
+- **Only signed bytes are trusted.** Verification returns the content the signature actually covers,
+  and that is the content the library goes on to process. The original document is never re-read
+  after verification, because an attacker controls the difference between the two — that is the
+  whole of an XML signature wrapping attack.
+- **Ambiguity is rejected, not resolved.** A response with more than one assertion, more than one
+  signature on an element, an `ID` resolving to more than one element, a reference pointing anywhere
+  other than its own parent, or more than two transforms is refused. The library does not pick a
+  reading, and it does not pick the reading that happens to verify.
+- **Validation fails closed.** Decrypted content is not trusted content: an `EncryptedAssertion` is
+  decrypted and then still has to have its signature verified. Timestamps, audience, issuer, and
+  `InResponseTo` are security controls rather than conveniences — an option that switches one off
+  (`audience: false`, `acceptedClockSkewMs: -1`) is removing a control, so make that choice
+  deliberately.
 
 ### Configuration option `signatureAlgorithm`
 
-Authentication requests sent by Node-SAML can be signed using RSA signature with SHA1, SHA256 or SHA512 hashing algorithms.
-
-To select hashing algorithm, use:
+Requests sent by Node-SAML can be signed using RSA with SHA-1, SHA-256, or SHA-512.
 
 ```javascript
-signatureAlgorithm: 'sha1' // (default, but not recommended anymore these days)
-signatureAlgorithm: 'sha256', // (preferred - your IDP should support it, otherwise think about upgrading it)
-signatureAlgorithm: 'sha512' // (most secure - check if your IDP supports it)
+signatureAlgorithm: "sha256"; // preferred — your IdP should support it; if not, consider upgrading the IdP
+signatureAlgorithm: "sha512"; // strongest — check that your IdP supports it
+signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-resistant
 ```
+
+`digestAlgorithm` takes the same three values and controls the digest over the signed data object.
+
+> **Set both explicitly.** `signatureAlgorithm` and `digestAlgorithm` currently default to `"sha1"`,
+> and an unrecognized value falls back to SHA-1 rather than throwing — so a typo silently downgrades
+> you. Both behaviors are retained for backward compatibility, both are wrong, and both are slated
+> for removal in a future major version, after which naming your algorithms will be required. Naming
+> them now costs one line and makes that upgrade a no-op.
 
 ### Configuration option `privateKey`
 
-To sign authentication requests, private key needs to be provide in the PEM format via the `privateKey` configuration property.
-Node-SAML normalizes what it accepts to a well-formed [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) PEM message: line endings become `\n`, lines longer than 64 characters are split, and the message is emitted with a trailing newline.
-Lines shorter than 64 characters are left at the width they arrived at, so the output is not necessarily the literal `stricttextualmsg` form.
+To sign authentication requests, provide the private key in PEM format via `privateKey`. Node-SAML
+normalizes what it accepts to a well-formed [RFC 7468](https://www.rfc-editor.org/rfc/rfc7468) PEM
+message: line endings become `\n`, lines longer than 64 characters are split, and the message is
+emitted with a trailing newline. Lines shorter than 64 characters are left at the width they arrived
+at, so the output is not necessarily the literal `stricttextualmsg` form.
 
 What it accepts is more liberal than `stricttextualmsg`:
 
-- whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64 encoding tool is fine, as is a leading UTF-8 byte order mark, whether the value arrives as a string or a `Buffer`;
+- whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64
+  encoding tool is fine, as is a leading UTF-8 byte order mark, whether the value arrives as a string
+  or a `Buffer`;
 - any of the three line-ending conventions will do;
-- blanks at the end of a line are ignored, and a blank line may follow the `-----BEGIN ...-----` boundary;
+- blanks at the end of a line are ignored, and a blank line may follow the `-----BEGIN ...-----`
+  boundary;
 - the encoded data may be wrapped at any width, or not wrapped at all;
 - several PEM messages may be concatenated in one value, optionally separated by blank lines.
 
-Blanks at the start of a line and whitespace within the encoded data are rejected.
-The encoded data itself must be valid Base64 as [RFC4648](https://www.rfc-editor.org/rfc/rfc4648) section 4 defines it, so `=` padding has to sit at its end and the last group has to be complete — four characters, or two followed by `==`, or three followed by `=`.
-A value is judged by the same rules whether or not it carries `-----BEGIN ...-----` boundaries.
-Values larger than 1 MiB are rejected before parsing.
-
-Add it to strategy options like this:
+Blanks at the start of a line and whitespace within the encoded data are rejected. The encoded data
+itself must be valid Base64 as [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648) section 4 defines
+it, so `=` padding has to sit at its end and the last group has to be complete — four characters, or
+two followed by `==`, or three followed by `=`. A value is judged by the same rules whether or not it
+carries `-----BEGIN ...-----` boundaries. Values larger than 1 MiB are rejected before parsing.
 
 ```javascript
 privateKey: fs.readFileSync("./privateKey.pem", "latin1");
 ```
 
-Example formats for `privateKey` field are,
+Accepted formats:
 
-1. RFC7468 `stricttextualmsg` formatted PEM:
+1. RFC 7468 PEM, with either label:
 
-```text
------BEGIN PRIVATE KEY-----
-<private key contents here delimited at 64 characters per row>
------END PRIVATE KEY-----
-```
+   ```text
+   -----BEGIN PRIVATE KEY-----
+   <private key contents here delimited at 64 characters per row>
+   -----END PRIVATE KEY-----
+   ```
 
-or
+   ```text
+   -----BEGIN RSA PRIVATE KEY-----
+   <private key contents here delimited at 64 characters per row>
+   -----END RSA PRIVATE KEY-----
+   ```
 
-```text
------BEGIN RSA PRIVATE KEY-----
-<private key contents here delimited at 64 characters per row>
------END RSA PRIVATE KEY-----
-```
-
-2. Alternatively, a single-line or multi-line private key in Base64 format.
-   See example from tests of [single line private key](test/static/single_line_acme_tools_com.key).
+2. A single-line or multi-line private key in Base64, without the delimiter lines. See the
+   [single-line private key](test/static/single_line_acme_tools_com.key) used in the tests.
 
 ### Configuration option `idpCert`
 
-It is important to validate the signatures of the incoming SAML Responses.
-For this, provide the Identity Provider's public X.509 signing certificate(s) or public key(s) in [RFC7468](https://www.rfc-editor.org/rfc/rfc7468) PEM format
-via the `idpCert` configuration property.
-The same normalization and the same tolerances described under [`privateKey`](#configuration-option-privatekey) apply here, including the 1 MiB size limit.
-
-> **Important**, provided public key MUST always be in PEM format!
-
-Add it to options like this:
+Validating the signatures on incoming responses is the point of this library, and `idpCert` is what
+it validates them against. Provide the IdP's public X.509 signing certificate(s) or public key(s). The
+same normalization and the same tolerances described under
+[`privateKey`](#configuration-option-privatekey) apply here, including the 1 MiB size limit.
 
 ```javascript
 idpCert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
 ```
 
-or
-
-If the Identity Provider has multiple signing certificates or public keys that are valid then the `idpCert` configuration property can be an array.
-This can be the case during the rolling from an old key to a new key and responses signed with either key are valid:
+If the IdP has several valid signing certificates or public keys — during a rollover, for instance,
+when responses signed with either key are valid — pass an array:
 
 ```javascript
 idpCert: ["MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==", "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6M ... g="];
 ```
 
-or
-
-The `idpCert` configuration property can also be a function that receives a callback as argument calls back a possible error and a certificate or array of certificates
-or a public key or array of public keys.
-This allows the Identity Provider to be polled for valid certificates or public keys and the new certificate or public key can be used if it is changed:
+`idpCert` can also be a function taking a node-style callback, which lets you poll the IdP for its
+current keys so a rotation is picked up without a restart. The result is not cached, so the function
+is called on every validation:
 
 ```javascript
 idpCert: (callback) => {
@@ -300,108 +556,98 @@ idpCert: (callback) => {
 };
 ```
 
-Example formats for `idpCert` field are,
+Accepted formats:
 
-1. RFC7468 stricttextualmsg formatted PEM:
+1. RFC 7468 PEM, as a certificate or a bare public key:
 
-```text
------BEGIN CERTIFICATE-----
-<certificate contents here delimited at 64 characters per row>
------END CERTIFICATE-----
-```
+   ```text
+   -----BEGIN CERTIFICATE-----
+   <certificate contents here delimited at 64 characters per row>
+   -----END CERTIFICATE-----
+   ```
 
-or
+   ```text
+   -----BEGIN PUBLIC KEY-----
+   <public key contents here delimited at 64 characters per row>
+   -----END PUBLIC KEY-----
+   ```
 
-```text
------BEGIN PUBLIC KEY-----
-<public key contents here delimited at 64 characters per row>
------END PUBLIC KEY-----
-```
+2. A single-line or multi-line **certificate** in Base64, without the delimiter lines.
 
-2. Alternatively, a single-line or multi-line **certificate** in Base64 format.
+#### If the certificate is in the binary DER encoding
 
-### TIP: If the certificate is in the binary DER encoding
-
-Convert it to the necessary PEM encoding like this:
+Convert it to PEM:
 
 ```shell
 openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
 ```
 
-Some identity providers require that the public signing certificate be embedded in AuthnRequest in order for the IDP to verify the request as well as match the subject DN and confirm if the certificate was signed. This can be achieved by passing service provider's public signing certificate in PEM format via the `publicCert` configuration key. The `publicCert` should be a public certificate matching the privateKey.
+### Configuration option `publicCert`
 
-```
+Some identity providers require the SP's public signing certificate to be embedded in the
+`AuthnRequest`, so they can verify the request, match the subject DN, and confirm the certificate was
+signed. Pass it as `publicCert`; it must match `privateKey`. The same two formats are accepted:
+
+```text
 -----BEGIN CERTIFICATE-----
 <X.509 certificate contents here delimited at 64 characters per row>
 -----END CERTIFICATE-----
-
 ```
 
-Alternativelly a single line X.509 certificate without start/end lines where all rows are joined into single line can be passed:
+or
 
 ```javascript
 publicCert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
 ```
 
-## SAML Response Validation - NotBefore and NotOnOrAfter
+## Response validation timestamps
 
-If the `NotBefore` or the `NotOnOrAfter` attributes are returned in the SAML response, Node-SAML will validate them
-against the current time +/- a configurable clock skew value. The default for the skew is 0s. This is to account for
-differences between the clock time on the client (Node server with Node-SAML) and the server (Identity provider).
+When a response carries `NotBefore` or `NotOnOrAfter`, Node-SAML validates them against the current
+time plus or minus `acceptedClockSkewMs`, which accounts for drift between your server's clock and
+the IdP's. The default skew is `0`.
 
-`NotBefore` and `NotOnOrAfter` can be part of either the `SubjectConfirmation` element, or within in the `Assertion/Conditions` element
-in the SAML response.
+Both attributes are honored on the `SubjectConfirmation` element and within
+`Assertion/Conditions`. `maxAssertionAgeMs` adds an independent limit measured from the assertion's
+`IssueInstant`, and applies when it is stricter than `NotOnOrAfter`.
 
-## Subject confirmation validation
+## InResponseTo validation
 
-When configured (turn `validateInResponseTo` to `always` in the Node-SAML config), the `InResponseTo` attribute will be validated.
-Validation will succeed if Node-SAML previously generated a SAML request with an id that matches the value of `InResponseTo`.
+`InResponseTo` ties a response back to a request you actually made, which is what stops a response
+captured elsewhere from being replayed at your callback. Turn it on with
+`validateInResponseTo: "always"`.
 
-Also note that `InResponseTo` is validated as an attribute of the top level `Response` element in the SAML response, as well
-as part of the `SubjectConfirmation` element.
+Node-SAML then records the ID of every request it generates, and a response validates only if its
+`InResponseTo` matches one of them. It is checked both as an attribute of the top-level `Response`
+element and within `SubjectConfirmation`.
 
-Previous request id's generated for SAML requests will eventually expire. This is controlled with the `requestIdExpirationPeriodMs` option
-passed into the Node-SAML config. The default is 28,800,000 ms (8 hours). Once expired, a subsequent SAML response
-received with an `InResponseTo` equal to the expired id will not validate and an error will be returned.
+Recorded IDs expire after `requestIdExpirationPeriodMs` (8 hours by default). A response arriving
+with an expired — or unrecognized — `InResponseTo` is rejected. The ID is consumed on validation, so
+the same response cannot be presented twice.
 
-## Cache Provider
+## Cache provider
 
-When `InResponseTo` validation is turned on, Node SAML will store generated request ids used in SAML requests to the IdP. The implementation
-of how things are stored, checked to see if they exist, and eventually removed is handled by the configured `CacheProvider`.
+With `InResponseTo` validation on, the generated request IDs have to be stored somewhere. That is
+the `cacheProvider`'s job.
 
-The default implementation is a simple in-memory cache provider. For multiple server/process scenarios, this will not be sufficient as
-the server/process that generated the request id and stored in memory could be different than the server/process handling the
-SAML response. The `InResponseTo` could fail in this case erroneously.
-
-To support this scenario you can create a cache provider that implements the following interface:
+The default is a simple in-memory provider. It is not sufficient across multiple servers or
+processes: the instance that generated the request ID may not be the one that handles the response,
+and validation then fails for legitimate logins. For those deployments, back the cache with
+something shared — Redis, a database, your session store — by implementing:
 
 ```typescript
 interface CacheProvider {
-  // Store an item in the cache, using the specified key and value.
+  /** Store an item in the cache, using the specified key and value. */
   saveAsync(key: string, value: string): Promise<CacheItem | null>;
-  // Returns the value of the specified key in the cache
+  /** Returns the value of the specified key in the cache. */
   getAsync(key: string): Promise<string | null>;
-  // Removes an item from the cache if the key exists
-  removeAsync(key: string): Promise<string | null>;
+  /** Removes an item from the cache if the key exists. */
+  removeAsync(key: string | null): Promise<string | null>;
 }
 ```
 
-## SLO (single logout)
+`CacheProvider` and `CacheItem` are exported from the package root.
 
-Node-SAML has built in support for SLO including
-
-- Signature validation
-- IdP initiated and SP initiated logouts
-- Decryption of encrypted name identifiers in IdP initiated logout
-- `Redirect` and `POST` SAML Protocol Bindings
-
-## ChangeLog
-
-See [Changelog](https://github.com/node-saml/node-saml/blob/master/CHANGELOG.md)
-
-## FAQ
-
-## Node Support Policy
+## Node support policy
 
 We only support [Long-Term Support](https://github.com/nodejs/Release) versions of Node.
 
@@ -409,6 +655,21 @@ We specifically limit our support to LTS versions of Node, not because this pack
 
 It's possible this package will work correctly on newer versions of Node. It may even be possible to use this package on older versions of Node, though that's more unlikely as we'll make every effort to take advantage of features available in the oldest LTS version we support.
 
-As each Node LTS version reaches its end-of-life we will remove that version from the `node` `engines` property of our package's `package.json` file. Removing a Node version is considered a breaking change and will entail the publishing of a new major version of this package. We will not accept any requests to support an end-of-life version of Node. Any merge requests or issues supporting an end-of-life version of Node will be closed.
+The `engines` field in [`package.json`](package.json) is the authoritative statement of what we support. As each Node LTS version reaches its end-of-life we will remove that version from it. Removing a Node version is considered a breaking change and will entail the publishing of a new major version of this package. We will not accept any requests to support an end-of-life version of Node. Any merge requests or issues supporting an end-of-life version of Node will be closed.
 
 We will accept code that allows this package to run on newer, non-LTS, versions of Node.
+
+## Contributing
+
+Issues and pull requests are welcome. A change that touches how a document is accepted, rejected, or
+trusted needs a test that fails without it; [`AGENTS.md`](AGENTS.md) documents the standards this
+repository holds itself to, and the [pull request template](.github/pull_request_template.md) lists
+what a review looks for. For questions rather than bugs, start in
+[Discussions](https://github.com/node-saml/node-saml/discussions).
+
+When a change follows the SAML specification, link the relevant part. Start from the
+[OASIS SAML 2.0 standards](https://www.oasis-open.org/standards#samlv2.0).
+
+## Changelog
+
+See [CHANGELOG.md](https://github.com/node-saml/node-saml/blob/master/CHANGELOG.md).
