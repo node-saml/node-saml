@@ -499,7 +499,9 @@ What it accepts is more liberal than RFC 7468's `stricttextualmsg`:
 - any of the three line-ending conventions;
 - encoded data wrapped at any width, or not wrapped at all, with spaces or tabs anywhere in it;
 - a blank line after the `-----BEGIN ...-----` boundary;
-- several PEM messages concatenated in one value, optionally separated by blank lines.
+- several PEM messages concatenated in one value, optionally separated by blank lines. Signing and
+  verification each take only one key from such a value, so it suits a private key stored alongside
+  its certificate, but not a set of keys: to trust several IdP certificates, give `idpCert` an array.
 
 It rejects, with an error naming the option and giving the reason:
 
@@ -596,7 +598,9 @@ openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
 
 Some identity providers require the SP's public signing certificate to be embedded in the
 `AuthnRequest`, so they can verify the request, match the subject DN, and confirm the certificate was
-signed. Pass it as `publicCert`; it must match `privateKey`. The same two formats are accepted:
+signed. Pass it as `publicCert`; it must match `privateKey`, and it must hold at least one certificate:
+a public key alone is refused, because it would leave `KeyInfo` out of the signature. The same two
+formats are accepted:
 
 ```text
 -----BEGIN CERTIFICATE-----

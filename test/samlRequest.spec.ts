@@ -590,5 +590,11 @@ describe("SAML request", function () {
         message: /^publicCert is not in PEM format or in base64 format: /,
       });
     });
+
+    it("should throw if publicCert is a public key rather than omit KeyInfo", async function () {
+      await assert.rejects(signedRequest({ privateKey, publicCert: readStatic("pub.pem") }), {
+        message: "publicCert must hold at least one certificate",
+      });
+    });
   });
 });
