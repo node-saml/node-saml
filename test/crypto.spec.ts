@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { expect } from "chai";
-import { keyInfoToPem, generateUniqueId, stripPemHeaderAndFooter } from "../src/crypto";
+import { keyInfoToPem, generateUniqueId } from "../src/crypto";
 import {
   FAKE_CERT,
   TEST_CERT_SINGLELINE,
@@ -436,36 +436,6 @@ describe("crypto.ts", function () {
         const certificate = keyInfoToPem(base64CertificateBuffer, "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);
       });
-    });
-  });
-
-  describe("stripPemHeaderAndFooter", function () {
-    it("removes PEM header and footer from singleline certificate", function () {
-      const certificate = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_SINGLELINE}\n-----END CERTIFICATE-----`;
-      const plainBase64Data = stripPemHeaderAndFooter(certificate);
-
-      expect(plainBase64Data.trimEnd()).to.equal(TEST_CERT_SINGLELINE);
-    });
-
-    it("removes PEM header and footer from multiline certificate", function () {
-      const certificate = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`;
-      const plainBase64Data = stripPemHeaderAndFooter(certificate);
-
-      expect(plainBase64Data.trimEnd()).to.equal(TEST_CERT_MULTILINE);
-    });
-
-    it("removes PEM header and footer from singleline public key", function () {
-      const publicKey = `-----BEGIN PUBLIC KEY-----\n${TEST_PUBLIC_KEY_SINGLELINE}\n-----END PUBLIC KEY-----`;
-      const plainBase64Data = stripPemHeaderAndFooter(publicKey);
-
-      expect(plainBase64Data.trimEnd()).to.equal(TEST_PUBLIC_KEY_SINGLELINE);
-    });
-
-    it("removes PEM header and footer from multiline public key", function () {
-      const publicKey = `-----BEGIN PUBLIC KEY-----\n${TEST_PUBLIC_KEY_MULTILINE}\n-----END PUBLIC KEY-----`;
-      const plainBase64Data = stripPemHeaderAndFooter(publicKey);
-
-      expect(plainBase64Data.trimEnd()).to.equal(TEST_PUBLIC_KEY_MULTILINE);
     });
   });
 });

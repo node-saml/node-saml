@@ -1,5 +1,5 @@
 import * as crypto from "crypto";
-import { toPem } from "xml-crypto";
+import { pemCertificates, toPem } from "xml-crypto";
 import { assertRequired } from "./utility";
 import { PemLabel } from "./types";
 
@@ -28,13 +28,19 @@ export const keyInfoToPem = (
   }
 };
 
-export const generateUniqueId = (): string => {
-  return "_" + crypto.randomBytes(20).toString("hex");
+export const keyInfoToBase64Certificate = (
+  keyInfo: string | Buffer,
+  optionName: string,
+): string => {
+  const certificates = pemCertificates(keyInfoToPem(keyInfo, "CERTIFICATE", optionName));
+  assertRequired(
+    certificates.length === 1 || undefined,
+    `${optionName} must hold exactly one certificate, but holds ${certificates.length}`,
+  );
+
+  return certificates[0];
 };
 
-export const stripPemHeaderAndFooter = (certificate: string): string => {
-  return certificate
-    .replace(/(\r\n|\r)/g, "\n")
-    .replace(/-----BEGIN [A-Z\x20]{1,48}-----\n?/, "")
-    .replace(/-----END [A-Z\x20]{1,48}-----\n?/, "");
+export const generateUniqueId = (): string => {
+  return "_" + crypto.randomBytes(20).toString("hex");
 };

@@ -271,6 +271,11 @@ const metadata = saml.generateServiceProviderMetadata(decryptionCert, publicCert
   match the current `privateKey`, and later entries publish upcoming certificates to the IdP before
   you switch over.
 
+Both are read by the rules described under [`privateKey`](#configuration-option-privatekey), as PEM or
+as Base64, and published as a single line of Base64. `decryptionCert`, and each entry of
+`publicCerts`, must hold exactly one certificate; a value holding several, or holding a public key
+rather than a certificate, is refused with an error naming it.
+
 The underlying function is also exported directly, for generating metadata without constructing a
 `SAML` instance:
 
