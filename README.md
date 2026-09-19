@@ -483,27 +483,32 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 ### Configuration option `privateKey`
 
 To sign authentication requests, provide the private key in PEM format via `privateKey`. Node-SAML
-normalizes what it accepts to a well-formed [RFC 7468](https://www.rfc-editor.org/rfc/rfc7468) PEM
-message: line endings become `\n`, lines longer than 64 characters are split, and the message is
-emitted with a trailing newline. Lines shorter than 64 characters are left at the width they arrived
-at, so the output is not necessarily the literal `stricttextualmsg` form.
+reads it with xml-crypto's `toPem()`, and uses what that returns: canonical
+[RFC 7468](https://www.rfc-editor.org/rfc/rfc7468) PEM, with `\n` line endings, lines of 64
+characters, and one message after another.
 
-What it accepts is more liberal than `stricttextualmsg`:
+What it accepts is more liberal than RFC 7468's `stricttextualmsg`:
 
-- whitespace surrounding the value is ignored, so a trailing newline left by a file read or a Base64
-  encoding tool is fine, as is a leading UTF-8 byte order mark, whether the value arrives as a string
-  or a `Buffer`;
-- any of the three line-ending conventions will do;
-- blanks at the end of a line are ignored, and a blank line may follow the `-----BEGIN ...-----`
-  boundary;
-- the encoded data may be wrapped at any width, or not wrapped at all;
-- several PEM messages may be concatenated in one value, optionally separated by blank lines.
+- whitespace surrounding the value, and a leading UTF-8 byte order mark, whether the value arrives
+  as a string or a `Buffer`;
+- any of the three line-ending conventions;
+- encoded data wrapped at any width, or not wrapped at all, with spaces or tabs anywhere in it;
+- a blank line after the `-----BEGIN ...-----` boundary;
+- several PEM messages concatenated in one value, optionally separated by blank lines.
 
-Blanks at the start of a line and whitespace within the encoded data are rejected. The encoded data
-itself must be valid Base64 as [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648) section 4 defines
-it, so `=` padding has to sit at its end and the last group has to be complete — four characters, or
-two followed by `==`, or three followed by `=`. A value is judged by the same rules whether or not it
-carries `-----BEGIN ...-----` boundaries. Values larger than 1 MiB are rejected before parsing.
+It rejects, with an error naming the option and giving the reason:
+
+- encoded data that is not valid Base64 as [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648)
+  section 4 defines it — `=` padding away from the end, or a last group that is incomplete — rather
+  than decoding as much of it as it can;
+- a message whose `-----BEGIN` and `-----END` labels disagree;
+- a `CERTIFICATE` whose data is not exactly one X.509 certificate;
+- text before, after or between the messages, and a boundary sharing its line with other text.
+
+xml-crypto documents the complete rules under
+[What the parser accepts](https://github.com/node-saml/xml-crypto#what-the-parser-accepts). A
+`Buffer` is read as the text of a PEM or Base64 file, just as a string is; DER is not accepted, so
+convert it to PEM first as shown under [`idpCert`](#configuration-option-idpcert).
 
 ```javascript
 privateKey: fs.readFileSync("./privateKey.pem", "latin1");
@@ -532,8 +537,8 @@ Accepted formats:
 
 Validating the signatures on incoming responses is the point of this library, and `idpCert` is what
 it validates them against. Provide the IdP's public X.509 signing certificate(s) or public key(s). The
-same normalization and the same tolerances described under
-[`privateKey`](#configuration-option-privatekey) apply here, including the 1 MiB size limit.
+same normalization, tolerances and rejections described under
+[`privateKey`](#configuration-option-privatekey) apply here.
 
 ```javascript
 idpCert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";

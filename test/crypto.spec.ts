@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { keyInfoToPem, generateUniqueId, stripPemHeaderAndFooter } from "../src/crypto";
 import {
+  FAKE_CERT,
   TEST_CERT_SINGLELINE,
   TEST_CERT_MULTILINE,
   TEST_PUBLIC_KEY_SINGLELINE,
@@ -65,14 +66,6 @@ describe("crypto.ts", function () {
         expect(() => keyInfoToPem(Buffer.from(""), "CERTIFICATE")).to.throw();
       });
 
-      it("should throw if Base64 lines are separated by blanks", function () {
-        const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
-        const spaced = [`${firstLine} `, ...rest].join("");
-        expect(() => keyInfoToPem(spaced, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
-        );
-      });
-
       it("should throw with only whitespace", function () {
         expect(() => keyInfoToPem(" \t\r\n ", "CERTIFICATE")).to.throw(/is not provided/);
       });
@@ -114,24 +107,6 @@ describe("crypto.ts", function () {
         ).to.throw();
       });
 
-      it("should throw when the value is larger than the cap", function () {
-        const oversized = "A".repeat(1024 * 1024 + 1);
-        expect(() => keyInfoToPem(oversized, "CERTIFICATE")).to.throw(/is larger than/);
-      });
-
-      it("should throw when an oversized value would otherwise be valid", function () {
-        const padding = `\n${TEST_CERT_MULTILINE}`.repeat(16000);
-        expect(() => keyInfoToPem(`${TEST_CERT_MULTILINE}${padding}`, "CERTIFICATE")).to.throw(
-          /is larger than/,
-        );
-      });
-
-      it("should name the option when the value is larger than the cap", function () {
-        expect(() => keyInfoToPem("A".repeat(1024 * 1024 + 1), "CERTIFICATE", "idpCert")).to.throw(
-          /idpCert/,
-        );
-      });
-
       it("should reject a malformed CRLF certificate rather than accept it", function () {
         const malformed = `-----BEGIN CERTIFICATE-----\r\n${"AAAA\r\n".repeat(26)}!`;
         expect(() => keyInfoToPem(malformed, "CERTIFICATE")).to.throw(
@@ -139,21 +114,11 @@ describe("crypto.ts", function () {
         );
       });
 
-      // The shape that makes '[ \t]+$' quadratic. Asserts only the rejection:
-      // linearity is settled by an analyzer, not by timing one machine.
-      it("should reject a body that is one long run of blanks", function () {
-        const blanks = `-----BEGIN CERTIFICATE-----\n${" ".repeat(1024 * 1024 - 100)}x\n-----END CERTIFICATE-----`;
-        expect(() => keyInfoToPem(blanks, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
-        );
-      });
-
-      // Unpadded so the blank line is the only thing wrong with it; mid-body
-      // padding would mask a regression in the behaviour under test.
       it("should throw if the encapsulated text has a blank line between body lines", function () {
+        const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
         expect(() =>
           keyInfoToPem(
-            "-----BEGIN CERTIFICATE-----\nQUJD\n\nREVG\n-----END CERTIFICATE-----",
+            `-----BEGIN CERTIFICATE-----\n${firstLine}\n\n${rest.join("\n")}\n-----END CERTIFICATE-----`,
             "CERTIFICATE",
           ),
         ).to.throw(/not in PEM format or in base64 format/);
@@ -165,33 +130,39 @@ describe("crypto.ts", function () {
         ).to.throw(/not in PEM format or in base64 format/);
       });
 
-      it("should throw if the encapsulated text contains a space", function () {
-        const spaced = TEST_CERT_MULTILINE.replace("M", "M ");
+      it("should throw if the labels of a message disagree", function () {
         expect(() =>
           keyInfoToPem(
-            `-----BEGIN CERTIFICATE-----\n${spaced}\n-----END CERTIFICATE-----`,
+            `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END PUBLIC KEY-----`,
             "CERTIFICATE",
           ),
         ).to.throw(/not in PEM format or in base64 format/);
       });
 
-      // RFC7468 section 2 ignores blanks only at the ends of lines.
-      it("should throw if a line of the encapsulated text starts with a blank", function () {
-        const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
-        const indented = [` ${firstLine}`, ...rest].join("\n");
-        expect(() =>
-          keyInfoToPem(
-            `-----BEGIN CERTIFICATE-----\n${indented}\n-----END CERTIFICATE-----`,
-            "CERTIFICATE",
-          ),
-        ).to.throw(/not in PEM format or in base64 format/);
+      it("should throw if Base64 given as a certificate is not one", function () {
+        expect(() => keyInfoToPem(FAKE_CERT, "CERTIFICATE")).to.throw(
+          /not in PEM format or in base64 format/,
+        );
       });
 
+      it("should throw if a certificate has data after it, naming the option and the reason", function () {
+        const trailing = Buffer.concat([
+          Buffer.from(TEST_CERT_SINGLELINE, "base64"),
+          Buffer.from([0]),
+        ]).toString("base64");
+        expect(() => keyInfoToPem(trailing, "CERTIFICATE", "idpCert")).to.throw(
+          /^idpCert is not in PEM format or in base64 format: Expected a single certificate/,
+        );
+      });
+
+      // Labelled as a key, which is checked only as Base64, so that the Base64
+      // rule is the one thing that can reject these; a certificate is also
+      // checked as X.509.
       it("should throw if the encapsulated text is padded before its end", function () {
         expect(() =>
           keyInfoToPem(
-            "-----BEGIN CERTIFICATE-----\nQUJD=REVG\n-----END CERTIFICATE-----",
-            "CERTIFICATE",
+            "-----BEGIN PRIVATE KEY-----\nQUJD=REVG\n-----END PRIVATE KEY-----",
+            "PRIVATE KEY",
           ),
         ).to.throw(/not in PEM format or in base64 format/);
       });
@@ -199,70 +170,28 @@ describe("crypto.ts", function () {
       it("should throw if a body line other than the last one is padded", function () {
         expect(() =>
           keyInfoToPem(
-            "-----BEGIN CERTIFICATE-----\nQUJDCg==\nQUJD\n-----END CERTIFICATE-----",
-            "CERTIFICATE",
+            "-----BEGIN PRIVATE KEY-----\nQUJDCg==\nQUJD\n-----END PRIVATE KEY-----",
+            "PRIVATE KEY",
           ),
         ).to.throw(/not in PEM format or in base64 format/);
       });
 
       it("should throw if the encapsulated text is nothing but padding", function () {
         expect(() =>
-          keyInfoToPem("-----BEGIN CERTIFICATE-----\n==\n-----END CERTIFICATE-----", "CERTIFICATE"),
+          keyInfoToPem("-----BEGIN PRIVATE KEY-----\n==\n-----END PRIVATE KEY-----", "PRIVATE KEY"),
         ).to.throw(/not in PEM format or in base64 format/);
       });
 
       // RFC4648 section 4: a multiple of four characters, two then '==', or
       // three then '='. https://www.rfc-editor.org/rfc/rfc4648#section-4
-      const partialQuanta = ["A", "A=", "AA", "AAA", "AAAA=", "AAA==", "AAAAA", "AAAA=="];
-
-      partialQuanta.forEach(function (body) {
+      ["A", "A=", "AA", "AAA", "AAAA=", "AAA==", "AAAAA", "AAAA=="].forEach(function (body) {
         it(`should throw if the encapsulated text ends in the partial quantum ${body}`, function () {
           expect(() =>
             keyInfoToPem(
-              `-----BEGIN CERTIFICATE-----\n${body}\n-----END CERTIFICATE-----`,
-              "CERTIFICATE",
+              `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`,
+              "PRIVATE KEY",
             ),
           ).to.throw(/not in PEM format or in base64 format/);
-        });
-      });
-
-      // The two forms differ only in whether boundaries are present, never in
-      // what data they accept between them.
-      [
-        ...partialQuanta,
-        "QUJD=REVG",
-        "AAAA=BBB=",
-        "=",
-        "==",
-        "QUJD\n\nREVG",
-        "AAAA",
-        "AA==",
-        "AAA=",
-        "QUJDCg==",
-        "AAAA\nBBBB",
-        "QUJD\nRE\nVG",
-        "QU\nJD",
-        "QUJDCg=\n=",
-      ].forEach(function (body) {
-        it(`should judge ${JSON.stringify(body)} the same with and without boundaries`, function () {
-          const asPem = () =>
-            keyInfoToPem(
-              `-----BEGIN CERTIFICATE-----\n${body}\n-----END CERTIFICATE-----`,
-              "CERTIFICATE",
-            );
-          const asBare = () => keyInfoToPem(body, "CERTIFICATE");
-          // A rejection has to be the format rejection, so that agreeing for
-          // two unrelated reasons cannot pass for equivalence.
-          const accepted = (run: () => string) => {
-            try {
-              run();
-              return true;
-            } catch (error) {
-              expect((error as Error).message).to.match(/not in PEM format or in base64 format/);
-              return false;
-            }
-          };
-          expect(accepted(asPem)).to.equal(accepted(asBare));
         });
       });
 
@@ -357,9 +286,8 @@ describe("crypto.ts", function () {
         expect(certificate).to.equal(expectedCert);
       });
 
-      // A UTF-8 BOM only reaches trim() as U+FEFF when the value was decoded as
-      // utf8. The Buffer and latin1 forms are what a file read actually yields,
-      // including the one README documents.
+      // A file read yields a UTF-8 BOM as U+FEFF only when decoded as utf8; a
+      // Buffer and the latin1 read README documents carry it as three bytes.
       it("should return certificate in PEM format for certificate read from a file with a BOM", function () {
         const certificate = keyInfoToPem(`\uFEFF${expectedCert}`, "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);
@@ -391,8 +319,7 @@ describe("crypto.ts", function () {
         expect(certificate).to.equal(expectedCert);
       });
 
-      // RFC7468 section 3 Figure 1 permits '*WSP' before every 'eol'. Stripped
-      // rather than carried through, so normalizePemFile() cannot rewrap on one.
+      // RFC7468 section 3 Figure 1 permits '*WSP' before every 'eol'.
       it("should return certificate in PEM format for certificate with trailing blanks on a body line", function () {
         const [firstLine, ...rest] = TEST_CERT_MULTILINE.split("\n");
         const padded = [`${firstLine} \t`, ...rest].join("\n");
@@ -414,6 +341,17 @@ describe("crypto.ts", function () {
       it("should return certificate in PEM format for certificate with a blank line after the header", function () {
         const certificate = keyInfoToPem(
           `-----BEGIN CERTIFICATE-----\n \t \n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`,
+          "CERTIFICATE",
+        );
+        expect(certificate).to.equal(expectedCert);
+      });
+
+      // Certificates arrive like this in practice; rejecting them is the bug in
+      // https://github.com/node-saml/node-saml/issues/361
+      it("should return certificate in PEM format for certificate with blanks within the encoded data", function () {
+        const spaced = TEST_CERT_MULTILINE.replace("M", "M ").replace(/\n/g, "\n  ");
+        const certificate = keyInfoToPem(
+          `-----BEGIN CERTIFICATE-----\n  ${spaced}\n-----END CERTIFICATE-----`,
           "CERTIFICATE",
         );
         expect(certificate).to.equal(expectedCert);
@@ -447,42 +385,23 @@ describe("crypto.ts", function () {
         expect(certificate).to.equal(expectedCert);
       });
 
-      it("should discard whitespace around Base64 without padding", function () {
-        const certificate = keyInfoToPem("QUIK \n", "CERTIFICATE");
-        expect(certificate).to.equal(
-          "-----BEGIN CERTIFICATE-----\nQUIK\n-----END CERTIFICATE-----\n",
-        );
-      });
-
-      it("should discard whitespace around Base64 with one pad", function () {
-        const certificate = keyInfoToPem("QQo= \n", "CERTIFICATE");
-        expect(certificate).to.equal(
-          "-----BEGIN CERTIFICATE-----\nQQo=\n-----END CERTIFICATE-----\n",
-        );
-      });
-
-      it("should discard whitespace around Base64 with two pads", function () {
-        const certificate = keyInfoToPem("QUJDCg== \n", "CERTIFICATE");
-        expect(certificate).to.equal(
-          "-----BEGIN CERTIFICATE-----\nQUJDCg==\n-----END CERTIFICATE-----\n",
-        );
+      it("should return certificate in PEM format for Base64 certificate with blanks within it", function () {
+        const spaced = TEST_CERT_SINGLELINE.replace(/(.{8})/g, "$1 ");
+        const certificate = keyInfoToPem(spaced, "CERTIFICATE");
+        expect(certificate).to.equal(expectedCert);
       });
 
       it("should return certificate in PEM format for Base64 wrapped off the quantum", function () {
         const wrapped = TEST_CERT_SINGLELINE.replace(/(.{30})/g, "$1\n");
         const certificate = keyInfoToPem(wrapped, "CERTIFICATE");
-        // normalizePemFile() splits long lines but never joins short ones, so
-        // the 30-character wrapping survives; compare data, not layout.
-        expect(stripPemHeaderAndFooter(certificate).replace(/\n/g, "")).to.equal(
-          TEST_CERT_SINGLELINE,
-        );
+        expect(certificate).to.equal(expectedCert);
       });
 
       // 'base64finl' in RFC7468 Figure 1 permits a pad, an 'eol', then a pad.
       it("should accept padding split across a line ending", function () {
-        const certificate = keyInfoToPem("QUJDCg=\n=", "CERTIFICATE");
-        expect(certificate).to.equal(
-          "-----BEGIN CERTIFICATE-----\nQUJDCg=\n=\n-----END CERTIFICATE-----\n",
+        const privateKey = keyInfoToPem("QUJDCg=\n=", "PRIVATE KEY");
+        expect(privateKey).to.equal(
+          "-----BEGIN PRIVATE KEY-----\nQUJDCg==\n-----END PRIVATE KEY-----\n",
         );
       });
 
