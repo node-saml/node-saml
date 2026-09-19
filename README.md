@@ -462,6 +462,26 @@ explain rejections that might otherwise look overly strict:
   (`audience: false`, `acceptedClockSkewMs: -1`) is removing a control, so make that choice
   deliberately.
 
+### Reading the response
+
+The profile carries three accessors for the underlying XML. Two of them return the bytes whose
+signature was verified:
+
+```javascript
+profile.getAssertionXml(); // the verified assertion, as XML
+profile.getAssertion(); // the verified assertion, parsed
+profile.getSamlResponseXml(); // deprecated - the response as received, NOT verified
+```
+
+`getSamlResponseXml()` is different in kind. A SAML response wraps the assertion in material
+the signature says nothing about, and an attacker supplies it, so the issuer, the status and
+the timestamps read from it are not authenticated. Basing any decision on what it returns
+reintroduces the signature-wrapping attack the rest of this library exists to prevent.
+
+It is deprecated and is removed in the next major version
+([#424](https://github.com/node-saml/node-saml/issues/424)). Calling it logs a warning under
+`NODE_DEBUG=node-saml`. Use `getAssertionXml()` or `getAssertion()` instead.
+
 ### Configuration option `signatureAlgorithm`
 
 Requests sent by Node-SAML can be signed using RSA with SHA-1, SHA-256, or SHA-512.

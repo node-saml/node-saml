@@ -1269,7 +1269,14 @@ class SAML {
 
     profile.getAssertionXml = () => xml.toString();
     profile.getAssertion = () => parsedAssertion;
-    profile.getSamlResponseXml = () => samlResponseXml;
+    // The `@deprecated` tag reaches TypeScript callers in their editor; this reaches everyone
+    // else, and only when the accessor is actually used.
+    profile.getSamlResponseXml = () => {
+      debugLog(
+        "Profile.getSamlResponseXml() returns the SAML response as received, not the bytes whose signature was verified, so nothing read from it is authenticated. Use getAssertionXml() or getAssertion() for the verified assertion. This accessor is removed in the next major version. See https://github.com/node-saml/node-saml/issues/424",
+      );
+      return samlResponseXml;
+    };
 
     return { profile, loggedOut: false };
   }
