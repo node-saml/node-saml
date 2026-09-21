@@ -726,6 +726,72 @@ describe("node-saml /", function () {
 
         testMetadata(samlConfig, expectedMetadata);
       });
+
+      describe("certificates", function () {
+        const readStatic = (name: string) =>
+          fs.readFileSync(`${__dirname}/static/${name}`, "utf-8");
+        const signingCert = readStatic("acme_tools_com.cert");
+        const encryptionCert = readStatic("testshib encryption cert.pem");
+        const params = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          generateUniqueId: () => "_metadata",
+        };
+        const signingMetadata = (publicCerts: string | string[]) =>
+          generateServiceProviderMetadata({
+            ...params,
+            privateKey: readStatic("acme_tools_com.key"),
+            publicCerts,
+          });
+        const encryptionMetadata = (decryptionCert: string) =>
+          generateServiceProviderMetadata({
+            ...params,
+            decryptionPvk: readStatic("testshib encryption pvk.pem"),
+            decryptionCert,
+          });
+
+        it("publishes a certificate the same whether it is given as PEM or as Base64", function () {
+          const base64 = readStatic("acme_tools_com_without_header_and_footer.cert");
+          expect(signingMetadata(base64.replace(/\s/g, ""))).to.equal(signingMetadata(signingCert));
+        });
+
+        it("should throw if decryptionCert holds more than one certificate", function () {
+          expect(() => encryptionMetadata(`${encryptionCert}${signingCert}`)).to.throw(
+            "decryptionCert must hold exactly one certificate, but holds 2",
+          );
+        });
+
+        it("should throw if an entry of publicCerts holds more than one certificate, naming the entry", function () {
+          expect(() => signingMetadata([signingCert, `${signingCert}${encryptionCert}`])).to.throw(
+            "publicCerts[1] must hold exactly one certificate, but holds 2",
+          );
+        });
+
+        it("should throw if publicCerts is a public key rather than a certificate", function () {
+          expect(() => signingMetadata(readStatic("pub.pem"))).to.throw(
+            "publicCerts must hold exactly one certificate, but holds 0",
+          );
+        });
+
+        it("signs metadata with a private key given as Base64", async function () {
+          const metadata = generateServiceProviderMetadata({
+            ...params,
+            privateKey: readStatic("single_line_acme_tools_com.key"),
+            publicCerts: signingCert,
+            signMetadata: true,
+            signatureAlgorithm: "sha256",
+            digestAlgorithm: "sha256",
+          });
+          const dom = await parseDomFromString(metadata);
+          assert.ok(getVerifiedXml(metadata, dom.documentElement, [signingCert]));
+        });
+
+        it("should throw if decryptionCert is not a certificate, naming the option", function () {
+          expect(() => encryptionMetadata(FAKE_CERT)).to.throw(
+            /^decryptionCert is not in PEM format or in base64 format: /,
+          );
+        });
+      });
     });
 
     describe("validatePostResponse checks /", function () {
@@ -770,7 +836,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
           callbackUrl: "http://localhost/saml/consume",
-          idpCert: FAKE_CERT,
+          idpCert: TEST_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
         });
@@ -786,7 +852,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
           callbackUrl: "http://localhost/saml/consume",
-          idpCert: FAKE_CERT,
+          idpCert: TEST_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
         });
@@ -3212,15 +3278,9 @@ describe("node-saml /", function () {
     const request =
       '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
 
-    if (process.versions.node.split(".")[0] >= "18") {
-      await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-        message: "error:1E08010C:DECODER routines::unsupported",
-      });
-    } else {
-      await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-        message: "error:0909006C:PEM routines:get_name:no start line",
-      });
-    }
+    await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
+      message: "privateKey is not in PEM format or in base64 format: Invalid PEM format.",
+    });
   });
 
   describe("validateRedirect()", function () {

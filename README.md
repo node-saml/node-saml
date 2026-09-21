@@ -271,6 +271,11 @@ const metadata = saml.generateServiceProviderMetadata(decryptionCert, publicCert
   match the current `privateKey`, and later entries publish upcoming certificates to the IdP before
   you switch over.
 
+Both are read by the rules described under [`privateKey`](#configuration-option-privatekey), as PEM or
+as Base64, and published as a single line of Base64. `decryptionCert`, and each entry of
+`publicCerts`, must hold exactly one certificate; a value holding several, or holding a public key
+rather than a certificate, is refused with an error naming it.
+
 The underlying function is also exported directly, for generating metadata without constructing a
 `SAML` instance:
 
@@ -483,8 +488,34 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 ### Configuration option `privateKey`
 
 To sign authentication requests, provide the private key in PEM format via `privateKey`. Node-SAML
-enforces the [RFC 7468](https://www.rfc-editor.org/rfc/rfc7468) `stricttextualmsg` format for PEM
-files.
+reads it with xml-crypto's `toPem()`, and uses what that returns: canonical
+[RFC 7468](https://www.rfc-editor.org/rfc/rfc7468) PEM, with `\n` line endings, lines of 64
+characters, and one message after another.
+
+What it accepts is more liberal than RFC 7468's `stricttextualmsg`:
+
+- whitespace surrounding the value, and a leading UTF-8 byte order mark, whether the value arrives
+  as a string or a `Buffer`;
+- any of the three line-ending conventions;
+- encoded data wrapped at any width, or not wrapped at all, with spaces or tabs anywhere in it;
+- a blank line after the `-----BEGIN ...-----` boundary;
+- several PEM messages concatenated in one value, optionally separated by blank lines. Signing and
+  verification each take only one key from such a value, so it suits a private key stored alongside
+  its certificate, but not a set of keys: to trust several IdP certificates, give `idpCert` an array.
+
+It rejects, with an error naming the option and giving the reason:
+
+- encoded data that is not valid Base64 as [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648)
+  section 4 defines it — `=` padding away from the end, or a last group that is incomplete — rather
+  than decoding as much of it as it can;
+- a message whose `-----BEGIN` and `-----END` labels disagree;
+- a `CERTIFICATE` whose data is not exactly one X.509 certificate;
+- text before, after or between the messages, and a boundary sharing its line with other text.
+
+xml-crypto documents the complete rules under
+[What the parser accepts](https://github.com/node-saml/xml-crypto#what-the-parser-accepts). A
+`Buffer` is read as the text of a PEM or Base64 file, just as a string is; DER is not accepted, so
+convert it to PEM first as shown under [`idpCert`](#configuration-option-idpcert).
 
 ```javascript
 privateKey: fs.readFileSync("./privateKey.pem", "latin1");
@@ -492,7 +523,7 @@ privateKey: fs.readFileSync("./privateKey.pem", "latin1");
 
 Accepted formats:
 
-1. RFC 7468 `stricttextualmsg` PEM, with either label:
+1. RFC 7468 PEM, with either label:
 
    ```text
    -----BEGIN PRIVATE KEY-----
@@ -512,7 +543,9 @@ Accepted formats:
 ### Configuration option `idpCert`
 
 Validating the signatures on incoming responses is the point of this library, and `idpCert` is what
-it validates them against. Provide the IdP's public X.509 signing certificate(s) or public key(s).
+it validates them against. Provide the IdP's public X.509 signing certificate(s) or public key(s). The
+same normalization, tolerances and rejections described under
+[`privateKey`](#configuration-option-privatekey) apply here.
 
 ```javascript
 idpCert: "MIICizCCAfQCCQCY8tKaMc0BMjANBgkqh ... W==";
@@ -537,7 +570,7 @@ idpCert: (callback) => {
 
 Accepted formats:
 
-1. RFC 7468 `stricttextualmsg` PEM, as a certificate or a bare public key:
+1. RFC 7468 PEM, as a certificate or a bare public key:
 
    ```text
    -----BEGIN CERTIFICATE-----
@@ -565,7 +598,9 @@ openssl x509 -inform der -in my_certificate.cer -out my_certificate.pem
 
 Some identity providers require the SP's public signing certificate to be embedded in the
 `AuthnRequest`, so they can verify the request, match the subject DN, and confirm the certificate was
-signed. Pass it as `publicCert`; it must match `privateKey`. The same two formats are accepted:
+signed. Pass it as `publicCert`; it must match `privateKey`, and it must hold at least one certificate:
+a public key alone is refused, because it would leave `KeyInfo` out of the signature. The same two
+formats are accepted:
 
 ```text
 -----BEGIN CERTIFICATE-----
