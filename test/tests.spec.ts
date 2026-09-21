@@ -3286,6 +3286,42 @@ describe("node-saml /", function () {
   });
 
   describe("validateRedirect()", function () {
+    function withoutSignature(request: Record<string, string>): Record<string, string> {
+      const unsigned = { ...request };
+      delete unsigned.Signature;
+      delete unsigned.SigAlg;
+      unsigned.originalQuery = request.originalQuery
+        .split("&")
+        .filter((param) => !/^(Signature|SigAlg)=/.test(param))
+        .join("&");
+      return unsigned;
+    }
+
+    // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child rather
+    // than mutating the environment the rest of the suite shares.
+    function validateRedirectWithNodeDebug(request: Record<string, string>) {
+      const config: SamlConfig = {
+        callbackUrl: "http://localhost/saml/consume",
+        idpCert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "ascii"),
+        issuer: "onesaml_login",
+        acceptedClockSkewMs: -1,
+      };
+      const script = `
+        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        new SAML(${JSON.stringify(config)})
+          .validateRedirectAsync(${JSON.stringify(request)}, ${JSON.stringify(request.originalQuery)})
+          .catch((error) => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+      `;
+      return spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+    }
+
     describe("idp slo", function () {
       let samlObj: SAML;
       let fakeClock: sinon.SinonFakeTimers;
@@ -3359,43 +3395,18 @@ describe("node-saml /", function () {
       // Pins behavior scheduled to change, not behavior we want: when this becomes a
       // rejection the test must fail and be rewritten. https://github.com/node-saml/node-saml/issues/419
       it("accepts a message with no Signature parameter, pending rejection in the next major", async function () {
-        delete this.request.Signature;
-        delete this.request.SigAlg;
-
-        const { loggedOut } = await samlObj.validateRedirectAsync(
-          this.request,
-          this.request.originalQuery,
-        );
+        const request = withoutSignature(this.request);
+        const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
         expect(loggedOut).to.be.true;
       });
-      // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child rather
-      // than mutating the environment the rest of the suite shares.
       it("warns via NODE_DEBUG when it accepts a message with no Signature parameter", function () {
         this.timeout(20000); // Compiling the library in the child process is not fast.
-        const script = `
-          const fs = require("fs");
-          const { SAML } = require("${path.join(__dirname, "..", "src").replace(/\\/g, "/")}");
-          const request = JSON.parse(fs.readFileSync("${path
-            .join(__dirname, "static", "idp_slo_redirect.json")
-            .replace(/\\/g, "/")}", "utf8"));
-          delete request.Signature;
-          delete request.SigAlg;
-          new SAML({
-            callbackUrl: "http://localhost/saml/consume",
-            idpCert: fs.readFileSync("${path
-              .join(__dirname, "static", "acme_tools_com.cert")
-              .replace(/\\/g, "/")}", "ascii"),
-            issuer: "onesaml_login",
-            acceptedClockSkewMs: -1,
-          }).validateRedirectAsync(request, request.originalQuery);
-        `;
-        const { stderr } = spawnSync(
-          process.execPath,
-          ["--require", "ts-node/register/transpile-only", "--eval", script],
-          { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
-        );
+        const { status, stderr } = validateRedirectWithNodeDebug(withoutSignature(this.request));
 
-        expect(stderr).to.contain("no Signature parameter");
+        expect(status, stderr).to.equal(0);
+        expect(stderr).to.contain(
+          "SAMLRequest over the Redirect binding with no Signature parameter",
+        );
         expect(stderr).to.contain("unverified");
       });
     });
@@ -3471,13 +3482,20 @@ describe("node-saml /", function () {
       // choose. https://github.com/node-saml/node-saml/issues/419
       it("accepts a response with no Signature parameter, pending rejection in the next major", async function () {
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
-        delete this.request.Signature;
-        delete this.request.SigAlg;
-        const { loggedOut } = await samlObj.validateRedirectAsync(
-          this.request,
-          this.request.originalQuery,
-        );
+        const request = withoutSignature(this.request);
+        const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
         expect(loggedOut).to.be.true;
+      });
+
+      it("warns via NODE_DEBUG when it accepts a response with no Signature parameter", function () {
+        this.timeout(20000); // Compiling the library in the child process is not fast.
+        const { status, stderr } = validateRedirectWithNodeDebug(withoutSignature(this.request));
+
+        expect(status, stderr).to.equal(0);
+        expect(stderr).to.contain(
+          "SAMLResponse over the Redirect binding with no Signature parameter",
+        );
+        expect(stderr).to.contain("unverified");
       });
 
       it("accepts cert without header and footer line", async function () {

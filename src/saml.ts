@@ -994,7 +994,7 @@ class SAML {
       // an attacker supplies. Kept for compatibility until
       // https://github.com/node-saml/node-saml/issues/419
       debugLog(
-        "Accepted a %s over the Redirect binding with no Signature parameter. Its contents are unverified. Configure the identity provider to sign logout messages; a future major version will reject unsigned ones.",
+        "Processing a %s over the Redirect binding with no Signature parameter. Its contents are unverified. Configure the identity provider to sign logout messages; a future major version will reject unsigned ones.",
         container.SAMLRequest ? "SAMLRequest" : "SAMLResponse",
       );
       return true;
