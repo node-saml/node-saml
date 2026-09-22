@@ -40,6 +40,7 @@ import {
   getNameIdAsync,
   getVerifiedXml,
   parseDomFromString,
+  parseSamlXmlFragment,
   parseXml2JsFromString,
   validateSignature,
   xpath,
@@ -831,7 +832,7 @@ class SAML {
         const encryptedAssertionXml = encryptedAssertions[0].toString();
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
-        const decryptedDoc = await parseDomFromString(decryptedXml);
+        const decryptedDoc = await parseSamlXmlFragment(decryptedXml);
         const decryptedAssertion = decryptedDoc.documentElement;
         if (decryptedAssertion.localName !== "Assertion") {
           throw new Error("Invalid EncryptedAssertion content");
@@ -914,7 +915,7 @@ class SAML {
         const encryptedAssertionXml = encryptedAssertions[0].toString();
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
-        const decryptedDoc = await parseDomFromString(decryptedXml);
+        const decryptedDoc = await parseSamlXmlFragment(decryptedXml);
         const decryptedAssertions = xpath.selectElements(
           decryptedDoc,
           "/*[local-name()='Assertion']",
