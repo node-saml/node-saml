@@ -224,22 +224,33 @@ describe("published type surface", function () {
 
     expect(legacyCall, "a 5.1 caller that passed the seam still compiles").to.equal("");
 
-    // An override written against the previous signature also still compiles.
-    const subclass = typeCheck(`
+    // An override written against the previous signature also still compiles. The parameter type is
+    // the one v5.1.0 emitted, copied from `git show v5.1.0:src/saml.ts` compiled with `--declaration`,
+    // because `unknown` here would only prove that an override written against the *new* signature
+    // compiles. The `XmlJsObject` deep import is what such an override had to write: the type is not
+    // re-exported from the barrel.
+    const legacySubclass = typeCheck(`
       import { SAML, Profile } from ${packageEntry};
+      import type { XmlJsObject } from ${JSON.stringify(path.join(repoRoot, "lib", "types"))};
 
-      class Subclass extends SAML {
+      class LegacySubclass extends SAML {
         async validatePostRequestAsync(
           container: Record<string, string>,
-          injected?: unknown,
+          injected?: {
+            _parseDomFromString?: ((xml: string) => Promise<Document>) | undefined;
+            _parseXml2JsFromString?: ((xml: string | Buffer) => Promise<XmlJsObject>) | undefined;
+            _validateSignature?:
+              | ((fullXml: string, currentNode: Element, pemFiles: string[]) => boolean)
+              | undefined;
+          },
         ): Promise<{ profile: Profile; loggedOut: boolean }> {
           return super.validatePostRequestAsync(container, injected);
         }
       }
 
-      void Subclass;
+      export { LegacySubclass };
     `);
 
-    expect(subclass, "an override written against the old signature still compiles").to.equal("");
+    expect(legacySubclass, "a v5.1 override still compiles").to.equal("");
   });
 });

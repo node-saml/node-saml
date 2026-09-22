@@ -248,11 +248,13 @@ res.redirect(url);
 equivalent of `getLogoutResponseUrlAsync`.
 
 `validatePostRequestAsync` also accepts a deprecated second argument, an object of injected
-dependencies. It is ignored — nothing passed there can substitute signature verification — and it is
-removed in the next major version. Calling it that way logs a warning under `NODE_DEBUG=node-saml`:
+dependencies — `_parseDomFromString`, `_parseXml2JsFromString` and `_validateSignature`. It is
+ignored: nothing passed there can substitute signature verification, which the last of those used to
+do. The argument is removed in the next major version, and calling it that way logs a warning under
+`NODE_DEBUG=node-saml`:
 
 ```javascript
-await saml.validatePostRequestAsync(req.body, { _getVerifiedXml }); // deprecated, and ignored
+await saml.validatePostRequestAsync(req.body, { _validateSignature }); // deprecated, and ignored
 await saml.validatePostRequestAsync(req.body); // use this
 ```
 
