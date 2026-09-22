@@ -52,10 +52,11 @@ describe("published type surface", function () {
   });
 
   // `SAML` is exported from the barrel, so an override's signature is part of the semver
-  // contract. A second overload on any of these methods breaks every existing override.
+  // contract. A second overload on any of these methods breaks every existing override, and a new
+  // required parameter breaks the override's `super` call.
   it("keeps compiling a subclass written against the previous signatures", function () {
     const errors = typeCheck(`
-      import { SAML, AuthOptions } from ${packageEntry};
+      import { SAML, AuthOptions, Profile } from ${packageEntry};
       import type * as querystring from "querystring";
 
       class LegacySubclass extends SAML {
@@ -81,6 +82,14 @@ describe("published type surface", function () {
           options?: AuthOptions,
         ): Promise<string> {
           return super.getAuthorizeFormAsync(RelayState, host, options);
+        }
+
+        protected async processValidlySignedAssertionAsync(
+          xml: string,
+          samlResponseXml: string,
+          inResponseTo: string | null,
+        ): Promise<{ profile: Profile; loggedOut: boolean }> {
+          return super.processValidlySignedAssertionAsync(xml, samlResponseXml, inResponseTo);
         }
       }
 

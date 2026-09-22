@@ -28,20 +28,43 @@ function sign(xml: string, element: string): string {
   );
 }
 
-function loginResponse({ subjectConfirmationInResponseTo = true } = {}): Record<string, string> {
-  const confirmationInResponseTo = subjectConfirmationInResponseTo
-    ? ` InResponseTo="${requestId}"`
-    : "";
+function loginResponse({
+  responseInResponseTo = requestId,
+  subjectConfirmations = [{ inResponseTo: true }],
+  signResponse = false,
+}: {
+  responseInResponseTo?: string;
+  subjectConfirmations?: { inResponseTo?: boolean; data?: "full" | "empty" | "none" }[];
+  signResponse?: boolean;
+} = {}): Record<string, string> {
+  const method = `Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"`;
+  const confirmations = subjectConfirmations
+    .map(({ inResponseTo = false, data = "full" }) => {
+      if (data === "none") {
+        return `<saml:SubjectConfirmation ${method}/>`;
+      }
+      if (data === "empty") {
+        return `<saml:SubjectConfirmation ${method}><saml:SubjectConfirmationData/></saml:SubjectConfirmation>`;
+      }
+      const inResponseToAttribute = inResponseTo ? ` InResponseTo="${requestId}"` : "";
+      return (
+        `<saml:SubjectConfirmation ${method}>` +
+        `<saml:SubjectConfirmationData NotOnOrAfter="${instant(300000)}" Recipient="http://localhost/saml/consume"${inResponseToAttribute}/>` +
+        `</saml:SubjectConfirmation>`
+      );
+    })
+    .join("");
   const xml =
-    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}" InResponseTo="${requestId}">` +
+    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}" InResponseTo="${responseInResponseTo}">` +
     `<saml:Issuer>idp</saml:Issuer>${success}` +
     `<saml:Assertion ID="_assertion" Version="2.0" IssueInstant="${instant()}"><saml:Issuer>idp</saml:Issuer>` +
-    `<saml:Subject><saml:NameID>user</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">` +
-    `<saml:SubjectConfirmationData NotOnOrAfter="${instant(300000)}" Recipient="http://localhost/saml/consume"${confirmationInResponseTo}/>` +
-    `</saml:SubjectConfirmation></saml:Subject>` +
+    `<saml:Subject><saml:NameID>user</saml:NameID>${confirmations}</saml:Subject>` +
     `<saml:Conditions NotBefore="${instant(-60000)}" NotOnOrAfter="${instant(300000)}"><saml:AudienceRestriction><saml:Audience>onesaml_login</saml:Audience></saml:AudienceRestriction></saml:Conditions>` +
     `<saml:AuthnStatement AuthnInstant="${instant()}"/></saml:Assertion></samlp:Response>`;
-  return { SAMLResponse: Buffer.from(sign(xml, "Assertion")).toString("base64") };
+  const signed = sign(xml, "Assertion");
+  return {
+    SAMLResponse: Buffer.from(signResponse ? sign(signed, "Response") : signed).toString("base64"),
+  };
 }
 
 function logoutResponseXml({ inResponseTo = true } = {}): string {
@@ -63,8 +86,8 @@ function signedPostLogoutResponse(): Record<string, string> {
   };
 }
 
-function newSaml(config: Partial<SamlConfig> = {}): SAML {
-  return new SAML({
+function newSaml(config: Partial<SamlConfig> = {}, Saml: typeof SAML = SAML): SAML {
+  return new Saml({
     callbackUrl: "http://localhost/saml/consume",
     entryPoint: "https://idp.example.com/sso",
     issuer: "onesaml_login",
@@ -124,7 +147,82 @@ describe("InResponseTo request ID consumption", function () {
     });
 
     it("rejects one presented again when its SubjectConfirmationData omits InResponseTo", async () => {
-      const response = loginResponse({ subjectConfirmationInResponseTo: false });
+      const response = loginResponse({
+        subjectConfirmations: [{ inResponseTo: false }],
+        signResponse: true,
+      });
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "InResponseTo is not valid",
+      );
+    });
+
+    // Otherwise a captured IdP-initiated assertion, wrapped in a new Response, answers a request the
+    // sender started themselves: https://github.com/node-saml/node-saml/issues/433
+    it("rejects an unsigned one whose SubjectConfirmationData omits InResponseTo", async () => {
+      const response = loginResponse({ subjectConfirmations: [{ inResponseTo: false }] });
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
+      );
+    });
+
+    it("rejects an unsigned one whose assertion has no SubjectConfirmation", async () => {
+      const response = loginResponse({ subjectConfirmations: [] });
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
+      );
+    });
+
+    (["none", "empty"] as const).forEach((data) => {
+      const shape = data === "none" ? "no SubjectConfirmationData" : "an attribute-less one";
+
+      it(`rejects an unsigned one whose SubjectConfirmation has ${shape}`, async () => {
+        const response = loginResponse({ subjectConfirmations: [{ data }] });
+
+        expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+          "No valid subject confirmation found among those available in the SAML assertion",
+        );
+      });
+    });
+
+    it("accepts an unsigned one when a later SubjectConfirmation carries InResponseTo", async () => {
+      const response = loginResponse({
+        subjectConfirmations: [{ inResponseTo: false }, { inResponseTo: true }],
+      });
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
+    });
+
+    // Defaulting to verified would leave an override written before the parameter open to #433.
+    it("treats the Response as unsigned when an override passes only three arguments", async () => {
+      class ThreeArgumentSaml extends SAML {
+        protected async processValidlySignedAssertionAsync(
+          xml: string,
+          samlResponseXml: string,
+          inResponseTo: string | null,
+        ) {
+          return super.processValidlySignedAssertionAsync(xml, samlResponseXml, inResponseTo);
+        }
+      }
+      saml = newSaml({}, ThreeArgumentSaml);
+      await saml.getAuthorizeUrlAsync("", {});
+      const response = loginResponse({
+        subjectConfirmations: [{ inResponseTo: false }],
+        signResponse: true,
+      });
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
+      );
+    });
+
+    it("still consumes an unsigned Response's InResponseTo under ifPresent", async () => {
+      saml = newSaml({ validateInResponseTo: ValidateInResponseTo.ifPresent });
+      await saml.getAuthorizeUrlAsync("", {});
+      const response = loginResponse({ subjectConfirmations: [{ inResponseTo: false }] });
 
       expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
       expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
@@ -219,6 +317,51 @@ describe("InResponseTo request ID consumption", function () {
 
       expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal("accepted");
       expect(await cacheProvider.getAsync(requestId)).to.equal(null);
+    });
+  });
+
+  describe("profile.inResponseTo", function () {
+    let saml: SAML;
+
+    beforeEach(function () {
+      saml = newSaml({ validateInResponseTo: ValidateInResponseTo.never });
+    });
+
+    it("is the Response's when the Response is signed", async () => {
+      const response = loginResponse({
+        subjectConfirmations: [{ inResponseTo: false }],
+        signResponse: true,
+      });
+
+      const { profile } = await saml.validatePostResponseAsync(response);
+      expect(profile).to.have.property("inResponseTo", requestId);
+    });
+
+    it("is the assertion's when the Response is unsigned", async () => {
+      const response = loginResponse({ responseInResponseTo: "_unsigned" });
+
+      const { profile } = await saml.validatePostResponseAsync(response);
+      expect(profile).to.have.property("inResponseTo", requestId);
+    });
+
+    it("is a later SubjectConfirmation's when the first omits it", async () => {
+      const response = loginResponse({
+        responseInResponseTo: "_unsigned",
+        subjectConfirmations: [{ inResponseTo: false }, { inResponseTo: true }],
+      });
+
+      const { profile } = await saml.validatePostResponseAsync(response);
+      expect(profile).to.have.property("inResponseTo", requestId);
+    });
+
+    it("is absent when only an unsigned Response carries one", async () => {
+      const response = loginResponse({
+        responseInResponseTo: "_unsigned",
+        subjectConfirmations: [{ inResponseTo: false }],
+      });
+
+      const { profile } = await saml.validatePostResponseAsync(response);
+      expect(profile).to.not.have.property("inResponseTo");
     });
   });
 });

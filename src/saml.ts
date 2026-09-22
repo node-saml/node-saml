@@ -93,6 +93,29 @@ async function consumeInResponseToAsync(
   }
 }
 
+// An unsigned Response's InResponseTo can name a request the sender started themselves, so under
+// "always" it cannot be what ties an assertion to a request. "ifPresent" accepts unsolicited
+// responses anyway, so there it is only consumed, which still stops a replay.
+async function consumeResponseInResponseToAsync(
+  cacheProvider: CacheProvider,
+  validateInResponseTo: ValidateInResponseTo,
+  inResponseTo: string | null,
+  inResponseToIsVerified: boolean,
+): Promise<void> {
+  if (!inResponseToIsVerified && validateInResponseTo === ValidateInResponseTo.always) {
+    throw new Error("SubjectInResponseTo is missing and the Response's InResponseTo is not signed");
+  }
+  await consumeInResponseToAsync(cacheProvider, inResponseTo);
+}
+
+async function getInResponseToAsync(xml: string): Promise<string | null> {
+  const inResponseToNodes = xpath.selectAttributes(
+    await parseDomFromString(xml),
+    "/*/@InResponseTo",
+  );
+  return inResponseToNodes.length ? inResponseToNodes[0].nodeValue : null;
+}
+
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -923,7 +946,12 @@ class SAML {
         if (signedAssertion == null) {
           throw new Error("Cannot obtain assertion from signed data");
         }
-        return await this.processValidlySignedAssertionAsync(signedAssertion, xml, inResponseTo);
+        return await this.processValidlySignedAssertionAsync(
+          signedAssertion,
+          xml,
+          responseVerifiedXml ? await getInResponseToAsync(responseVerifiedXml) : inResponseTo,
+          responseVerifiedXml != null,
+        );
       }
 
       const xmljsDoc = (await parseXml2JsFromString(xml)) as SamlResponseXmlJs;
@@ -1141,6 +1169,7 @@ class SAML {
     xml: string, // assertion XML
     samlResponseXml: string, // the response as received, not as verified; backs getSamlResponseXml()
     inResponseTo: string | null,
+    inResponseToIsVerified = false, // whether a verified Response signature covers inResponseTo
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     let msg;
     const nowMs = new Date().getTime();
@@ -1152,10 +1181,6 @@ class SAML {
       const issuer = assertion.Issuer;
       if (issuer && issuer[0]._) {
         profile.issuer = issuer[0]._;
-      }
-
-      if (inResponseTo != null) {
-        profile.inResponseTo = inResponseTo;
       }
 
       const authnStatement = assertion.AuthnStatement;
@@ -1181,7 +1206,7 @@ class SAML {
           }
         }
         subjectConfirmations = subject[0].SubjectConfirmation;
-        subjectConfirmation = subjectConfirmations?.find((_subjectConfirmation: XMLOutput) => {
+        const isTimely = (_subjectConfirmation: XMLOutput) => {
           const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
           if (_confirmData?.$) {
             const subjectNotBefore = _confirmData.$.NotBefore;
@@ -1202,11 +1227,26 @@ class SAML {
           }
 
           return false;
-        });
+        };
+        // Without a signed Response, only a SubjectConfirmationData can tie the assertion to a
+        // request, and verifying any one confirmation is enough (SAML Core §2.4.1).
+        if (!inResponseToIsVerified) {
+          subjectConfirmation = subjectConfirmations?.find(
+            (sc) => sc.SubjectConfirmationData?.[0].$?.InResponseTo != null && isTimely(sc),
+          );
+        }
+        subjectConfirmation ??= subjectConfirmations?.find(isTimely);
 
         if (subjectConfirmation != null) {
           confirmData = subjectConfirmation.SubjectConfirmationData[0];
         }
+      }
+
+      const verifiedInResponseTo = inResponseToIsVerified
+        ? inResponseTo
+        : confirmData?.$?.InResponseTo;
+      if (verifiedInResponseTo != null) {
+        profile.inResponseTo = verifiedInResponseTo;
       }
 
       /**
@@ -1235,14 +1275,24 @@ class SAML {
               break getInResponseTo;
             }
           }
-          await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+          await consumeResponseInResponseToAsync(
+            this.cacheProvider,
+            this.options.validateInResponseTo,
+            inResponseTo,
+            inResponseToIsVerified,
+          );
           break getInResponseTo;
         } else {
           if (subjectConfirmations != null && subjectConfirmation == null) {
             msg = "No valid subject confirmation found among those available in the SAML assertion";
             throw new Error(msg);
           } else {
-            await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+            await consumeResponseInResponseToAsync(
+              this.cacheProvider,
+              this.options.validateInResponseTo,
+              inResponseTo,
+              inResponseToIsVerified,
+            );
             break getInResponseTo;
           }
         }
