@@ -234,6 +234,10 @@ describe("published type surface", function () {
       void saml.validatePostRequestAsync(body, { _getVerifiedXml: () => "<LogoutRequest/>" });
     `);
 
-    expect(injectedVerifier, "no caller may substitute the verifier").to.contain("error TS");
+    // TS2554 is the arity diagnostic. A bare "error TS" would also pass if a second parameter came
+    // back with a type the call happened not to satisfy, which would prove nothing about the seam.
+    expect(injectedVerifier, "no caller may substitute the verifier").to.contain(
+      "error TS2554: Expected 1 arguments, but got 2.",
+    );
   });
 });
