@@ -679,11 +679,12 @@ interface CacheProvider {
 }
 ```
 
-Implement `consumeAsync` if your store can remove a key and return its value in one step, such as
-Redis `GETDEL` or SQL `DELETE … RETURNING`. Node-SAML consumes request IDs with it, so of two copies
-of one response validated at the same moment, only one is accepted. Without it, Node-SAML reads the
-ID and removes it in separate calls, and both copies can be accepted. The built-in provider
-implements it.
+Implement `consumeAsync` with your store's single-step remove-and-return, such as Redis `GETDEL` or
+SQL `DELETE … RETURNING`. Node-SAML consumes request IDs with it, so of two copies of one response
+validated at the same moment, only one is accepted. Without it, Node-SAML reads the ID and removes
+it in separate calls, both copies can be accepted, and a warning is logged under
+`NODE_DEBUG=node-saml` whenever `InResponseTo` is validated. The next major version requires it. The
+built-in provider implements it.
 
 `CacheProvider` and `CacheItem` are exported from the package root.
 

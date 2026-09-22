@@ -44,6 +44,11 @@ describe("saml.ts", function () {
           callbackUrl: "http://localhost/saml/consume",
         };
         const privateKey = ${JSON.stringify(privateKey)};
+        const cacheWithoutConsume = {
+          saveAsync: async (key, value) => ({ value, createdAt: Date.now() }),
+          getAsync: async () => null,
+          removeAsync: async () => null,
+        };
         console.error("<<says-nothing>>");
         new SAML({ ...base });
         console.error("<<signs-says-nothing>>");
@@ -67,6 +72,16 @@ describe("saml.ts", function () {
           signatureAlgorithm: "sha256",
           digestAlgorithm: "sha256",
         });
+        console.error("<<cache-without-consume>>");
+        new SAML({ ...base, validateInResponseTo: "ifPresent", cacheProvider: cacheWithoutConsume });
+        console.error("<<cache-with-consume>>");
+        new SAML({
+          ...base,
+          validateInResponseTo: "always",
+          cacheProvider: { ...cacheWithoutConsume, consumeAsync: async () => null },
+        });
+        console.error("<<cache-never-consulted>>");
+        new SAML({ ...base, validateInResponseTo: "never", cacheProvider: cacheWithoutConsume });
         console.error("<<end>>");
       `;
       const child = spawnSync(
@@ -125,6 +140,20 @@ describe("saml.ts", function () {
 
     it("says nothing when every one of them is chosen explicitly", function () {
       expect(warningsFor("everything-chosen")).to.equal("");
+    });
+
+    it("warns when InResponseTo is validated with a `cacheProvider` lacking `consumeAsync`", function () {
+      const warnings = warningsFor("cache-without-consume");
+      expect(warnings).to.contain("`cacheProvider` has no `consumeAsync`");
+      expect(warnings).to.contain("The next major version requires it");
+    });
+
+    it("says nothing about a `cacheProvider` that has `consumeAsync`", function () {
+      expect(warningsFor("cache-with-consume")).to.equal("");
+    });
+
+    it("says nothing about the `cacheProvider` when InResponseTo is never validated", function () {
+      expect(warningsFor("cache-never-consulted")).to.equal("");
     });
   });
 

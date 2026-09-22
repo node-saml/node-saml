@@ -208,6 +208,15 @@ class SAML {
       );
     }
 
+    if (
+      options.validateInResponseTo !== ValidateInResponseTo.never &&
+      options.cacheProvider.consumeAsync == null
+    ) {
+      debugLog(
+        "`cacheProvider` has no `consumeAsync`, so a request ID is read and then removed in separate calls, and two copies of one response validated at the same moment can both be accepted. The next major version requires it; implement it to remove a key and return its value in one step. See https://github.com/node-saml/node-saml/issues/431",
+      );
+    }
+
     if (isValidSamlSigningOptions(ctorOptions)) {
       for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
         if (ctorOptions[option] === undefined) {
