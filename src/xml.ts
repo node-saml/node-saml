@@ -161,15 +161,22 @@ export const getVerifiedXml = (
 };
 
 /**
- * Internally deprecated Do not only return boolean value, instead return the actual signed content. SAML Libraries must only use the referenced bytes from the signature
  * This function checks that the |currentNode| in the |fullXml| document contains exactly 1 valid
  *   signature of the |currentNode|.
  *
  * See https://github.com/bergie/passport-saml/issues/19 for references to some of the attack
  *   vectors against SAML signature verification.
+ *
+ * @deprecated Reports only whether a signature verified, leaving the caller to find the signed
+ * content somewhere else — and an attacker controls the difference between what verified and what
+ * the caller then reads. Removed in the next major version; use `getVerifiedXml()`, which returns
+ * the bytes the signature covers.
  */
-
-const _validateSignature = (fullXml: string, currentNode: Element, pemFiles: string[]): boolean => {
+export const validateSignature = (
+  fullXml: string,
+  currentNode: Element,
+  pemFiles: string[],
+): boolean => {
   const xpathSigQuery = `.//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and descendant::*[local-name(.)='Reference' and @URI='#${currentNode.getAttribute("ID")}']]`;
   const signatures = xpath.selectElements(currentNode, xpathSigQuery);
   // This function is expecting to validate exactly one signature, so if we find more or fewer
@@ -197,12 +204,6 @@ const _validateSignature = (fullXml: string, currentNode: Element, pemFiles: str
     return validateXmlSignatureWithPemFile(signature, pemFile, fullXml, currentNode);
   });
 };
-
-// validateSignature is deprecated, should be using getVerifiedXml
-// Existing non-sensitive callers can still use validateSignature
-// but new callers should use getVerifiedXml
-// this allows us to deprecate it without raising a warning
-export const validateSignature = _validateSignature;
 
 /**
  * This function checks that the |signature| is signed with a given |pemFile|.

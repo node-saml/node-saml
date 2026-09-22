@@ -15,6 +15,8 @@ describe("Signatures", function () {
   const INVALID_DOCUMENT_SIGNATURE = "Invalid document signature";
   const INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion";
   const INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms";
+  const INVALID_DOCUMENT_ELEMENT_SIGNATURE = "Invalid signature on documentElement";
+  const INVALID_AMBIGUOUS_ID = "Invalid signature: ID cannot refer to more than one element";
   const XMLDOM_ERROR =
     "[xmldom error]\telement parse error: Error: Hierarchy request error: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
@@ -603,6 +605,54 @@ describe("Signatures", function () {
       testOneResponse("/valid/response.root-signed.assertion-unsigned-xd-signature.xml", false, 1, {
         wantAssertionsSigned: false,
       }),
+    );
+  });
+
+  describe("Signatures on samlp:LogoutRequest", () => {
+    const createRequestBody = (pathToXml: string) => ({
+      SAMLRequest: fs.readFileSync(__dirname + "/static" + pathToXml, "base64"),
+    });
+
+    const samlObj = () =>
+      new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        idpCert,
+        issuer: "onesaml_login",
+      });
+
+    const testOneRequest =
+      (pathToXml: string, shouldErrorWith: string, amountOfSignatureChecks = 1) =>
+      async () => {
+        await assert.rejects(samlObj().validatePostRequestAsync(createRequestBody(pathToXml)), {
+          message: shouldErrorWith,
+        });
+
+        expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
+      };
+
+    it("root signed => the profile is read from the signed bytes", async () => {
+      const { profile } = await samlObj().validatePostRequestAsync(
+        createRequestBody("/logout_request_with_good_signature.xml"),
+      );
+
+      expect(profile.nameID).to.equal("ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7");
+      expect(validateSignatureSpy.callCount).to.equal(1);
+    });
+
+    it(
+      "signature displaced into samlp:Extensions => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.signature-in-extensions.xml",
+        INVALID_DOCUMENT_ELEMENT_SIGNATURE,
+      ),
+    );
+
+    it(
+      "a second element carries the root ID => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.duplicate-root-id.xml",
+        INVALID_AMBIGUOUS_ID,
+      ),
     );
   });
 });

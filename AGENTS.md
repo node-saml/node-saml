@@ -113,7 +113,8 @@ A function that answers "did this verify?" with a boolean cannot uphold this rul
 its caller still has to go find the content somewhere else. We are moving away from that
 shape entirely: verification returns the verified bytes or it returns nothing.
 
-_Known debts:_ `validateSignature()` is still exported and still returns a boolean.
+_Known debts:_ `validateSignature()` is still exported and still returns a boolean. It has no
+callers left inside the library, is deprecated, and goes in the next major.
 `Profile.getSamlResponseXml()` hands callers the response as received, without indicating which
 parts were authenticated, and `processValidlySignedAssertionAsync` takes that XML as a parameter
 only to back it. The accessor is deprecated and goes in the next major, and the parameter with it.
@@ -203,9 +204,9 @@ Two cautions specific to this repository:
 
 - A lint rule that errors on deprecated usage makes internal migration enforceable, and is
   worth adding when we have enough marked to justify it. Note that the `@deprecated` tag
-  and that rule arrive together or the build breaks on our own call sites — which is why
-  `validateSignature` carries a comment instead of a tag today. Deprecate the call sites
-  first, then the API.
+  and that rule arrive together or the build breaks on our own call sites. So deprecate the
+  call sites first, then the API: `validateSignature` only earned its tag once
+  `validatePostRequestAsync` had moved to `getVerifiedXml()`.
 - Deprecating a **default** is not the same as deprecating an API and is harder: silence is
   the thing being removed, so there is no call site to warn at. The migration is to warn
   when the option is absent, then require it in the next major.

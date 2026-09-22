@@ -264,6 +264,13 @@ const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, origi
 > messages; a future major version will reject unsigned ones. The POST binding is unaffected:
 > `validatePostRequestAsync` always requires a valid signature.
 
+On the POST binding the profile is built only from the bytes that signature covers. The signature
+has to envelope the message the way
+[SAML core §5.4](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf) and the
+protocol schema require — a `ds:Signature` that is a child of the `LogoutRequest` element it
+references — so a request whose signature sits elsewhere in the document is rejected even though
+that signature verifies.
+
 ### Service provider metadata
 
 Most identity providers will take a metadata document instead of asking you to type the same values
