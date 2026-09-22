@@ -194,7 +194,7 @@ rely on rather than assuming they are all present.
 | `nameID`, `nameIDFormat`           | The subject's name identifier and its format.                                                                    |
 | `nameQualifier`, `spNameQualifier` | Name qualifiers, when the assertion carries them.                                                                |
 | `sessionIndex`                     | The `AuthnStatement`'s `SessionIndex`; you need it to build a logout request.                                    |
-| `inResponseTo`                     | The response's `InResponseTo`, when it carries one.                                                              |
+| `inResponseTo`                     | The `InResponseTo` a signature covers: the `Response`'s if signed, else the `SubjectConfirmationData`'s.         |
 | `mail`, `email`                    | Convenience aliases. `mail` falls back to `urn:oid:0.9.2342.19200300.100.1.3`, and `email` falls back to `mail`. |
 | `attributes`                       | Every attribute as a `Name` → value map. Single-valued attributes are strings; repeated ones are arrays.         |
 | `getAssertionXml()`                | The assertion XML **that the signature covers**. This is the trustworthy copy.                                   |
@@ -660,6 +660,12 @@ captured elsewhere from being replayed at your callback. Turn it on with
 Node-SAML then records the ID of every request it generates, and a response validates only if its
 `InResponseTo` matches one of them. It is checked as an attribute of the top-level `Response` or
 `LogoutResponse` element, and within `SubjectConfirmation`.
+
+Only a signature makes the top-level attribute trustworthy, so when the IdP signs the assertion but
+not the `Response`, `"always"` requires `InResponseTo` on the assertion's `SubjectConfirmationData`
+and rejects the response without it. A conforming IdP already puts it there
+([SAML profiles §4.1.4.2](https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf)).
+If yours does not, have it sign the `Response`.
 
 Recorded IDs expire after `requestIdExpirationPeriodMs` (8 hours by default). A response arriving
 with an expired — or unrecognized — `InResponseTo` is rejected. Accepting a response removes its

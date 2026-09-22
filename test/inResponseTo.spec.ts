@@ -28,20 +28,31 @@ function sign(xml: string, element: string): string {
   );
 }
 
-function loginResponse({ subjectConfirmationInResponseTo = true } = {}): Record<string, string> {
+function loginResponse({
+  responseInResponseTo = requestId,
+  subjectConfirmation = true,
+  subjectConfirmationInResponseTo = true,
+  signResponse = false,
+} = {}): Record<string, string> {
   const confirmationInResponseTo = subjectConfirmationInResponseTo
     ? ` InResponseTo="${requestId}"`
     : "";
+  const confirmation = subjectConfirmation
+    ? `<saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">` +
+      `<saml:SubjectConfirmationData NotOnOrAfter="${instant(300000)}" Recipient="http://localhost/saml/consume"${confirmationInResponseTo}/>` +
+      `</saml:SubjectConfirmation>`
+    : "";
   const xml =
-    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}" InResponseTo="${requestId}">` +
+    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}" InResponseTo="${responseInResponseTo}">` +
     `<saml:Issuer>idp</saml:Issuer>${success}` +
     `<saml:Assertion ID="_assertion" Version="2.0" IssueInstant="${instant()}"><saml:Issuer>idp</saml:Issuer>` +
-    `<saml:Subject><saml:NameID>user</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">` +
-    `<saml:SubjectConfirmationData NotOnOrAfter="${instant(300000)}" Recipient="http://localhost/saml/consume"${confirmationInResponseTo}/>` +
-    `</saml:SubjectConfirmation></saml:Subject>` +
+    `<saml:Subject><saml:NameID>user</saml:NameID>${confirmation}</saml:Subject>` +
     `<saml:Conditions NotBefore="${instant(-60000)}" NotOnOrAfter="${instant(300000)}"><saml:AudienceRestriction><saml:Audience>onesaml_login</saml:Audience></saml:AudienceRestriction></saml:Conditions>` +
     `<saml:AuthnStatement AuthnInstant="${instant()}"/></saml:Assertion></samlp:Response>`;
-  return { SAMLResponse: Buffer.from(sign(xml, "Assertion")).toString("base64") };
+  const signed = sign(xml, "Assertion");
+  return {
+    SAMLResponse: Buffer.from(signResponse ? sign(signed, "Response") : signed).toString("base64"),
+  };
 }
 
 function logoutResponseXml({ inResponseTo = true } = {}): string {
@@ -124,6 +135,38 @@ describe("InResponseTo request ID consumption", function () {
     });
 
     it("rejects one presented again when its SubjectConfirmationData omits InResponseTo", async () => {
+      const response = loginResponse({
+        subjectConfirmationInResponseTo: false,
+        signResponse: true,
+      });
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "InResponseTo is not valid",
+      );
+    });
+
+    // Otherwise a captured IdP-initiated assertion, wrapped in a new Response, answers a request the
+    // sender started themselves: https://github.com/node-saml/node-saml/issues/433
+    it("rejects an unsigned one whose SubjectConfirmationData omits InResponseTo", async () => {
+      const response = loginResponse({ subjectConfirmationInResponseTo: false });
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
+      );
+    });
+
+    it("rejects an unsigned one whose assertion has no SubjectConfirmation", async () => {
+      const response = loginResponse({ subjectConfirmation: false });
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
+      );
+    });
+
+    it("still consumes an unsigned Response's InResponseTo under ifPresent", async () => {
+      saml = newSaml({ validateInResponseTo: ValidateInResponseTo.ifPresent });
+      await saml.getAuthorizeUrlAsync("", {});
       const response = loginResponse({ subjectConfirmationInResponseTo: false });
 
       expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
@@ -219,6 +262,41 @@ describe("InResponseTo request ID consumption", function () {
 
       expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal("accepted");
       expect(await cacheProvider.getAsync(requestId)).to.equal(null);
+    });
+  });
+
+  describe("profile.inResponseTo", function () {
+    let saml: SAML;
+
+    beforeEach(function () {
+      saml = newSaml({ validateInResponseTo: ValidateInResponseTo.never });
+    });
+
+    it("is the Response's when the Response is signed", async () => {
+      const response = loginResponse({
+        subjectConfirmationInResponseTo: false,
+        signResponse: true,
+      });
+
+      const { profile } = await saml.validatePostResponseAsync(response);
+      expect(profile).to.have.property("inResponseTo", requestId);
+    });
+
+    it("is the assertion's when the Response is unsigned", async () => {
+      const response = loginResponse({ responseInResponseTo: "_unsigned" });
+
+      const { profile } = await saml.validatePostResponseAsync(response);
+      expect(profile).to.have.property("inResponseTo", requestId);
+    });
+
+    it("is absent when only an unsigned Response carries one", async () => {
+      const response = loginResponse({
+        responseInResponseTo: "_unsigned",
+        subjectConfirmationInResponseTo: false,
+      });
+
+      const { profile } = await saml.validatePostResponseAsync(response);
+      expect(profile).to.not.have.property("inResponseTo");
     });
   });
 });
