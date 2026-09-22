@@ -129,8 +129,9 @@ element, an `ID` that resolves to more than one element, a reference pointing so
 other than its own parent, a reference URI that is not a same-document reference, and more
 than two transforms.
 
-Each of those was a real attack, not a tidiness check. Do not relax one to make a document
-parse. When you add a check of this kind, add its fixture to
+Each of those closes a real attack, a spec violation, or an ambiguity an attacker would be
+the one to resolve — none of them is a tidiness check, and a check does not need a working
+exploit behind it to belong here. Do not relax one to make a document parse. When you add a check of this kind, add its fixture to
 `test/static/signatures/invalid/` so the rejection is pinned.
 
 ### Fail closed, and say why
@@ -307,9 +308,11 @@ there.
   can answer the question. Keep the change scoped to the requested problem; do not combine
   bug fixes with unrelated refactoring or cleanup.
 - Scoped does not mean partial. What that rule keeps out is _unrelated_ work riding along;
-  a fix is expected to be complete. When the defect is in a shared function, fix it there
-  and cover every caller, even the ones the issue did not mention — shipping it for one
-  caller leaves the others wrong and makes the next person reconcile two half-changes.
-  Judge relatedness by whether the work shares a mechanism or a rationale with the fix, not
-  by whether it touches more than one entry point. Say in the pull request which callers the
-  fix reaches beyond the one that was reported.
+  a fix is expected to be complete. When the defect is in a shared function, consider fixing
+  it there and covering every caller, including ones the issue did not mention — ask first
+  whether the invariant really holds for all of them, because a shared primitive sometimes
+  supports a broader contract than any one caller needs. Where it does hold, fixing one
+  caller leaves the others wrong and makes the next person reconcile two half-changes. Judge
+  relatedness by whether the work shares a mechanism or a rationale with the fix, not by
+  whether it touches more than one entry point. Say in the pull request which callers the fix
+  reaches beyond the one that was reported.

@@ -678,5 +678,28 @@ describe("Signatures", function () {
         INVALID_DETACHED_REFERENCE,
       ),
     );
+
+    // The second argument used to inject these, verification included. It is accepted until the next
+    // major so a 5.1 caller keeps compiling, and it cannot change the verdict.
+    it("injected dependencies cannot substitute the verification => error", async () => {
+      const substituted = {
+        _getVerifiedXml: () =>
+          '<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="forged"/>',
+        _parseDomFromString: () => assert.fail("the injected parser must not be called"),
+        _parseXml2JsFromString: () => assert.fail("the injected parser must not be called"),
+      };
+
+      await assert.rejects(
+        samlObj().validatePostRequestAsync(
+          createRequestBody(
+            "/signatures/invalid/logoutrequest.root-signed.signature-in-extensions.xml",
+          ),
+          substituted,
+        ),
+        { message: INVALID_DOCUMENT_ELEMENT_SIGNATURE },
+      );
+
+      expect(validateSignatureSpy.callCount, "the library's own verification ran").to.equal(1);
+    });
   });
 });

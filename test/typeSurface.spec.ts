@@ -191,12 +191,12 @@ describe("published type surface", function () {
     expect(errors).to.contain("error TS");
   });
 
-  // `validatePostRequestAsync` used to take an optional object of injected dependencies, which
+  // `validatePostRequestAsync`'s second parameter was an object of injected dependencies, which
   // `declaration` emitted into the published types — a published parameter that switched signature
-  // verification off, contradicting the contract README states for the POST binding. It is gone; the
-  // one test that needed it stubs `src/xml` with sinon, the way `test-signatures.spec.ts` already
-  // spies on `getVerifiedXml`.
-  it("takes no injected dependencies on validatePostRequestAsync", function () {
+  // verification off. The substitution is gone, but the parameter stays until the next major:
+  // `AGENTS.md` puts published API removal in a major, and a 5.x consumer who passed it must keep
+  // compiling. `test-signatures.spec.ts` proves that passing it cannot alter verification.
+  it("still accepts the injected-dependency argument it no longer honors", function () {
     const ordinaryCall = typeCheck(`
       import { SAML } from ${packageEntry};
 
@@ -207,17 +207,31 @@ describe("published type surface", function () {
 
     expect(ordinaryCall, "a one-argument call is what consumers write").to.equal("");
 
-    // An override written against the previous two-parameter signature still compiles, because its
-    // extra parameter is optional. Dropping the parameter is not breaking for a subclass.
+    const legacyCall = typeCheck(`
+      import { SAML } from ${packageEntry};
+
+      declare const saml: SAML;
+      declare const body: Record<string, string>;
+      void saml.validatePostRequestAsync(body, {
+        _parseDomFromString: () => Promise.reject(new Error("unused")),
+        _parseXml2JsFromString: () => Promise.reject(new Error("unused")),
+        _getVerifiedXml: () => "<LogoutRequest/>",
+        _validateSignature: () => true,
+      });
+    `);
+
+    expect(legacyCall, "a 5.1 caller that passed the seam still compiles").to.equal("");
+
+    // An override written against the previous signature also still compiles.
     const subclass = typeCheck(`
       import { SAML, Profile } from ${packageEntry};
 
       class Subclass extends SAML {
         async validatePostRequestAsync(
           container: Record<string, string>,
-          _injected?: Record<string, unknown>,
+          injected?: unknown,
         ): Promise<{ profile: Profile; loggedOut: boolean }> {
-          return super.validatePostRequestAsync(container);
+          return super.validatePostRequestAsync(container, injected);
         }
       }
 
@@ -225,19 +239,5 @@ describe("published type surface", function () {
     `);
 
     expect(subclass, "an override written against the old signature still compiles").to.equal("");
-
-    const injectedVerifier = typeCheck(`
-      import { SAML } from ${packageEntry};
-
-      declare const saml: SAML;
-      declare const body: Record<string, string>;
-      void saml.validatePostRequestAsync(body, { _getVerifiedXml: () => "<LogoutRequest/>" });
-    `);
-
-    // TS2554 is the arity diagnostic. A bare "error TS" would also pass if a second parameter came
-    // back with a type the call happened not to satisfy, which would prove nothing about the seam.
-    expect(injectedVerifier, "no caller may substitute the verifier").to.contain(
-      "error TS2554: Expected 1 arguments, but got 2.",
-    );
   });
 });

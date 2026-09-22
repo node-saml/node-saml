@@ -68,6 +68,18 @@ function resolveAuthOptions(
   return hostOrOptions;
 }
 
+// The second argument to `validatePostRequestAsync` was an object of injected dependencies, one of
+// which replaced signature verification outright. It is ignored, so no caller can substitute the
+// verifier, and it is accepted so that a caller who passed it still compiles. Module-level so it
+// adds nothing to the `SAML` class surface, which subclasses inherit.
+function warnIgnoredInjectedDependencies(legacyInjectedDependencies: unknown): void {
+  if (legacyInjectedDependencies !== undefined) {
+    debugLog(
+      "validatePostRequestAsync was called with injected dependencies. They are ignored — signature verification cannot be substituted — and the argument is removed in the next major version; call validatePostRequestAsync(container) instead.",
+    );
+  }
+}
+
 // Reading the ID and then removing it lets two concurrent copies of one response both find it,
 // so a provider that can take it in one step does.
 async function consumeRequestIdAsync(
@@ -1461,7 +1473,9 @@ class SAML {
 
   async validatePostRequestAsync(
     container: Record<string, string>,
+    legacyInjectedDependencies?: unknown,
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
+    warnIgnoredInjectedDependencies(legacyInjectedDependencies);
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
     // The document as received locates the signature; only what that signature covers is read.
     const receivedDom = await parseDomFromString(xml);
