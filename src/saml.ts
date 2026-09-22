@@ -204,7 +204,7 @@ class SAML {
     // next major requires a choice has to come from the option being absent.
     if (ctorOptions.validateInResponseTo === undefined) {
       debugLog(
-        "`validateInResponseTo` is not set, so it defaults to `never` and an InResponseTo is not checked against a request this library issued. A SAML response can then be replayed, or delivered unsolicited. The next major version requires it; set it to `always`, `ifPresent`, or `never` now. See https://github.com/node-saml/node-saml/pull/399",
+        "`validateInResponseTo` is not set, so it defaults to `never` and an InResponseTo is not checked against a request this library issued. A SAML response can then be replayed, or delivered unsolicited. The next major version requires it; set it to `always`, `ifPresent`, or `never` now.",
       );
     }
 
@@ -213,7 +213,7 @@ class SAML {
       options.cacheProvider.consumeAsync == null
     ) {
       debugLog(
-        "`cacheProvider` has no `consumeAsync`, so a request ID is read and then removed in separate calls, and two copies of one response validated at the same moment can both be accepted. The next major version requires it; implement it to remove a key and return its value in one step. See https://github.com/node-saml/node-saml/issues/431",
+        "`cacheProvider` has no `consumeAsync`, so a request ID is read and then removed in separate calls, and two copies of one response validated at the same moment can both be accepted. The next major version requires it; implement it to remove a key and return its value in one step.",
       );
     }
 
@@ -221,7 +221,7 @@ class SAML {
       for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
         if (ctorOptions[option] === undefined) {
           debugLog(
-            "`%s` is not set, so it defaults to `sha1`, which is no longer considered safe for signatures. The next major version requires it whenever `privateKey` is set; set it now. See https://github.com/node-saml/node-saml/issues/422",
+            "`%s` is not set, so it defaults to `sha1`, which is no longer considered safe for signatures. The next major version requires it whenever `privateKey` is set; set it now.",
             option,
           );
         }
@@ -234,7 +234,7 @@ class SAML {
       const value = ctorOptions[option];
       if (value !== undefined && !algorithms.isSupportedAlgorithm(value)) {
         debugLog(
-          '`%s` is set to "%s", which is not recognized, so SHA-1 is used instead. Use one of %s. The next major version rejects an unrecognized value rather than downgrading. See https://github.com/node-saml/node-saml/issues/423',
+          '`%s` is set to "%s", which is not recognized, so SHA-1 is used instead. Use one of %s. The next major version rejects an unrecognized value rather than downgrading.',
           option,
           value,
           algorithms.SUPPORTED_ALGORITHMS.join(", "),
@@ -1060,8 +1060,7 @@ class SAML {
       }
     } else {
       // Nothing here is authenticated: the issuer and the timestamps come from the same bytes
-      // an attacker supplies. Kept for compatibility until
-      // https://github.com/node-saml/node-saml/issues/419
+      // an attacker supplies. Accepted for compatibility until a future major version rejects it.
       debugLog(
         "Processing a %s over the Redirect binding with no Signature parameter. Its contents are unverified. Configure the identity provider to sign logout messages; a future major version will reject unsigned ones.",
         container.SAMLRequest ? "SAMLRequest" : "SAMLResponse",
