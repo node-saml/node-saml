@@ -1116,12 +1116,7 @@ class SAML {
       throw new Error("Bad status code: " + statusCode);
 
     this.verifyIssuer(doc.LogoutResponse);
-    const inResponseTo = doc.LogoutResponse.$.InResponseTo;
-    if (inResponseTo) {
-      return this.validateInResponseTo(inResponseTo);
-    }
-
-    return;
+    return this.validateInResponseTo(doc.LogoutResponse.$.InResponseTo ?? null);
   }
 
   protected verifyIssuer(samlMessage: XMLOutput): void {

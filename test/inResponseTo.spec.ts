@@ -44,11 +44,17 @@ function loginResponse({ subjectConfirmationInResponseTo = true } = {}): Record<
   return { SAMLResponse: Buffer.from(sign(xml, "Assertion")).toString("base64") };
 }
 
-function logoutResponseXml(): string {
+function logoutResponseXml({ inResponseTo = true } = {}): string {
+  const inResponseToAttribute = inResponseTo ? ` InResponseTo="${requestId}"` : "";
   return (
-    `<samlp:LogoutResponse ${namespaces} ID="_logout_response" Version="2.0" IssueInstant="${instant()}" InResponseTo="${requestId}">` +
+    `<samlp:LogoutResponse ${namespaces} ID="_logout_response" Version="2.0" IssueInstant="${instant()}"${inResponseToAttribute}>` +
     `<saml:Issuer>idp</saml:Issuer>${success}</samlp:LogoutResponse>`
   );
+}
+
+function redirectLogoutResponse(xml: string): { container: Record<string, string>; query: string } {
+  const container = { SAMLResponse: zlib.deflateRawSync(xml).toString("base64") };
+  return { container, query: new URLSearchParams(container).toString() };
 }
 
 function signedPostLogoutResponse(): Record<string, string> {
@@ -136,10 +142,7 @@ describe("InResponseTo request ID consumption", function () {
     });
 
     it("rejects one presented again on the Redirect binding", async () => {
-      const container = {
-        SAMLResponse: zlib.deflateRawSync(logoutResponseXml()).toString("base64"),
-      };
-      const query = new URLSearchParams(container).toString();
+      const { container, query } = redirectLogoutResponse(logoutResponseXml());
 
       expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal("accepted");
       expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal(
@@ -161,6 +164,32 @@ describe("InResponseTo request ID consumption", function () {
       expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
         "InResponseTo is not valid",
       );
+    });
+  });
+
+  describe("Redirect-binding logout responses without InResponseTo", function () {
+    let request: { container: Record<string, string>; query: string };
+
+    beforeEach(function () {
+      request = redirectLogoutResponse(logoutResponseXml({ inResponseTo: false }));
+    });
+
+    it("are rejected when validateInResponseTo is always", async () => {
+      const saml = newSaml();
+
+      expect(await outcome(saml.validateRedirectAsync(request.container, request.query))).to.equal(
+        "InResponseTo is missing from response",
+      );
+    });
+
+    [ValidateInResponseTo.ifPresent, ValidateInResponseTo.never].forEach((validateInResponseTo) => {
+      it(`are accepted when validateInResponseTo is ${validateInResponseTo}`, async () => {
+        const saml = newSaml({ validateInResponseTo });
+
+        expect(
+          await outcome(saml.validateRedirectAsync(request.container, request.query)),
+        ).to.equal("accepted");
+      });
     });
   });
 

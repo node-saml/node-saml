@@ -387,9 +387,11 @@ scoping: {
 > Which value fits depends on how logins reach you:
 >
 > - `"always"` accepts only a response that answers a request Node-SAML recorded, and removes that
->   request ID as it accepts the response, so a response cannot be delivered unsolicited or accepted
->   twice. It rejects IdP-initiated logins, and on more than one server or process it needs a shared
->   [cache provider](#cache-provider) that implements `consumeAsync`.
+>   request ID as it accepts the response, so a response cannot be delivered unsolicited or
+>   presented again later. When the cache provider consumes IDs atomically with `consumeAsync`, as
+>   the built-in one does, two copies arriving at the same moment cannot both be accepted either. It
+>   rejects IdP-initiated logins, and on more than one server or process it needs a shared
+>   [cache provider](#cache-provider).
 > - `"ifPresent"` validates `InResponseTo` when a response carries one and accepts a response that
 >   does not. IdP-initiated login keeps working, and an unsolicited response is accepted and can be
 >   replayed until its timestamps expire.
@@ -653,8 +655,9 @@ Node-SAML then records the ID of every request it generates, and a response vali
 
 Recorded IDs expire after `requestIdExpirationPeriodMs` (8 hours by default). A response arriving
 with an expired — or unrecognized — `InResponseTo` is rejected. Accepting a response removes its
-request ID, so the same response cannot be accepted twice. The built-in cache provider removes the
-ID atomically; a custom one does so only if it implements `consumeAsync`, described below.
+request ID, so presenting the same response again later fails. Two copies arriving at the same
+moment can both be accepted unless the cache provider removes the ID atomically, which the built-in
+one does and a custom one does if it implements `consumeAsync`, described below.
 
 ## Cache provider
 
