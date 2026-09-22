@@ -190,4 +190,30 @@ describe("published type surface", function () {
 
     expect(errors).to.contain("error TS");
   });
+
+  // `validatePostRequestAsync`'s optional second parameter is a test seam that `declaration` emits
+  // into the published types. Its `_validateSignature` property was replaced by `_getVerifiedXml`,
+  // and the old name is deliberately not kept as an accepted-and-ignored property: a verifier a
+  // caller supplied and the library silently skipped is worse than a compile error.
+  it("keeps the validatePostRequestAsync injection parameter out of the supported surface", function () {
+    const ordinaryCall = typeCheck(`
+      import { SAML } from ${packageEntry};
+
+      declare const saml: SAML;
+      declare const body: Record<string, string>;
+      void saml.validatePostRequestAsync(body);
+    `);
+
+    expect(ordinaryCall, "a one-argument call is what consumers write").to.equal("");
+
+    const injectedVerifier = typeCheck(`
+      import { SAML } from ${packageEntry};
+
+      declare const saml: SAML;
+      declare const body: Record<string, string>;
+      void saml.validatePostRequestAsync(body, { _validateSignature: () => true });
+    `);
+
+    expect(injectedVerifier).to.contain("error TS");
+  });
 });

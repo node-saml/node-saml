@@ -502,12 +502,14 @@ explain rejections that might otherwise look overly strict:
 
 Most integrations need only what the package exports at the top level: `SAML`,
 `generateServiceProviderMetadata`, and the types. The compiled modules under `lib/` are reachable
-too, and two of their exports bear on the first property above: `getVerifiedXml()` is what upholds
-it, and `validateSignature()` is the shape it replaces. Both come from `lib/xml`:
+too, and three of their exports bear on the first property above: `getVerifiedXml()` is what upholds
+it, `validateSignature()` is the shape it replaces, and `parseDomFromString()` is how you read what
+either one was given. All three come from `lib/xml`:
 
 | Export                                              | Behavior                                                                                           |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `getVerifiedXml(fullXml, currentNode, pemFiles)`    | Returns the bytes the signature over `currentNode` covers, or `null` if none of `pemFiles` verify. |
+| `parseDomFromString(xml)`                           | Parses `xml` into a `Document`, rejecting anything that is not a well-formed XML document.         |
 | `validateSignature(fullXml, currentNode, pemFiles)` | **Deprecated.** Returns whether that signature verified, and nothing about what it covered.        |
 
 `validateSignature()` is removed in the next major version. Reporting only that a signature verified
@@ -523,9 +525,11 @@ if (validateSignature(xml, dom.documentElement, pemFiles)) {
 
 // use this instead
 const verifiedXml = getVerifiedXml(xml, dom.documentElement, pemFiles);
-if (verifiedXml != null) {
-  readTheProfileFrom(verifiedXml);
+if (verifiedXml == null) {
+  throw new Error("Invalid signature");
 }
+
+readTheProfileFrom(await parseDomFromString(verifiedXml));
 ```
 
 ### Configuration option `signatureAlgorithm`

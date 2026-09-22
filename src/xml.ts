@@ -117,7 +117,17 @@ export const getVerifiedXml = (
     // only allow enveloped signature
     const refUri = ref.uri;
 
-    const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
+    assertRequired(refUri, "signature reference uri not found");
+
+    // SAML core 5.4.2 requires a same-document reference: for an ID of "foo" the URI is "#foo".
+    // A bare "foo" is a relative URI naming a separate resource, but xml-crypto resolves it as an
+    // ID all the same (node-saml/xml-crypto#594), so reject it here rather than verify a document
+    // under a reference model neither the SAML nor the XMLDSIG profile allows.
+    if (!refUri.startsWith("#")) {
+      throw new Error("Invalid signature: reference URI is not a same-document reference");
+    }
+
+    const refId = refUri.substring(1);
 
     assertRequired(refId, "signature reference uri not found");
     // prevent XPath injection

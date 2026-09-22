@@ -126,7 +126,8 @@ When a document admits two readings, the library refuses it. It does not pick on
 does not pick "the one that verifies." `src/xml.ts` and `validatePostResponseAsync`
 already reject documents with more than one assertion, more than one signature on an
 element, an `ID` that resolves to more than one element, a reference pointing somewhere
-other than its own parent, and more than two transforms.
+other than its own parent, a reference URI that is not a same-document reference, and more
+than two transforms.
 
 Each of those was a real attack, not a tidiness check. Do not relax one to make a document
 parse. When you add a check of this kind, add its fixture to

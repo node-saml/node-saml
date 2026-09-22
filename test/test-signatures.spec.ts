@@ -17,6 +17,8 @@ describe("Signatures", function () {
   const INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms";
   const INVALID_DOCUMENT_ELEMENT_SIGNATURE = "Invalid signature on documentElement";
   const INVALID_AMBIGUOUS_ID = "Invalid signature: ID cannot refer to more than one element";
+  const INVALID_DETACHED_REFERENCE =
+    "Invalid signature: reference URI is not a same-document reference";
   const XMLDOM_ERROR =
     "[xmldom error]\telement parse error: Error: Hierarchy request error: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
@@ -168,6 +170,20 @@ describe("Signatures", function () {
     it(
       "multiple roots => invalid",
       testOneResponse("/invalid/response.root-signed.multiple-root-elements.xml", XMLDOM_ERROR, 0),
+    );
+  });
+
+  // SAML core 5.4.2: for an ID of "foo" the reference URI is "#foo". xml-crypto resolves a bare
+  // "foo" as that same ID (node-saml/xml-crypto#594), so the rejection has to be ours.
+  describe("Signatures - the reference must be a same-document reference", () => {
+    it(
+      "reference URI without the leading # => invalid",
+      testOneResponse(
+        "/invalid/response.root-signed-uri-without-hash.assertion-unsigned.xml",
+        INVALID_DETACHED_REFERENCE,
+        1,
+        { wantAssertionsSigned: false },
+      ),
     );
   });
 
@@ -630,7 +646,7 @@ describe("Signatures", function () {
         expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
       };
 
-    it("root signed => the profile is read from the signed bytes", async () => {
+    it("root signed => the expected profile, after one signature check", async () => {
       const { profile } = await samlObj().validatePostRequestAsync(
         createRequestBody("/logout_request_with_good_signature.xml"),
       );
@@ -652,6 +668,14 @@ describe("Signatures", function () {
       testOneRequest(
         "/signatures/invalid/logoutrequest.root-signed.duplicate-root-id.xml",
         INVALID_AMBIGUOUS_ID,
+      ),
+    );
+
+    it(
+      "reference URI without the leading # => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.reference-uri-without-hash.xml",
+        INVALID_DETACHED_REFERENCE,
       ),
     );
   });
