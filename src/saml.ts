@@ -1461,22 +1461,17 @@ class SAML {
 
   async validatePostRequestAsync(
     container: Record<string, string>,
-    {
-      _parseDomFromString = parseDomFromString,
-      _parseXml2JsFromString = parseXml2JsFromString,
-      _getVerifiedXml = getVerifiedXml,
-    } = {},
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
     // The document as received locates the signature; only what that signature covers is read.
-    const receivedDom = await _parseDomFromString(xml);
+    const receivedDom = await parseDomFromString(xml);
     const pemFiles = await this.getKeyInfosAsPem();
-    const verifiedXml = _getVerifiedXml(xml, receivedDom.documentElement, pemFiles);
+    const verifiedXml = getVerifiedXml(xml, receivedDom.documentElement, pemFiles);
     if (verifiedXml == null) {
       throw new Error("Invalid signature on documentElement");
     }
-    const verifiedDom = await _parseDomFromString(verifiedXml);
-    const verifiedDoc = await _parseXml2JsFromString(verifiedXml);
+    const verifiedDom = await parseDomFromString(verifiedXml);
+    const verifiedDoc = await parseXml2JsFromString(verifiedXml);
     return await this.processValidlySignedPostRequestAsync(verifiedDoc, verifiedDom);
   }
 

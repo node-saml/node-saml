@@ -10,10 +10,8 @@ import { SAML } from "../src/saml";
 import { AuthOptions, IdpCertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
-import { getVerifiedXml, parseDomFromString, parseXml2JsFromString } from "../src/xml";
+import * as xml from "../src/xml";
 import type * as querystring from "querystring";
-
-const noop = (): void => undefined;
 
 describe("saml.ts", function () {
   it("should throw when instantiating a SAML object with a string instead of a boolean", function () {
@@ -165,6 +163,13 @@ describe("saml.ts", function () {
       sinon
         .stub(SAML.prototype, "processValidlySignedPostRequestAsync" as unknown as keyof SAML)
         .resolves(null);
+      // `validatePostRequestAsync` takes no injected dependencies, so short-circuit the parsing and
+      // verification it would otherwise do on the empty request this test feeds it.
+      sinon
+        .stub(xml, "parseDomFromString")
+        .resolves({ documentElement: null } as unknown as Document);
+      sinon.stub(xml, "parseXml2JsFromString").resolves({});
+      sinon.stub(xml, "getVerifiedXml").returns("<LogoutRequest/>");
     });
 
     afterEach(function () {
@@ -181,16 +186,7 @@ describe("saml.ts", function () {
         audience: false,
       });
 
-      await samlObj.validatePostRequestAsync(
-        { SAMLRequest: "" },
-        {
-          _parseDomFromString: (() => {
-            return { documentElement: null };
-          }) as unknown as typeof parseDomFromString,
-          _parseXml2JsFromString: noop as unknown as typeof parseXml2JsFromString,
-          _getVerifiedXml: (() => "<LogoutRequest/>") as unknown as typeof getVerifiedXml,
-        },
-      );
+      await samlObj.validatePostRequestAsync({ SAMLRequest: "" });
 
       const pendingResult = getKeyInfosAsPemSpy.returnValues[0];
       const result = await pendingResult;

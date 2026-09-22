@@ -191,11 +191,12 @@ describe("published type surface", function () {
     expect(errors).to.contain("error TS");
   });
 
-  // `validatePostRequestAsync`'s optional second parameter is a test seam that `declaration` emits
-  // into the published types. Its `_validateSignature` property was replaced by `_getVerifiedXml`,
-  // and the old name is deliberately not kept as an accepted-and-ignored property: a verifier a
-  // caller supplied and the library silently skipped is worse than a compile error.
-  it("keeps the validatePostRequestAsync injection parameter out of the supported surface", function () {
+  // `validatePostRequestAsync` used to take an optional object of injected dependencies, which
+  // `declaration` emitted into the published types — a published parameter that switched signature
+  // verification off, contradicting the contract README states for the POST binding. It is gone; the
+  // one test that needed it stubs `src/xml` with sinon, the way `test-signatures.spec.ts` already
+  // spies on `getVerifiedXml`.
+  it("takes no injected dependencies on validatePostRequestAsync", function () {
     const ordinaryCall = typeCheck(`
       import { SAML } from ${packageEntry};
 
@@ -206,14 +207,33 @@ describe("published type surface", function () {
 
     expect(ordinaryCall, "a one-argument call is what consumers write").to.equal("");
 
+    // An override written against the previous two-parameter signature still compiles, because its
+    // extra parameter is optional. Dropping the parameter is not breaking for a subclass.
+    const subclass = typeCheck(`
+      import { SAML, Profile } from ${packageEntry};
+
+      class Subclass extends SAML {
+        async validatePostRequestAsync(
+          container: Record<string, string>,
+          _injected?: Record<string, unknown>,
+        ): Promise<{ profile: Profile; loggedOut: boolean }> {
+          return super.validatePostRequestAsync(container);
+        }
+      }
+
+      void Subclass;
+    `);
+
+    expect(subclass, "an override written against the old signature still compiles").to.equal("");
+
     const injectedVerifier = typeCheck(`
       import { SAML } from ${packageEntry};
 
       declare const saml: SAML;
       declare const body: Record<string, string>;
-      void saml.validatePostRequestAsync(body, { _validateSignature: () => true });
+      void saml.validatePostRequestAsync(body, { _getVerifiedXml: () => "<LogoutRequest/>" });
     `);
 
-    expect(injectedVerifier).to.contain("error TS");
+    expect(injectedVerifier, "no caller may substitute the verifier").to.contain("error TS");
   });
 });
