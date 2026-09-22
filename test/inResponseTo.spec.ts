@@ -174,6 +174,15 @@ describe("InResponseTo request ID consumption", function () {
       );
     });
 
+    it("rejects a logout response when consumeAsync reports the ID already taken", async () => {
+      const saml = newSaml({ cacheProvider: mapCacheProvider(async () => null) });
+      await saml.getLogoutUrlAsync(user, "", {});
+
+      expect(await outcome(saml.validatePostResponseAsync(signedPostLogoutResponse()))).to.equal(
+        "InResponseTo is not valid",
+      );
+    });
+
     it("still consumes the ID without consumeAsync", async () => {
       const cacheProvider = mapCacheProvider();
       const saml = newSaml({ cacheProvider });
