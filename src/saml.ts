@@ -1242,6 +1242,14 @@ class SAML {
         }
       }
 
+      // The confirmation window bounds delivery of the assertion whether or not InResponseTo is
+      // validated (SAML Profiles §4.1.4.3).
+      if (subjectConfirmations != null && subjectConfirmation == null) {
+        throw new Error(
+          "No valid subject confirmation found among those available in the SAML assertion",
+        );
+      }
+
       const verifiedInResponseTo = inResponseToIsVerified
         ? inResponseTo
         : confirmData?.$?.InResponseTo;
@@ -1283,18 +1291,13 @@ class SAML {
           );
           break getInResponseTo;
         } else {
-          if (subjectConfirmations != null && subjectConfirmation == null) {
-            msg = "No valid subject confirmation found among those available in the SAML assertion";
-            throw new Error(msg);
-          } else {
-            await consumeResponseInResponseToAsync(
-              this.cacheProvider,
-              this.options.validateInResponseTo,
-              inResponseTo,
-              inResponseToIsVerified,
-            );
-            break getInResponseTo;
-          }
+          await consumeResponseInResponseToAsync(
+            this.cacheProvider,
+            this.options.validateInResponseTo,
+            inResponseTo,
+            inResponseToIsVerified,
+          );
+          break getInResponseTo;
         }
       } else {
         break getInResponseTo;

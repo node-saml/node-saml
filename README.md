@@ -649,7 +649,9 @@ the IdP's. The default skew is `0`.
 
 Both attributes are honored on the `SubjectConfirmation` element and within
 `Assertion/Conditions`. `maxAssertionAgeMs` adds an independent limit measured from the assertion's
-`IssueInstant`, and applies when it is stricter than `NotOnOrAfter`.
+`IssueInstant`, and applies when it is stricter than `NotOnOrAfter`. An assertion whose
+`SubjectConfirmation` elements are all outside their window is rejected whatever
+`validateInResponseTo` is set to.
 
 ## InResponseTo validation
 

@@ -33,13 +33,17 @@ function loginResponse({
   subjectConfirmations = [{ inResponseTo: true }],
   signResponse = false,
 }: {
-  responseInResponseTo?: string;
-  subjectConfirmations?: { inResponseTo?: boolean; data?: "full" | "empty" | "none" }[];
+  responseInResponseTo?: string | null;
+  subjectConfirmations?: {
+    inResponseTo?: boolean;
+    data?: "full" | "empty" | "none";
+    expired?: boolean;
+  }[];
   signResponse?: boolean;
 } = {}): Record<string, string> {
   const method = `Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"`;
   const confirmations = subjectConfirmations
-    .map(({ inResponseTo = false, data = "full" }) => {
+    .map(({ inResponseTo = false, data = "full", expired = false }) => {
       if (data === "none") {
         return `<saml:SubjectConfirmation ${method}/>`;
       }
@@ -49,13 +53,15 @@ function loginResponse({
       const inResponseToAttribute = inResponseTo ? ` InResponseTo="${requestId}"` : "";
       return (
         `<saml:SubjectConfirmation ${method}>` +
-        `<saml:SubjectConfirmationData NotOnOrAfter="${instant(300000)}" Recipient="http://localhost/saml/consume"${inResponseToAttribute}/>` +
+        `<saml:SubjectConfirmationData NotOnOrAfter="${instant(expired ? -300000 : 300000)}" Recipient="http://localhost/saml/consume"${inResponseToAttribute}/>` +
         `</saml:SubjectConfirmation>`
       );
     })
     .join("");
+  const responseInResponseToAttribute =
+    responseInResponseTo == null ? "" : ` InResponseTo="${responseInResponseTo}"`;
   const xml =
-    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}" InResponseTo="${responseInResponseTo}">` +
+    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}"${responseInResponseToAttribute}>` +
     `<saml:Issuer>idp</saml:Issuer>${success}` +
     `<saml:Assertion ID="_assertion" Version="2.0" IssueInstant="${instant()}"><saml:Issuer>idp</saml:Issuer>` +
     `<saml:Subject><saml:NameID>user</saml:NameID>${confirmations}</saml:Subject>` +
@@ -362,6 +368,67 @@ describe("InResponseTo request ID consumption", function () {
 
       const { profile } = await saml.validatePostResponseAsync(response);
       expect(profile).to.not.have.property("inResponseTo");
+    });
+  });
+
+  // The bearer confirmation window is a service provider MUST that does not depend on InResponseTo
+  // (SAML profiles §4.1.4.3): https://github.com/node-saml/node-saml/issues/436
+  describe("SubjectConfirmationData validity window", function () {
+    [
+      ValidateInResponseTo.always,
+      ValidateInResponseTo.ifPresent,
+      ValidateInResponseTo.never,
+    ].forEach((validateInResponseTo) => {
+      describe(`with validateInResponseTo set to ${validateInResponseTo}`, function () {
+        let saml: SAML;
+
+        beforeEach(async function () {
+          saml = newSaml({ validateInResponseTo });
+          await saml.getAuthorizeUrlAsync("", {});
+        });
+
+        // Under "always" a Response without InResponseTo is rejected before the assertion is
+        // reached, so only the other modes have a confirmation window to check there.
+        const responseInResponseTos =
+          validateInResponseTo === ValidateInResponseTo.always ? [requestId] : [requestId, null];
+
+        responseInResponseTos.forEach((responseInResponseTo) => {
+          // An unsolicited response carries InResponseTo nowhere, neither on the Response nor on
+          // the SubjectConfirmationData (SAML profiles §4.1.5).
+          const inResponseTo = responseInResponseTo != null;
+          const solicitation = inResponseTo ? "a solicited" : "an unsolicited";
+
+          it(`rejects an expired confirmation on ${solicitation} response`, async () => {
+            const response = loginResponse({
+              responseInResponseTo,
+              subjectConfirmations: [{ inResponseTo, expired: true }],
+            });
+
+            expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+              "No valid subject confirmation found among those available in the SAML assertion",
+            );
+          });
+
+          it(`accepts one still within its window on ${solicitation} response`, async () => {
+            const response = loginResponse({
+              responseInResponseTo,
+              subjectConfirmations: [{ inResponseTo }],
+            });
+
+            expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
+          });
+        });
+      });
+    });
+
+    // An assertion carrying no SubjectConfirmation at all has no window to check; that it is
+    // accepted at all is a separate gap: https://github.com/node-saml/node-saml/issues/435
+    it("leaves an assertion without any SubjectConfirmation accepted", async () => {
+      const saml = newSaml({ validateInResponseTo: ValidateInResponseTo.never });
+
+      expect(
+        await outcome(saml.validatePostResponseAsync(loginResponse({ subjectConfirmations: [] }))),
+      ).to.equal("accepted");
     });
   });
 });
