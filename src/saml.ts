@@ -1232,7 +1232,7 @@ class SAML {
         // request, and verifying any one confirmation is enough (SAML Core §2.4.1).
         if (!inResponseToIsVerified) {
           subjectConfirmation = subjectConfirmations?.find(
-            (sc) => sc.SubjectConfirmationData?.[0]?.$?.InResponseTo != null && isTimely(sc),
+            (sc) => sc.SubjectConfirmationData?.[0].$?.InResponseTo != null && isTimely(sc),
           );
         }
         subjectConfirmation ??= subjectConfirmations?.find(isTimely);

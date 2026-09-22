@@ -32,12 +32,23 @@ function loginResponse({
   responseInResponseTo = requestId,
   subjectConfirmations = [{ inResponseTo: true }],
   signResponse = false,
+}: {
+  responseInResponseTo?: string;
+  subjectConfirmations?: { inResponseTo?: boolean; data?: "full" | "empty" | "none" }[];
+  signResponse?: boolean;
 } = {}): Record<string, string> {
+  const method = `Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"`;
   const confirmations = subjectConfirmations
-    .map(({ inResponseTo }) => {
+    .map(({ inResponseTo = false, data = "full" }) => {
+      if (data === "none") {
+        return `<saml:SubjectConfirmation ${method}/>`;
+      }
+      if (data === "empty") {
+        return `<saml:SubjectConfirmation ${method}><saml:SubjectConfirmationData/></saml:SubjectConfirmation>`;
+      }
       const inResponseToAttribute = inResponseTo ? ` InResponseTo="${requestId}"` : "";
       return (
-        `<saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">` +
+        `<saml:SubjectConfirmation ${method}>` +
         `<saml:SubjectConfirmationData NotOnOrAfter="${instant(300000)}" Recipient="http://localhost/saml/consume"${inResponseToAttribute}/>` +
         `</saml:SubjectConfirmation>`
       );
@@ -163,6 +174,18 @@ describe("InResponseTo request ID consumption", function () {
       expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
         "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
       );
+    });
+
+    (["none", "empty"] as const).forEach((data) => {
+      const shape = data === "none" ? "no SubjectConfirmationData" : "an attribute-less one";
+
+      it(`rejects an unsigned one whose SubjectConfirmation has ${shape}`, async () => {
+        const response = loginResponse({ subjectConfirmations: [{ data }] });
+
+        expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+          "No valid subject confirmation found among those available in the SAML assertion",
+        );
+      });
     });
 
     it("accepts an unsigned one when a later SubjectConfirmation carries InResponseTo", async () => {
