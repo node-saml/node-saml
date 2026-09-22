@@ -662,8 +662,9 @@ Node-SAML then records the ID of every request it generates, and a response vali
 `LogoutResponse` element, and within `SubjectConfirmation`.
 
 Only a signature makes the top-level attribute trustworthy, so when the IdP signs the assertion but
-not the `Response`, `"always"` requires `InResponseTo` on the assertion's `SubjectConfirmationData`
-and rejects the response without it. A conforming IdP already puts it there
+not the `Response`, `"always"` requires one of the assertion's `SubjectConfirmationData` elements,
+within its validity window, to carry `InResponseTo`, and rejects the response otherwise. A
+conforming IdP already puts it there
 ([SAML profiles §4.1.4.2](https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf)).
 If yours does not, have it sign the `Response`.
 

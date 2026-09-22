@@ -1206,7 +1206,7 @@ class SAML {
           }
         }
         subjectConfirmations = subject[0].SubjectConfirmation;
-        subjectConfirmation = subjectConfirmations?.find((_subjectConfirmation: XMLOutput) => {
+        const isTimely = (_subjectConfirmation: XMLOutput) => {
           const _confirmData = _subjectConfirmation.SubjectConfirmationData?.[0];
           if (_confirmData?.$) {
             const subjectNotBefore = _confirmData.$.NotBefore;
@@ -1227,7 +1227,15 @@ class SAML {
           }
 
           return false;
-        });
+        };
+        // Without a signed Response, only a SubjectConfirmationData can tie the assertion to a
+        // request, and verifying any one confirmation is enough (SAML Core §2.4.1).
+        if (!inResponseToIsVerified) {
+          subjectConfirmation = subjectConfirmations?.find(
+            (sc) => sc.SubjectConfirmationData?.[0]?.$?.InResponseTo != null && isTimely(sc),
+          );
+        }
+        subjectConfirmation ??= subjectConfirmations?.find(isTimely);
 
         if (subjectConfirmation != null) {
           confirmData = subjectConfirmation.SubjectConfirmationData[0];
