@@ -160,4 +160,22 @@ describe("Cache tests /", () => {
     const duplicate = await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
     expect(duplicate).to.not.exist;
   });
+
+  it("should not consume an expired item", async () => {
+    const requestId = "_dfab47d5d46374cd4b75";
+    const requestIdExpirationPeriodMs = 100;
+    const samlConfig: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
+      validateInResponseTo: ValidateInResponseTo.always,
+      requestIdExpirationPeriodMs,
+      idpCert: FAKE_CERT,
+      issuer: "onesaml_login",
+    };
+    const samlObj = new SAML(samlConfig);
+
+    await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
+    await fakeClock.tickAsync(300);
+
+    expect(await samlObj.cacheProvider.consumeAsync?.(requestId)).to.equal(null);
+  });
 });

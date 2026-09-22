@@ -1,5 +1,7 @@
 "use strict";
+import { spawnSync } from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 import * as sinon from "sinon";
 import { URL } from "url";
 import { expect } from "chai";
@@ -9,8 +11,6 @@ import { AuthOptions, IdpCertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
 import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
-import { spawnSync } from "child_process";
-import * as path from "path";
 import type * as querystring from "querystring";
 
 const noop = (): void => undefined;
@@ -26,6 +26,135 @@ describe("saml.ts", function () {
           callbackUrl: "callback",
         }),
     ).to.throw("value is set but not boolean");
+  });
+
+  // `util.debuglog` reads NODE_DEBUG once per process and the suite order is randomized, so
+  // these run in one child rather than mutating the shared environment.
+  describe("warnings on defaults the next major requires choosing", function () {
+    let stderr: string;
+
+    before(function () {
+      this.timeout(20000);
+      const privateKey = fs.readFileSync(path.join(__dirname, "static", "key.pem"), "utf-8");
+      const script = `
+        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        const base = {
+          issuer: "onesaml_login",
+          idpCert: ${JSON.stringify(FAKE_CERT)},
+          callbackUrl: "http://localhost/saml/consume",
+        };
+        const privateKey = ${JSON.stringify(privateKey)};
+        const cacheWithoutConsume = {
+          saveAsync: async (key, value) => ({ value, createdAt: Date.now() }),
+          getAsync: async () => null,
+          removeAsync: async () => null,
+        };
+        console.error("<<says-nothing>>");
+        new SAML({ ...base });
+        console.error("<<signs-says-nothing>>");
+        new SAML({ ...base, privateKey, validateInResponseTo: "always" });
+        console.error("<<signs-digest-omitted>>");
+        new SAML({ ...base, privateKey, validateInResponseTo: "always", signatureAlgorithm: "sha256" });
+        console.error("<<casing-slip>>");
+        new SAML({ ...base, validateInResponseTo: "always", signatureAlgorithm: "SHA256" });
+        console.error("<<digest-typo>>");
+        new SAML({
+          ...base,
+          validateInResponseTo: "always",
+          signatureAlgorithm: "sha256",
+          digestAlgorithm: "sha-256",
+        });
+        console.error("<<everything-chosen>>");
+        new SAML({
+          ...base,
+          privateKey,
+          validateInResponseTo: "always",
+          signatureAlgorithm: "sha256",
+          digestAlgorithm: "sha256",
+        });
+        console.error("<<cache-without-consume>>");
+        new SAML({ ...base, validateInResponseTo: "ifPresent", cacheProvider: cacheWithoutConsume });
+        console.error("<<cache-with-consume>>");
+        new SAML({
+          ...base,
+          validateInResponseTo: "always",
+          cacheProvider: { ...cacheWithoutConsume, consumeAsync: async () => null },
+        });
+        console.error("<<cache-never-consulted>>");
+        new SAML({ ...base, validateInResponseTo: "never", cacheProvider: cacheWithoutConsume });
+        console.error("<<end>>");
+      `;
+      const child = spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+      expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+      stderr = child.stderr;
+    });
+
+    // Returns only what was logged while constructing the case named by `marker`, so one case
+    // staying silent cannot be masked by another case warning.
+    function warningsFor(marker: string): string {
+      const section = stderr.split(`<<${marker}>>`)[1] ?? "";
+      return section.split("<<")[0].trim();
+    }
+
+    it("warns that `validateInResponseTo` defaults to never validating", function () {
+      const warnings = warningsFor("says-nothing");
+      expect(warnings).to.contain("`validateInResponseTo` is not set");
+      expect(warnings).to.contain("replayed");
+      expect(warnings).to.contain("The next major version requires it");
+    });
+
+    it("does not warn about signing algorithms when nothing is signed", function () {
+      const warnings = warningsFor("says-nothing");
+      expect(warnings).not.to.contain("`signatureAlgorithm` is not set");
+      expect(warnings).not.to.contain("`digestAlgorithm` is not set");
+    });
+
+    it("warns that `signatureAlgorithm` and `digestAlgorithm` default to sha1 when signing", function () {
+      const warnings = warningsFor("signs-says-nothing");
+      expect(warnings).to.contain("`signatureAlgorithm` is not set, so it defaults to `sha1`");
+      expect(warnings).to.contain("`digestAlgorithm` is not set, so it defaults to `sha1`");
+      expect(warnings).to.contain("requires it whenever `privateKey` is set");
+    });
+
+    it("warns about an omitted `digestAlgorithm` when only `signatureAlgorithm` is chosen", function () {
+      const warnings = warningsFor("signs-digest-omitted");
+      expect(warnings).to.contain("`digestAlgorithm` is not set");
+      expect(warnings).not.to.contain("`signatureAlgorithm`");
+    });
+
+    // "SHA256" is accepted today and signs with SHA-1, which is the whole reason this warns.
+    it("warns that an unrecognized `signatureAlgorithm` downgrades to SHA-1", function () {
+      const warnings = warningsFor("casing-slip");
+      expect(warnings).to.contain('`signatureAlgorithm` is set to "SHA256"');
+      expect(warnings).to.contain("SHA-1 is used instead");
+      expect(warnings).to.contain("sha1, sha256, sha512");
+    });
+
+    it("warns that an unrecognized `digestAlgorithm` downgrades to SHA-1", function () {
+      expect(warningsFor("digest-typo")).to.contain('`digestAlgorithm` is set to "sha-256"');
+    });
+
+    it("says nothing when every one of them is chosen explicitly", function () {
+      expect(warningsFor("everything-chosen")).to.equal("");
+    });
+
+    it("warns when InResponseTo is validated with a `cacheProvider` lacking `consumeAsync`", function () {
+      const warnings = warningsFor("cache-without-consume");
+      expect(warnings).to.contain("`cacheProvider` has no `consumeAsync`");
+      expect(warnings).to.contain("The next major version requires it");
+    });
+
+    it("says nothing about a `cacheProvider` that has `consumeAsync`", function () {
+      expect(warningsFor("cache-with-consume")).to.equal("");
+    });
+
+    it("says nothing about the `cacheProvider` when InResponseTo is never validated", function () {
+      expect(warningsFor("cache-never-consulted")).to.equal("");
+    });
   });
 
   describe("resolveAndParseKeyInfosToPem", function () {

@@ -87,6 +87,9 @@ const saml = new SAML({
   // Where to send the user to authenticate
   entryPoint: "https://idp.example.com/sso",
 
+  // Accept only responses to requests we made; see "InResponseTo".
+  validateInResponseTo: "always",
+
   // Sign our own requests. Set the algorithms explicitly; see "Security and signatures".
   privateKey: fs.readFileSync("./sp-private-key.pem", "utf-8"),
   publicCert: fs.readFileSync("./sp-public-cert.pem", "utf-8"),
@@ -122,8 +125,7 @@ res.redirect(url);
 `additionalParams`/`additionalAuthorizeParams` in the constructor.
 
 All three of these methods also accept a deprecated `host` argument between `relayState` and
-`options`. It has never been read, and it is removed in the next major version
-([#367](https://github.com/node-saml/node-saml/pull/367)), so pass `options` directly:
+`options`. It is ignored, and it is removed in the next major version, so pass `options` directly:
 
 ```javascript
 await saml.getAuthorizeUrlAsync(relayState, host, options); // deprecated
@@ -251,8 +253,7 @@ const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, origi
 > without one is accepted with none of its contents authenticated — the issuer and the timestamps
 > are read from the same unsigned bytes, so `idpIssuer` does not constrain it either. Run with
 > `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
-> messages; a future major version will reject unsigned ones
-> ([#419](https://github.com/node-saml/node-saml/issues/419)). The POST binding is unaffected:
+> messages; a future major version will reject unsigned ones. The POST binding is unaffected:
 > `validatePostRequestAsync` always requires a valid signature.
 
 ### Service provider metadata
@@ -312,7 +313,7 @@ It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from th
 | `privateKey`             | —                              | SP private key in PEM format, used to sign outgoing messages. See [Security and signatures](#security-and-signatures).                                                            |
 | `publicCert`             | —                              | SP public signing certificate, embedded in the `AuthnRequest` so the IdP can verify it. Must match `privateKey`.                                                                  |
 | `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers.                                                                                                  |
-| `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, or `"sha512"`. **Set this explicitly**; see [Security and signatures](#security-and-signatures).                                                            |
+| `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, or `"sha512"`. **Set this explicitly** if you set `privateKey`; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm).  |
 | `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above.                                                                           |
 | `xmlSignatureTransforms` | enveloped-signature + exc-c14n | Signature transforms used in HTTP-POST signatures. The default is `["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"]`.         |
 | `generateUniqueId`       | built-in                       | Function returning the unique IDs used for outgoing SAML messages.                                                                                                                |
@@ -375,11 +376,26 @@ scoping: {
 
 ### InResponseTo
 
-| Option                        | Default         | Description                                                                                                                                                                                            |
-| ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `validateInResponseTo`        | `"never"`       | `"always"` validates `InResponseTo` on every response, `"ifPresent"` validates it only when the response carries one, `"never"` skips the check. The `ValidateInResponseTo` enum is exported for this. |
-| `requestIdExpirationPeriodMs` | `28800000` (8h) | How long a generated request ID stays valid for matching against an incoming `InResponseTo`.                                                                                                           |
-| `cacheProvider`               | in-memory       | Where request IDs are stored. See [Cache provider](#cache-provider).                                                                                                                                   |
+| Option                        | Default         | Description                                                                                                                                       |
+| ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `validateInResponseTo`        | `"never"`       | `"always"`, `"ifPresent"`, or `"never"`. **Set this explicitly**; the trade-offs are below. The `ValidateInResponseTo` enum is exported for this. |
+| `requestIdExpirationPeriodMs` | `28800000` (8h) | How long a generated request ID stays valid for matching against an incoming `InResponseTo`.                                                      |
+| `cacheProvider`               | in-memory       | Where request IDs are stored. See [Cache provider](#cache-provider).                                                                              |
+
+> **Set `validateInResponseTo` explicitly.** It defaults to `"never"` today, and the next major
+> version requires it; until then, leaving it unset logs a warning under `NODE_DEBUG=node-saml`.
+> Which value fits depends on how logins reach you:
+>
+> - `"always"` accepts only a response that answers a request Node-SAML recorded, and removes that
+>   request ID as it accepts the response, so a response cannot be delivered unsolicited or
+>   presented again later. When the cache provider consumes IDs atomically with `consumeAsync`, as
+>   the built-in one does, two copies arriving at the same moment cannot both be accepted either. It
+>   rejects IdP-initiated logins, and on more than one server or process it needs a shared
+>   [cache provider](#cache-provider).
+> - `"ifPresent"` validates `InResponseTo` when a response carries one and accepts a response that
+>   does not. IdP-initiated login keeps working, and an unsolicited response is accepted and can be
+>   replayed until its timestamps expire.
+> - `"never"` skips the check, so any captured response can be replayed until its timestamps expire.
 
 See [InResponseTo validation](#inresponseto-validation) below for what this protects against and how the IDs are consumed.
 
@@ -479,11 +495,14 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 
 `digestAlgorithm` takes the same three values and controls the digest over the signed data object.
 
-> **Set both explicitly.** `signatureAlgorithm` and `digestAlgorithm` currently default to `"sha1"`,
-> and an unrecognized value falls back to SHA-1 rather than throwing — so a typo silently downgrades
-> you. Both behaviors are retained for backward compatibility, both are wrong, and both are slated
-> for removal in a future major version, after which naming your algorithms will be required. Naming
-> them now costs one line and makes that upgrade a no-op.
+> **Set both explicitly if you sign, and check the spelling.** With `privateKey` set, leaving
+> `signatureAlgorithm` or `digestAlgorithm` unset selects `sha1`, which is no longer considered safe
+> for signatures; the next major version requires both whenever `privateKey` is set. A value that is
+> not one of the three above — including a casing difference such as `"SHA256"` — is not an error
+> today either: it falls through to SHA-1, so a typo silently downgrades the signature you asked
+> for. The next major version rejects it instead. `digestAlgorithm` is typed as a plain string, so
+> TypeScript does not catch a typo in it. Run with `NODE_DEBUG=node-saml` to be told when any of
+> this happens.
 
 ### Configuration option `privateKey`
 
@@ -631,12 +650,14 @@ captured elsewhere from being replayed at your callback. Turn it on with
 `validateInResponseTo: "always"`.
 
 Node-SAML then records the ID of every request it generates, and a response validates only if its
-`InResponseTo` matches one of them. It is checked both as an attribute of the top-level `Response`
-element and within `SubjectConfirmation`.
+`InResponseTo` matches one of them. It is checked as an attribute of the top-level `Response` or
+`LogoutResponse` element, and within `SubjectConfirmation`.
 
 Recorded IDs expire after `requestIdExpirationPeriodMs` (8 hours by default). A response arriving
-with an expired — or unrecognized — `InResponseTo` is rejected. The ID is consumed on validation, so
-the same response cannot be presented twice.
+with an expired — or unrecognized — `InResponseTo` is rejected. Accepting a response removes its
+request ID, so presenting the same response again later fails. Two copies arriving at the same
+moment can both be accepted unless the cache provider removes the ID atomically, which the built-in
+one does and a custom one does if it implements `consumeAsync`, described below.
 
 ## Cache provider
 
@@ -656,8 +677,17 @@ interface CacheProvider {
   getAsync(key: string): Promise<string | null>;
   /** Removes an item from the cache if the key exists. */
   removeAsync(key: string | null): Promise<string | null>;
+  /** Optional. Removes the key and returns its value, or null if it was absent, atomically. */
+  consumeAsync?(key: string): Promise<string | null>;
 }
 ```
+
+Implement `consumeAsync` with your store's single-step remove-and-return, such as Redis `GETDEL` or
+SQL `DELETE … RETURNING`. Node-SAML consumes request IDs with it, so of two copies of one response
+validated at the same moment, only one is accepted. Without it, Node-SAML reads the ID and removes
+it in separate calls, both copies can be accepted, and a warning is logged under
+`NODE_DEBUG=node-saml` whenever `InResponseTo` is validated. The next major version requires it. The
+built-in provider implements it.
 
 `CacheProvider` and `CacheItem` are exported from the package root.
 
