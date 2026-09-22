@@ -75,12 +75,17 @@ describe("Signatures", function () {
       );
   };
 
-  // The one Profile accessor that hands back bytes nobody verified, which is the distinction
-  // this file exists to police.
-  describe("Signatures - Profile.getSamlResponseXml returns unverified bytes", () => {
-    const validResponse = "/valid/response.root-signed.assertion-signed.xml";
+  describe("Signatures - Profile.getSamlResponseXml returns the response as received", () => {
+    const validResponse = "/valid/response.root-unsigned.assertion-signed.xml";
     // The fixture's assertion is long expired in real time, like every other valid one here.
     const fixtureNow = "2020-09-25T16:59:00Z";
+    const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
+      idpCert,
+      issuer: "onesaml_login",
+      audience: false,
+      wantAuthnResponseSigned: false,
+    };
     let fakeClock: sinon.SinonFakeTimers;
 
     beforeEach(function () {
@@ -91,32 +96,25 @@ describe("Signatures", function () {
       fakeClock.restore();
     });
 
-    const getProfile = async () => {
-      const samlObj = new SAML({
-        callbackUrl: "http://localhost/saml/consume",
-        idpCert,
-        issuer: "onesaml_login",
-        audience: false,
+    it("returns response-level material that no signature covered", async () => {
+      const received = fs
+        .readFileSync(__dirname + "/static/signatures" + validResponse, "utf8")
+        // The first Issuer is the response's own; the assertion's sits inside the signed element.
+        .replace(
+          "<saml:Issuer>https://evil-corp.com</saml:Issuer>",
+          "<saml:Issuer>https://attacker.example</saml:Issuer>",
+        );
+
+      const { profile } = await new SAML(config).validatePostResponseAsync({
+        SAMLResponse: Buffer.from(received).toString("base64"),
       });
-      const { profile } = await samlObj.validatePostResponseAsync(createBody(validResponse));
       assert.ok(profile != null);
-      return profile;
-    };
 
-    it("hands back the whole response, not the assertion whose signature was checked", async () => {
-      const profile = await getProfile();
-
-      const responseXml = profile.getSamlResponseXml?.();
-      const assertionXml = profile.getAssertionXml?.();
-      assert.ok(responseXml != null && assertionXml != null);
-
-      // The response wraps the verified assertion in material the signature does not cover.
-      expect(assertionXml).to.not.contain(":Response");
-      expect(responseXml).to.contain(":Response");
-      expect(responseXml).to.not.equal(assertionXml);
+      expect(profile.issuer).to.equal("https://evil-corp.com");
+      expect(profile.getAssertionXml?.()).to.not.contain("https://attacker.example");
+      expect(profile.getSamlResponseXml?.()).to.contain("https://attacker.example");
     });
 
-    // `@deprecated` only reaches TypeScript callers, so the accessor also warns when used.
     it("warns when it is called, and stays quiet for the verified accessors", function () {
       this.timeout(20000);
       const script = `
@@ -126,12 +124,7 @@ describe("Signatures", function () {
           now: Date.parse(${JSON.stringify(fixtureNow)}),
           toFake: ["Date"],
         });
-        const samlObj = new SAML({
-          callbackUrl: "http://localhost/saml/consume",
-          idpCert: fs.readFileSync(${JSON.stringify(path.join(__dirname, "static", "cert.pem"))}, "ascii"),
-          issuer: "onesaml_login",
-          audience: false,
-        });
+        const samlObj = new SAML(${JSON.stringify(config)});
         const body = {
           SAMLResponse: fs.readFileSync(
             ${JSON.stringify(path.join(__dirname, "static", "signatures" + validResponse))},
@@ -163,7 +156,9 @@ describe("Signatures", function () {
 
       expect(section("verified-accessors")).to.equal("");
       expect(section("unverified-accessor")).to.contain("getSamlResponseXml");
-      expect(section("unverified-accessor")).to.contain("nothing read from it is authenticated");
+      expect(section("unverified-accessor")).to.contain(
+        "Don't treat what it returns as authenticated",
+      );
     });
   });
 

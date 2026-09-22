@@ -199,7 +199,7 @@ rely on rather than assuming they are all present.
 | `attributes`                       | Every attribute as a `Name` → value map. Single-valued attributes are strings; repeated ones are arrays.         |
 | `getAssertionXml()`                | The assertion XML **that the signature covers**. This is the trustworthy copy.                                   |
 | `getAssertion()`                   | The same assertion, parsed into a JavaScript object.                                                             |
-| `getSamlResponseXml()`             | The raw response XML, **unsigned and unverified**. See the warning below.                                        |
+| `getSamlResponseXml()`             | **Deprecated.** The response XML as received, **not as verified**. See the warning below.                        |
 
 Attributes are also copied onto `profile` at the top level for convenience, but an attribute never
 overwrites a field the library set itself.
@@ -208,10 +208,18 @@ The profile returned for a `LogoutRequest` by `validatePostRequestAsync` and `va
 is a smaller thing: `ID` (the logout request's own ID), `issuer`, `nameID`, `nameIDFormat`, and
 `sessionIndex`. It carries no attributes and none of the getters, since there is no assertion.
 
-> **Warning:** `getSamlResponseXml()` returns the response document as it arrived, including parts no
-> signature covers. Never make a trust decision from it. Use `getAssertionXml()`, `getAssertion()`,
-> or the profile fields, all of which come from the verified content. This method exists for
-> backward compatibility and is a candidate for removal in a future major version.
+> **Warning:** `getSamlResponseXml()` returns the response document as it arrived. When the IdP signs
+> only the assertion, nothing around it — the response's `Issuer`, `Status`, and timestamps — is
+> covered by any signature, and the method does not tell you whether that was the case. Never treat
+> what you read from it as authenticated.
+
+`getSamlResponseXml()` is deprecated and is removed in the next major version; calling it logs a
+warning under `NODE_DEBUG=node-saml`. Read the verified assertion instead:
+
+```javascript
+profile.getSamlResponseXml(); // deprecated
+profile.getAssertionXml(); // use this, or getAssertion() for the parsed form
+```
 
 ### Single logout (SLO)
 
@@ -482,26 +490,6 @@ explain rejections that might otherwise look overly strict:
   `InResponseTo` are security controls rather than conveniences — an option that switches one off
   (`audience: false`, `acceptedClockSkewMs: -1`) is removing a control, so make that choice
   deliberately.
-
-### Reading the response
-
-The profile carries three accessors for the underlying XML. Two of them return the bytes whose
-signature was verified:
-
-```javascript
-profile.getAssertionXml(); // the verified assertion, as XML
-profile.getAssertion(); // the verified assertion, parsed
-profile.getSamlResponseXml(); // deprecated - the response as received, NOT verified
-```
-
-`getSamlResponseXml()` is different in kind. A SAML response wraps the assertion in material
-the signature says nothing about, and an attacker supplies it, so the issuer, the status and
-the timestamps read from it are not authenticated. Basing any decision on what it returns
-reintroduces the signature-wrapping attack the rest of this library exists to prevent.
-
-It is deprecated and is removed in the next major version
-([#424](https://github.com/node-saml/node-saml/issues/424)). Calling it logs a warning under
-`NODE_DEBUG=node-saml`. Use `getAssertionXml()` or `getAssertion()` instead.
 
 ### Configuration option `signatureAlgorithm`
 
