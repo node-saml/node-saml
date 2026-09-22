@@ -114,10 +114,10 @@ its caller still has to go find the content somewhere else. We are moving away f
 shape entirely: verification returns the verified bytes or it returns nothing.
 
 _Known debts:_ `validateSignature()` is still exported and still returns a boolean.
-`Profile.getSamlResponseXml()` hands callers the unsigned response XML, and
-`processValidlySignedAssertionAsync` takes that unsigned XML as a parameter — the source
-comment at `src/saml.ts` says it "should be deprecated" and is right. See the deprecation
-section; don't build anything new on top of these.
+`Profile.getSamlResponseXml()` hands callers the response as received, without indicating which
+parts were authenticated, and `processValidlySignedAssertionAsync` takes that XML as a parameter
+only to back it. The accessor is deprecated and goes in the next major, and the parameter with it.
+See the deprecation section; don't build anything new on top of these.
 
 ### Reject ambiguity rather than resolving it
 

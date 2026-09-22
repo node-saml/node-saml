@@ -1139,7 +1139,7 @@ class SAML {
   protected async processValidlySignedAssertionAsync(
     this: SAML,
     xml: string, // assertion XML
-    samlResponseXml: string, // should be deprecated, this is unsigned
+    samlResponseXml: string, // the response as received, not as verified; backs getSamlResponseXml()
     inResponseTo: string | null,
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     let msg;
