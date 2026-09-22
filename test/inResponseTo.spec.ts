@@ -393,24 +393,30 @@ describe("InResponseTo request ID consumption", function () {
           validateInResponseTo === ValidateInResponseTo.always ? [requestId] : [requestId, null];
 
         responseInResponseTos.forEach((responseInResponseTo) => {
-          const carried = responseInResponseTo == null ? "omits" : "carries";
+          // An unsolicited response carries InResponseTo nowhere, neither on the Response nor on
+          // the SubjectConfirmationData (SAML profiles §4.1.5).
+          const inResponseTo = responseInResponseTo != null;
+          const solicitation = inResponseTo ? "a solicited" : "an unsolicited";
 
-          it(`rejects an expired confirmation when the Response ${carried} InResponseTo`, async () => {
+          it(`rejects an expired confirmation on ${solicitation} response`, async () => {
             const response = loginResponse({
               responseInResponseTo,
-              subjectConfirmations: [{ inResponseTo: true, expired: true }],
+              subjectConfirmations: [{ inResponseTo, expired: true }],
             });
 
             expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
               "No valid subject confirmation found among those available in the SAML assertion",
             );
           });
-        });
 
-        it("accepts one still within its window", async () => {
-          const response = loginResponse();
+          it(`accepts one still within its window on ${solicitation} response`, async () => {
+            const response = loginResponse({
+              responseInResponseTo,
+              subjectConfirmations: [{ inResponseTo }],
+            });
 
-          expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
+            expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
+          });
         });
       });
     });
