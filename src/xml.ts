@@ -31,6 +31,24 @@ const samlNamespaces: Readonly<Record<string, string>> = {
   xsi: "http://www.w3.org/2001/XMLSchema-instance",
 };
 
+const getInScopeNamespaces = (node: Node): Record<string, string> => {
+  const namespaces: Record<string, string> = {};
+  for (let current: Node | null = node; current != null; current = current.parentNode) {
+    if (!isDomNode.isElementNode(current)) {
+      continue;
+    }
+    for (let index = 0; index < current.attributes.length; index++) {
+      const attribute = current.attributes.item(index);
+      if (attribute?.namespaceURI !== xmldom.NAMESPACE.XMLNS) {
+        continue;
+      }
+      const prefix = attribute.prefix === "xmlns" ? attribute.localName : "";
+      namespaces[prefix] ??= attribute.value;
+    }
+  }
+  return namespaces;
+};
+
 const selectXPath = <T extends Node>(
   guard: (values: SelectReturnType) => values is Array<T>,
   node: Node,
@@ -338,8 +356,11 @@ export const parseDomFromString = (
   });
 };
 
-export const parseSamlXmlFragment = (xml: string): Promise<Document> =>
-  parseDomFromString(xml, samlNamespaces);
+export const parseSamlXmlFragment = (xml: string, encryptedNode: Node): Promise<Document> =>
+  parseDomFromString(xml, {
+    ...samlNamespaces,
+    ...getInScopeNamespaces(encryptedNode),
+  });
 
 export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJsObject> => {
   const parserConfig = {
@@ -402,7 +423,7 @@ export const getNameIdAsync = async (
     const encryptedDataXml = encryptedData[0].toString();
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
-    const decryptedDoc = await parseSamlXmlFragment(decryptedXml);
+    const decryptedDoc = await parseSamlXmlFragment(decryptedXml, encryptedData[0]);
     const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
     if (decryptedIds.length !== 1) {
       throw new Error("Invalid EncryptedData content");

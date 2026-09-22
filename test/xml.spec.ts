@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as util from "util";
 import * as assert from "assert";
 import { expect } from "chai";
-import { parseDomFromString } from "../src/xml";
+import { parseDomFromString, parseSamlXmlFragment } from "../src/xml";
 
 export const encryptXml = util.promisify(xmlenc.encrypt);
 export const decryptXml = util.promisify(xmlenc.decrypt);
@@ -150,6 +150,27 @@ describe("xml /", async function () {
       expect(responseDoc.documentElement.localName).to.equal("Response");
       expect(responseDoc.documentElement.namespaceURI).to.equal(
         "urn:oasis:names:tc:SAML:2.0:protocol",
+      );
+    });
+
+    it("should preserve inherited namespaces when parsing a decrypted fragment", async function () {
+      const responseDoc = await parseDomFromString(
+        '<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ' +
+          'xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ' +
+          'xmlns:custom="urn:example:custom"><saml:EncryptedAssertion/></samlp:Response>',
+      );
+      const encryptedAssertion = responseDoc.getElementsByTagNameNS(
+        "urn:oasis:names:tc:SAML:2.0:assertion",
+        "EncryptedAssertion",
+      )[0];
+
+      const fragmentDoc = await parseSamlXmlFragment(
+        "<saml:Assertion><custom:Extension/></saml:Assertion>",
+        encryptedAssertion,
+      );
+
+      expect(fragmentDoc.getElementsByTagNameNS("urn:example:custom", "Extension")).to.have.length(
+        1,
       );
     });
 
