@@ -128,6 +128,48 @@ describe("published type surface", function () {
     expect(errors).to.contain("error TS");
   });
 
+  it("keeps compiling a cache provider written without consumeAsync", function () {
+    const errors = typeCheck(`
+      import { CacheItem, CacheProvider } from ${packageEntry};
+
+      class LegacyCacheProvider implements CacheProvider {
+        async saveAsync(key: string, value: string): Promise<CacheItem | null> {
+          return { value, createdAt: Date.now() };
+        }
+        async getAsync(key: string): Promise<string | null> {
+          return null;
+        }
+        async removeAsync(key: string | null): Promise<string | null> {
+          return key;
+        }
+      }
+
+      export { LegacyCacheProvider };
+    `);
+
+    expect(errors).to.equal("");
+  });
+
+  it("accepts a cache provider with consumeAsync in a SamlConfig literal", function () {
+    const errors = typeCheck(`
+      import { SAML } from ${packageEntry};
+
+      void new SAML({
+        callbackUrl: "https://sp.example.com/callback",
+        issuer: "sp",
+        idpCert: "cert",
+        cacheProvider: {
+          saveAsync: async (key: string, value: string) => ({ value, createdAt: Date.now() }),
+          getAsync: async () => null,
+          removeAsync: async () => null,
+          consumeAsync: async () => null,
+        },
+      });
+    `);
+
+    expect(errors).to.equal("");
+  });
+
   // Without this, the tests above would pass if `typeCheck` stopped reporting anything.
   it("reports an error when the consumer really is wrong", function () {
     const errors = typeCheck(`

@@ -69,6 +69,30 @@ function resolveAuthOptions(
   return hostOrOptions;
 }
 
+// Reading the ID and then removing it lets two concurrent copies of one response both find it,
+// so a provider that can take it in one step does.
+async function consumeRequestIdAsync(
+  cacheProvider: CacheProvider,
+  requestId: string,
+): Promise<string | null> {
+  if (cacheProvider.consumeAsync) {
+    return cacheProvider.consumeAsync(requestId);
+  }
+
+  const value = await cacheProvider.getAsync(requestId);
+  await cacheProvider.removeAsync(requestId);
+  return value;
+}
+
+async function consumeInResponseToAsync(
+  cacheProvider: CacheProvider,
+  inResponseTo: string | null,
+): Promise<void> {
+  if (inResponseTo != null && (await consumeRequestIdAsync(cacheProvider, inResponseTo)) == null) {
+    throw new Error("InResponseTo is not valid");
+  }
+}
+
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -804,7 +828,7 @@ class SAML {
 
       const inResponseToNodes = xpath.selectAttributes(
         doc,
-        "/*[local-name()='Response']/@InResponseTo",
+        "/*[local-name()='Response' or local-name()='LogoutResponse']/@InResponseTo",
       );
 
       if (inResponseToNodes) {
@@ -945,6 +969,9 @@ class SAML {
         }
         const logoutResponse = xmljsDoc.LogoutResponse;
         if (logoutResponse) {
+          if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+            await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+          }
           return { profile: null, loggedOut: true };
         } else {
           throw new Error("Unknown SAML response message");
@@ -1193,25 +1220,26 @@ class SAML {
               throw new Error("InResponseTo does not match subjectInResponseTo");
             } else if (subjectInResponseTo) {
               let foundValidInResponseTo = false;
-              const result = await this.cacheProvider.getAsync(subjectInResponseTo);
+              const result = await consumeRequestIdAsync(this.cacheProvider, subjectInResponseTo);
               if (result) {
                 const createdAt = new Date(result);
                 if (nowMs < createdAt.getTime() + this.options.requestIdExpirationPeriodMs)
                   foundValidInResponseTo = true;
               }
-              await this.cacheProvider.removeAsync(inResponseTo);
               if (!foundValidInResponseTo) {
                 throw new Error("SubjectInResponseTo is not valid");
               }
               break getInResponseTo;
             }
           }
+          await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+          break getInResponseTo;
         } else {
           if (subjectConfirmations != null && subjectConfirmation == null) {
             msg = "No valid subject confirmation found among those available in the SAML assertion";
             throw new Error(msg);
           } else {
-            await this.cacheProvider.removeAsync(inResponseTo);
+            await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
             break getInResponseTo;
           }
         }
@@ -1437,6 +1465,10 @@ class SAML {
     const request = doc.LogoutRequest;
 
     if (response) {
+      const inResponseTo = response.$.InResponseTo;
+      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+        await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+      }
       return { profile: null, loggedOut: true };
     } else if (request) {
       return await this.processValidlySignedPostRequestAsync(doc, dom);

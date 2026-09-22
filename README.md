@@ -125,8 +125,7 @@ res.redirect(url);
 `additionalParams`/`additionalAuthorizeParams` in the constructor.
 
 All three of these methods also accept a deprecated `host` argument between `relayState` and
-`options`. It has never been read, and it is removed in the next major version
-([#367](https://github.com/node-saml/node-saml/pull/367)), so pass `options` directly:
+`options`. It is ignored, and it is removed in the next major version, so pass `options` directly:
 
 ```javascript
 await saml.getAuthorizeUrlAsync(relayState, host, options); // deprecated
@@ -254,8 +253,7 @@ const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, origi
 > without one is accepted with none of its contents authenticated — the issuer and the timestamps
 > are read from the same unsigned bytes, so `idpIssuer` does not constrain it either. Run with
 > `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
-> messages; a future major version will reject unsigned ones
-> ([#419](https://github.com/node-saml/node-saml/issues/419)). The POST binding is unaffected:
+> messages; a future major version will reject unsigned ones. The POST binding is unaffected:
 > `validatePostRequestAsync` always requires a valid signature.
 
 ### Service provider metadata
@@ -385,14 +383,13 @@ scoping: {
 | `cacheProvider`               | in-memory       | Where request IDs are stored. See [Cache provider](#cache-provider).                                                                              |
 
 > **Set `validateInResponseTo` explicitly.** It defaults to `"never"` today, and the next major
-> version requires it ([#399](https://github.com/node-saml/node-saml/pull/399)); until then, leaving
-> it unset logs a warning under `NODE_DEBUG=node-saml`. Which value fits depends on how logins reach
-> you:
+> version requires it; until then, leaving it unset logs a warning under `NODE_DEBUG=node-saml`.
+> Which value fits depends on how logins reach you:
 >
-> - `"always"` accepts only a response that answers a request Node-SAML recorded, and consumes that
->   request ID, so a response cannot be replayed or delivered unsolicited. It rejects IdP-initiated
->   logins, and on more than one server or process it needs a shared
->   [cache provider](#cache-provider).
+> - `"always"` accepts only a response that answers a request Node-SAML recorded, and removes that
+>   request ID as it accepts the response, so a response cannot be delivered unsolicited or accepted
+>   twice. It rejects IdP-initiated logins, and on more than one server or process it needs a shared
+>   [cache provider](#cache-provider) that implements `consumeAsync`.
 > - `"ifPresent"` validates `InResponseTo` when a response carries one and accepts a response that
 >   does not. IdP-initiated login keeps working, and an unsolicited response is accepted and can be
 >   replayed until its timestamps expire.
@@ -498,13 +495,12 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 
 > **Set both explicitly if you sign, and check the spelling.** With `privateKey` set, leaving
 > `signatureAlgorithm` or `digestAlgorithm` unset selects `sha1`, which is no longer considered safe
-> for signatures; the next major version requires both whenever `privateKey` is set
-> ([#422](https://github.com/node-saml/node-saml/issues/422)). A value that is not one of the three
-> above — including a casing difference such as `"SHA256"` — is not an error today either: it falls
-> through to SHA-1, so a typo silently downgrades the signature you asked for. The next major
-> version rejects it instead ([#423](https://github.com/node-saml/node-saml/issues/423)).
-> `digestAlgorithm` is typed as a plain string, so TypeScript does not catch a typo in it. Run with
-> `NODE_DEBUG=node-saml` to be told when any of this happens.
+> for signatures; the next major version requires both whenever `privateKey` is set. A value that is
+> not one of the three above — including a casing difference such as `"SHA256"` — is not an error
+> today either: it falls through to SHA-1, so a typo silently downgrades the signature you asked
+> for. The next major version rejects it instead. `digestAlgorithm` is typed as a plain string, so
+> TypeScript does not catch a typo in it. Run with `NODE_DEBUG=node-saml` to be told when any of
+> this happens.
 
 ### Configuration option `privateKey`
 
@@ -652,12 +648,13 @@ captured elsewhere from being replayed at your callback. Turn it on with
 `validateInResponseTo: "always"`.
 
 Node-SAML then records the ID of every request it generates, and a response validates only if its
-`InResponseTo` matches one of them. It is checked both as an attribute of the top-level `Response`
-element and within `SubjectConfirmation`.
+`InResponseTo` matches one of them. It is checked as an attribute of the top-level `Response` or
+`LogoutResponse` element, and within `SubjectConfirmation`.
 
 Recorded IDs expire after `requestIdExpirationPeriodMs` (8 hours by default). A response arriving
-with an expired — or unrecognized — `InResponseTo` is rejected. The ID is consumed on validation, so
-the same response cannot be presented twice.
+with an expired — or unrecognized — `InResponseTo` is rejected. Accepting a response removes its
+request ID, so the same response cannot be accepted twice. The built-in cache provider removes the
+ID atomically; a custom one does so only if it implements `consumeAsync`, described below.
 
 ## Cache provider
 
@@ -677,8 +674,16 @@ interface CacheProvider {
   getAsync(key: string): Promise<string | null>;
   /** Removes an item from the cache if the key exists. */
   removeAsync(key: string | null): Promise<string | null>;
+  /** Optional. Removes the key and returns its value, or null if it was absent, atomically. */
+  consumeAsync?(key: string): Promise<string | null>;
 }
 ```
+
+Implement `consumeAsync` if your store can remove a key and return its value in one step, such as
+Redis `GETDEL` or SQL `DELETE … RETURNING`. Node-SAML consumes request IDs with it, so of two copies
+of one response validated at the same moment, only one is accepted. Without it, Node-SAML reads the
+ID and removes it in separate calls, and both copies can be accepted. The built-in provider
+implements it.
 
 `CacheProvider` and `CacheItem` are exported from the package root.
 
