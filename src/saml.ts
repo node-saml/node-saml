@@ -1139,7 +1139,7 @@ class SAML {
   protected async processValidlySignedAssertionAsync(
     this: SAML,
     xml: string, // assertion XML
-    samlResponseXml: string, // should be deprecated, this is unsigned
+    samlResponseXml: string, // the response as received, not as verified; backs getSamlResponseXml()
     inResponseTo: string | null,
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     let msg;
@@ -1340,7 +1340,12 @@ class SAML {
 
     profile.getAssertionXml = () => xml.toString();
     profile.getAssertion = () => parsedAssertion;
-    profile.getSamlResponseXml = () => samlResponseXml;
+    profile.getSamlResponseXml = () => {
+      debugLog(
+        "Profile.getSamlResponseXml() returns the SAML response as received, which may include material no signature covered, and does not say which part was verified. Don't treat what it returns as authenticated; use getAssertionXml() or getAssertion() for the verified assertion. This accessor is removed in the next major version.",
+      );
+      return samlResponseXml;
+    };
 
     return { profile, loggedOut: false };
   }
