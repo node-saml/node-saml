@@ -30,11 +30,12 @@ describe("saml.ts", function () {
 
   // `util.debuglog` reads NODE_DEBUG once per process and the suite order is randomized, so
   // these run in one child rather than mutating the shared environment.
-  describe("warnings on defaults that change in the next major", function () {
+  describe("warnings on defaults the next major requires choosing", function () {
     let stderr: string;
 
     before(function () {
       this.timeout(20000);
+      const privateKey = fs.readFileSync(path.join(__dirname, "static", "key.pem"), "utf-8");
       const script = `
         const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
         const base = {
@@ -42,8 +43,13 @@ describe("saml.ts", function () {
           idpCert: ${JSON.stringify(FAKE_CERT)},
           callbackUrl: "http://localhost/saml/consume",
         };
+        const privateKey = ${JSON.stringify(privateKey)};
         console.error("<<says-nothing>>");
         new SAML({ ...base });
+        console.error("<<signs-says-nothing>>");
+        new SAML({ ...base, privateKey, validateInResponseTo: "always" });
+        console.error("<<signs-digest-omitted>>");
+        new SAML({ ...base, privateKey, validateInResponseTo: "always", signatureAlgorithm: "sha256" });
         console.error("<<casing-slip>>");
         new SAML({ ...base, validateInResponseTo: "always", signatureAlgorithm: "SHA256" });
         console.error("<<digest-typo>>");
@@ -56,6 +62,7 @@ describe("saml.ts", function () {
         console.error("<<everything-chosen>>");
         new SAML({
           ...base,
+          privateKey,
           validateInResponseTo: "always",
           signatureAlgorithm: "sha256",
           digestAlgorithm: "sha256",
@@ -79,13 +86,29 @@ describe("saml.ts", function () {
     }
 
     it("warns that `validateInResponseTo` defaults to never validating", function () {
-      expect(warningsFor("says-nothing")).to.contain("`validateInResponseTo` is not set");
-      expect(warningsFor("says-nothing")).to.contain("replayed");
+      const warnings = warningsFor("says-nothing");
+      expect(warnings).to.contain("`validateInResponseTo` is not set");
+      expect(warnings).to.contain("replayed");
+      expect(warnings).to.contain("The next major version requires it");
     });
 
-    it("warns that `signatureAlgorithm` defaults to sha1", function () {
-      expect(warningsFor("says-nothing")).to.contain("`signatureAlgorithm` is not set");
-      expect(warningsFor("says-nothing")).to.contain("defaults to `sha1`");
+    it("does not warn about signing algorithms when nothing is signed", function () {
+      const warnings = warningsFor("says-nothing");
+      expect(warnings).not.to.contain("`signatureAlgorithm` is not set");
+      expect(warnings).not.to.contain("`digestAlgorithm` is not set");
+    });
+
+    it("warns that `signatureAlgorithm` and `digestAlgorithm` default to sha1 when signing", function () {
+      const warnings = warningsFor("signs-says-nothing");
+      expect(warnings).to.contain("`signatureAlgorithm` is not set, so it defaults to `sha1`");
+      expect(warnings).to.contain("`digestAlgorithm` is not set, so it defaults to `sha1`");
+      expect(warnings).to.contain("requires it whenever `privateKey` is set");
+    });
+
+    it("warns about an omitted `digestAlgorithm` when only `signatureAlgorithm` is chosen", function () {
+      const warnings = warningsFor("signs-digest-omitted");
+      expect(warnings).to.contain("`digestAlgorithm` is not set");
+      expect(warnings).not.to.contain("`signatureAlgorithm`");
     });
 
     // "SHA256" is accepted today and signs with SHA-1, which is the whole reason this warns.

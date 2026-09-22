@@ -87,6 +87,9 @@ const saml = new SAML({
   // Where to send the user to authenticate
   entryPoint: "https://idp.example.com/sso",
 
+  // Accept only responses to requests we made; see "InResponseTo".
+  validateInResponseTo: "always",
+
   // Sign our own requests. Set the algorithms explicitly; see "Security and signatures".
   privateKey: fs.readFileSync("./sp-private-key.pem", "utf-8"),
   publicCert: fs.readFileSync("./sp-public-cert.pem", "utf-8"),
@@ -312,7 +315,7 @@ It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from th
 | `privateKey`             | —                              | SP private key in PEM format, used to sign outgoing messages. See [Security and signatures](#security-and-signatures).                                                            |
 | `publicCert`             | —                              | SP public signing certificate, embedded in the `AuthnRequest` so the IdP can verify it. Must match `privateKey`.                                                                  |
 | `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers.                                                                                                  |
-| `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, or `"sha512"`. **Set this explicitly**; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm).                          |
+| `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, or `"sha512"`. **Set this explicitly** if you set `privateKey`; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm).  |
 | `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above.                                                                           |
 | `xmlSignatureTransforms` | enveloped-signature + exc-c14n | Signature transforms used in HTTP-POST signatures. The default is `["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"]`.         |
 | `generateUniqueId`       | built-in                       | Function returning the unique IDs used for outgoing SAML messages.                                                                                                                |
@@ -375,17 +378,25 @@ scoping: {
 
 ### InResponseTo
 
-| Option                        | Default         | Description                                                                                                                                                                                            |
-| ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `validateInResponseTo`        | `"never"`       | `"always"` validates `InResponseTo` on every response, `"ifPresent"` validates it only when the response carries one, `"never"` skips the check. The `ValidateInResponseTo` enum is exported for this. |
-| `requestIdExpirationPeriodMs` | `28800000` (8h) | How long a generated request ID stays valid for matching against an incoming `InResponseTo`.                                                                                                           |
-| `cacheProvider`               | in-memory       | Where request IDs are stored. See [Cache provider](#cache-provider).                                                                                                                                   |
+| Option                        | Default         | Description                                                                                                                                       |
+| ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `validateInResponseTo`        | `"never"`       | `"always"`, `"ifPresent"`, or `"never"`. **Set this explicitly**; the trade-offs are below. The `ValidateInResponseTo` enum is exported for this. |
+| `requestIdExpirationPeriodMs` | `28800000` (8h) | How long a generated request ID stays valid for matching against an incoming `InResponseTo`.                                                      |
+| `cacheProvider`               | in-memory       | Where request IDs are stored. See [Cache provider](#cache-provider).                                                                              |
 
-> **Set `validateInResponseTo` explicitly.** The default is `"never"`, which means an `InResponseTo`
-> is not checked against a request this library issued, so a SAML response can be replayed or
-> delivered unsolicited. `"always"` is the safe choice and becomes the default in the next major
-> version ([#399](https://github.com/node-saml/node-saml/pull/399)). Until then, leaving it unset
-> logs a warning under `NODE_DEBUG=node-saml`.
+> **Set `validateInResponseTo` explicitly.** It defaults to `"never"` today, and the next major
+> version requires it ([#399](https://github.com/node-saml/node-saml/pull/399)); until then, leaving
+> it unset logs a warning under `NODE_DEBUG=node-saml`. Which value fits depends on how logins reach
+> you:
+>
+> - `"always"` accepts only a response that answers a request Node-SAML recorded, and consumes that
+>   request ID, so a response cannot be replayed or delivered unsolicited. It rejects IdP-initiated
+>   logins, and on more than one server or process it needs a shared
+>   [cache provider](#cache-provider).
+> - `"ifPresent"` validates `InResponseTo` when a response carries one and accepts a response that
+>   does not. IdP-initiated login keeps working, and an unsolicited response is accepted and can be
+>   replayed until its timestamps expire.
+> - `"never"` skips the check, so any captured response can be replayed until its timestamps expire.
 
 See [InResponseTo validation](#inresponseto-validation) below for what this protects against and how the IDs are consumed.
 
@@ -485,14 +496,15 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 
 `digestAlgorithm` takes the same three values and controls the digest over the signed data object.
 
-> **Set this explicitly, and check the spelling.** Leaving `signatureAlgorithm` unset selects
-> `sha1`, which is no longer considered safe for signatures; the next major version defaults to
-> `sha256` ([#422](https://github.com/node-saml/node-saml/issues/422)). A value that is not one of
-> the three above — including a casing difference such as `"SHA256"` — is not an error today either:
-> it falls through to SHA-1, so a typo silently downgrades the signature you asked for. The next
-> major version rejects it instead ([#423](https://github.com/node-saml/node-saml/issues/423)). The
-> same applies to `digestAlgorithm`, which is typed as a plain string and so is not checked by
-> TypeScript at all. Run with `NODE_DEBUG=node-saml` to be told when either happens.
+> **Set both explicitly if you sign, and check the spelling.** With `privateKey` set, leaving
+> `signatureAlgorithm` or `digestAlgorithm` unset selects `sha1`, which is no longer considered safe
+> for signatures; the next major version requires both whenever `privateKey` is set
+> ([#422](https://github.com/node-saml/node-saml/issues/422)). A value that is not one of the three
+> above — including a casing difference such as `"SHA256"` — is not an error today either: it falls
+> through to SHA-1, so a typo silently downgrades the signature you asked for. The next major
+> version rejects it instead ([#423](https://github.com/node-saml/node-saml/issues/423)).
+> `digestAlgorithm` is typed as a plain string, so TypeScript does not catch a typo in it. Run with
+> `NODE_DEBUG=node-saml` to be told when any of this happens.
 
 ### Configuration option `privateKey`
 

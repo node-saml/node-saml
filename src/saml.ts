@@ -176,18 +176,23 @@ class SAML {
       throw new TypeError("validateInResponseTo must be one of ['never', 'ifPresent', 'always']");
     }
 
-    // Choosing either of these looks exactly like saying nothing, so the notice for a change
-    // in the next major has to come from the option being absent rather than from a call site.
+    // Inheriting one of these defaults looks exactly like choosing it, so the notice that the
+    // next major requires a choice has to come from the option being absent.
     if (ctorOptions.validateInResponseTo === undefined) {
       debugLog(
-        "`validateInResponseTo` is not set, so it defaults to `never` and an InResponseTo is not checked against a request this library issued. A SAML response can then be replayed, or delivered unsolicited. The next major version defaults to `always`; set it explicitly to choose for yourself. See https://github.com/node-saml/node-saml/pull/399",
+        "`validateInResponseTo` is not set, so it defaults to `never` and an InResponseTo is not checked against a request this library issued. A SAML response can then be replayed, or delivered unsolicited. The next major version requires it; set it to `always`, `ifPresent`, or `never` now. See https://github.com/node-saml/node-saml/pull/399",
       );
     }
 
-    if (ctorOptions.signatureAlgorithm === undefined) {
-      debugLog(
-        "`signatureAlgorithm` is not set, so it defaults to `sha1`. SHA-1 is no longer considered safe for signatures. The next major version defaults to `sha256`; set it explicitly to choose for yourself. See https://github.com/node-saml/node-saml/issues/422",
-      );
+    if (isValidSamlSigningOptions(ctorOptions)) {
+      for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
+        if (ctorOptions[option] === undefined) {
+          debugLog(
+            "`%s` is not set, so it defaults to `sha1`, which is no longer considered safe for signatures. The next major version requires it whenever `privateKey` is set; set it now. See https://github.com/node-saml/node-saml/issues/422",
+            option,
+          );
+        }
+      }
     }
 
     // An unrecognized value is not an error today: it falls through to SHA-1, so a casing slip
