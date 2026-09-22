@@ -498,6 +498,36 @@ explain rejections that might otherwise look overly strict:
   (`audience: false`, `acceptedClockSkewMs: -1`) is removing a control, so make that choice
   deliberately.
 
+### Low-level exports
+
+Most integrations need only what the package exports at the top level: `SAML`,
+`generateServiceProviderMetadata`, and the types. The compiled modules under `lib/` are reachable
+too, and two of their exports implement the first property above, so they are worth stating
+explicitly. Both come from `lib/xml`:
+
+| Export                                              | Behavior                                                                                           |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `getVerifiedXml(fullXml, currentNode, pemFiles)`    | Returns the bytes the signature over `currentNode` covers, or `null` if none of `pemFiles` verify. |
+| `validateSignature(fullXml, currentNode, pemFiles)` | **Deprecated.** Returns whether that signature verified, and nothing about what it covered.        |
+
+`validateSignature()` is removed in the next major version. Reporting only that a signature verified
+leaves you to find the signed content somewhere else, and an attacker controls the difference between
+what verified and what you then read — that is an XML signature wrapping attack.
+`getVerifiedXml()` returns the verified bytes, so there is nothing left to go looking for:
+
+```javascript
+// deprecated: `dom` is the document as received, not the part the signature covered
+if (validateSignature(xml, dom.documentElement, pemFiles)) {
+  readTheProfileFrom(dom);
+}
+
+// use this instead
+const verifiedXml = getVerifiedXml(xml, dom.documentElement, pemFiles);
+if (verifiedXml != null) {
+  readTheProfileFrom(verifiedXml);
+}
+```
+
 ### Configuration option `signatureAlgorithm`
 
 Requests sent by Node-SAML can be signed using RSA with SHA-1, SHA-256, or SHA-512.
