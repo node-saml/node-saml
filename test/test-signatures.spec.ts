@@ -680,9 +680,11 @@ describe("Signatures", function () {
     );
 
     // The second argument used to inject these, verification included. It is accepted until the next
-    // major so a 5.1 caller keeps compiling, and it cannot change the verdict.
+    // major so a 5.1 caller keeps compiling, and it cannot change the verdict. `_validateSignature`
+    // is the seam 5.1 actually shipped, so resurrecting that destructuring has to fail here.
     it("injected dependencies cannot substitute the verification => error", async () => {
       const substituted = {
+        _validateSignature: () => true,
         _getVerifiedXml: () =>
           '<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="forged"/>',
         _parseDomFromString: () => assert.fail("the injected parser must not be called"),

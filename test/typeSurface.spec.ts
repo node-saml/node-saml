@@ -207,6 +207,8 @@ describe("published type surface", function () {
 
     expect(ordinaryCall, "a one-argument call is what consumers write").to.equal("");
 
+    // 5.1 shipped the two parsers and `_validateSignature`; `_getVerifiedXml` replaced the last of
+    // those and is here only because a caller may have written against an interim build.
     const legacyCall = typeCheck(`
       import { SAML } from ${packageEntry};
 
@@ -215,8 +217,8 @@ describe("published type surface", function () {
       void saml.validatePostRequestAsync(body, {
         _parseDomFromString: () => Promise.reject(new Error("unused")),
         _parseXml2JsFromString: () => Promise.reject(new Error("unused")),
-        _getVerifiedXml: () => "<LogoutRequest/>",
         _validateSignature: () => true,
+        _getVerifiedXml: () => "<LogoutRequest/>",
       });
     `);
 
