@@ -502,8 +502,8 @@ explain rejections that might otherwise look overly strict:
 
 Most integrations need only what the package exports at the top level: `SAML`,
 `generateServiceProviderMetadata`, and the types. The compiled modules under `lib/` are reachable
-too, and two of their exports implement the first property above, so they are worth stating
-explicitly. Both come from `lib/xml`:
+too, and two of their exports bear on the first property above: `getVerifiedXml()` is what upholds
+it, and `validateSignature()` is the shape it replaces. Both come from `lib/xml`:
 
 | Export                                              | Behavior                                                                                           |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
