@@ -33,6 +33,12 @@ export interface CacheProvider {
   saveAsync(key: string, value: string): Promise<CacheItem | null>;
   getAsync(key: string): Promise<string | null>;
   removeAsync(key: string | null): Promise<string | null>;
+  /**
+   * Removes `key` and returns its value, or `null` if it was absent, as one atomic operation.
+   * When present, it is used to consume request IDs, so that of two concurrent copies of a
+   * response only one is accepted.
+   */
+  consumeAsync?(key: string): Promise<string | null>;
 }
 
 export type XMLValue = string | number | boolean | null | XMLObject | XMLValue[];

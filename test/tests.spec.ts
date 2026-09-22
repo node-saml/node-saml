@@ -13,6 +13,8 @@ import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
 import { getVerifiedXml, parseDomFromString, validateSignature } from "../src/xml";
 import { generateServiceProviderMetadata } from "../src/metadata";
+import { spawnSync } from "child_process";
+import * as path from "path";
 
 const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -726,6 +728,72 @@ describe("node-saml /", function () {
 
         testMetadata(samlConfig, expectedMetadata);
       });
+
+      describe("certificates", function () {
+        const readStatic = (name: string) =>
+          fs.readFileSync(`${__dirname}/static/${name}`, "utf-8");
+        const signingCert = readStatic("acme_tools_com.cert");
+        const encryptionCert = readStatic("testshib encryption cert.pem");
+        const params = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          generateUniqueId: () => "_metadata",
+        };
+        const signingMetadata = (publicCerts: string | string[]) =>
+          generateServiceProviderMetadata({
+            ...params,
+            privateKey: readStatic("acme_tools_com.key"),
+            publicCerts,
+          });
+        const encryptionMetadata = (decryptionCert: string) =>
+          generateServiceProviderMetadata({
+            ...params,
+            decryptionPvk: readStatic("testshib encryption pvk.pem"),
+            decryptionCert,
+          });
+
+        it("publishes a certificate the same whether it is given as PEM or as Base64", function () {
+          const base64 = readStatic("acme_tools_com_without_header_and_footer.cert");
+          expect(signingMetadata(base64.replace(/\s/g, ""))).to.equal(signingMetadata(signingCert));
+        });
+
+        it("should throw if decryptionCert holds more than one certificate", function () {
+          expect(() => encryptionMetadata(`${encryptionCert}${signingCert}`)).to.throw(
+            "decryptionCert must hold exactly one certificate, but holds 2",
+          );
+        });
+
+        it("should throw if an entry of publicCerts holds more than one certificate, naming the entry", function () {
+          expect(() => signingMetadata([signingCert, `${signingCert}${encryptionCert}`])).to.throw(
+            "publicCerts[1] must hold exactly one certificate, but holds 2",
+          );
+        });
+
+        it("should throw if publicCerts is a public key rather than a certificate", function () {
+          expect(() => signingMetadata(readStatic("pub.pem"))).to.throw(
+            "publicCerts must hold exactly one certificate, but holds 0",
+          );
+        });
+
+        it("signs metadata with a private key given as Base64", async function () {
+          const metadata = generateServiceProviderMetadata({
+            ...params,
+            privateKey: readStatic("single_line_acme_tools_com.key"),
+            publicCerts: signingCert,
+            signMetadata: true,
+            signatureAlgorithm: "sha256",
+            digestAlgorithm: "sha256",
+          });
+          const dom = await parseDomFromString(metadata);
+          assert.ok(getVerifiedXml(metadata, dom.documentElement, [signingCert]));
+        });
+
+        it("should throw if decryptionCert is not a certificate, naming the option", function () {
+          expect(() => encryptionMetadata(FAKE_CERT)).to.throw(
+            /^decryptionCert is not in PEM format or in base64 format: /,
+          );
+        });
+      });
     });
 
     describe("validatePostResponse checks /", function () {
@@ -770,7 +838,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
           callbackUrl: "http://localhost/saml/consume",
-          idpCert: FAKE_CERT,
+          idpCert: TEST_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
         });
@@ -786,7 +854,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
           callbackUrl: "http://localhost/saml/consume",
-          idpCert: FAKE_CERT,
+          idpCert: TEST_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
         });
@@ -3212,18 +3280,48 @@ describe("node-saml /", function () {
     const request =
       '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
 
-    if (process.versions.node.split(".")[0] >= "18") {
-      await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-        message: "error:1E08010C:DECODER routines::unsupported",
-      });
-    } else {
-      await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-        message: "error:0909006C:PEM routines:get_name:no start line",
-      });
-    }
+    await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
+      message: "privateKey is not in PEM format or in base64 format: Invalid PEM format.",
+    });
   });
 
   describe("validateRedirect()", function () {
+    function withoutSignature(request: Record<string, string>): Record<string, string> {
+      const unsigned = { ...request };
+      delete unsigned.Signature;
+      delete unsigned.SigAlg;
+      unsigned.originalQuery = request.originalQuery
+        .split("&")
+        .filter((param) => !/^(Signature|SigAlg)=/.test(param))
+        .join("&");
+      return unsigned;
+    }
+
+    // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child rather
+    // than mutating the environment the rest of the suite shares.
+    function validateRedirectWithNodeDebug(request: Record<string, string>) {
+      const config: SamlConfig = {
+        callbackUrl: "http://localhost/saml/consume",
+        idpCert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "ascii"),
+        issuer: "onesaml_login",
+        acceptedClockSkewMs: -1,
+      };
+      const script = `
+        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        new SAML(${JSON.stringify(config)})
+          .validateRedirectAsync(${JSON.stringify(request)}, ${JSON.stringify(request.originalQuery)})
+          .catch((error) => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+      `;
+      return spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+    }
+
     describe("idp slo", function () {
       let samlObj: SAML;
       let fakeClock: sinon.SinonFakeTimers;
@@ -3294,6 +3392,23 @@ describe("node-saml /", function () {
           sessionIndex: "_00bf7b2d5d9d3c970217eecefb1194bef3362a618e",
         });
       });
+      // Pins behavior scheduled to change, not behavior we want: when this becomes a
+      // rejection the test must fail and be rewritten. https://github.com/node-saml/node-saml/issues/419
+      it("accepts a message with no Signature parameter, pending rejection in the next major", async function () {
+        const request = withoutSignature(this.request);
+        const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
+        expect(loggedOut).to.be.true;
+      });
+      it("warns via NODE_DEBUG when it accepts a message with no Signature parameter", function () {
+        this.timeout(20000); // Compiling the library in the child process is not fast.
+        const { status, stderr } = validateRedirectWithNodeDebug(withoutSignature(this.request));
+
+        expect(status, stderr).to.equal(0);
+        expect(stderr).to.contain(
+          "SAMLRequest over the Redirect binding with no Signature parameter",
+        );
+        expect(stderr).to.contain("unverified");
+      });
     });
     describe("sp slo", function () {
       let samlObj: SAML;
@@ -3361,6 +3476,26 @@ describe("node-saml /", function () {
           this.request.originalQuery,
         );
         expect(loggedOut).to.be.true;
+      });
+
+      // As above, pinned pending rejection: the status reported here is the attacker's to
+      // choose. https://github.com/node-saml/node-saml/issues/419
+      it("accepts a response with no Signature parameter, pending rejection in the next major", async function () {
+        await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
+        const request = withoutSignature(this.request);
+        const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
+        expect(loggedOut).to.be.true;
+      });
+
+      it("warns via NODE_DEBUG when it accepts a response with no Signature parameter", function () {
+        this.timeout(20000); // Compiling the library in the child process is not fast.
+        const { status, stderr } = validateRedirectWithNodeDebug(withoutSignature(this.request));
+
+        expect(status, stderr).to.equal(0);
+        expect(stderr).to.contain(
+          "SAMLResponse over the Redirect binding with no Signature parameter",
+        );
+        expect(stderr).to.contain("unverified");
       });
 
       it("accepts cert without header and footer line", async function () {

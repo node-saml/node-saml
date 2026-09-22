@@ -104,6 +104,20 @@ export class InMemoryCacheProvider implements CacheProvider {
   }
 
   /**
+   * Removes an item from the cache and returns its value, or null if it was absent or expired
+   */
+  async consumeAsync(key: string): Promise<string | null> {
+    const item = this.cacheKeys[key];
+    if (item == null) {
+      return null;
+    }
+
+    delete this.cacheKeys[key];
+    const nowMs = new Date().getTime();
+    return nowMs < item.createdAt + this.options.keyExpirationPeriodMs ? item.value : null;
+  }
+
+  /**
    * Removes an item from the cache if it exists
    */
   async removeAsync(key: string | null): Promise<string | null> {

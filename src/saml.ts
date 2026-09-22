@@ -47,6 +47,52 @@ import {
 
 const debugLog = util.debuglog("node-saml");
 
+// `host` sits before `options`, so removing it outright would slide `options` into its place
+// and silently discard a JavaScript caller's `additionalParams`. Accepting both shapes lets
+// callers move first. Module-level so it adds nothing to the `SAML` class surface, which
+// subclasses inherit. Passing `undefined` for both cannot be told from passing neither, so
+// that case is not reported.
+function resolveAuthOptions(
+  hostOrOptions: string | AuthOptions | undefined,
+  legacyOptions: AuthOptions | undefined,
+  methodName: string,
+): AuthOptions | undefined {
+  if (typeof hostOrOptions === "string" || legacyOptions !== undefined) {
+    debugLog(
+      "%s was called with a `host` argument. It is unused and is removed in the next major version; call %s(RelayState, options) instead.",
+      methodName,
+      methodName,
+    );
+    return legacyOptions;
+  }
+
+  return hostOrOptions;
+}
+
+// Reading the ID and then removing it lets two concurrent copies of one response both find it,
+// so a provider that can take it in one step does.
+async function consumeRequestIdAsync(
+  cacheProvider: CacheProvider,
+  requestId: string,
+): Promise<string | null> {
+  if (cacheProvider.consumeAsync) {
+    return cacheProvider.consumeAsync(requestId);
+  }
+
+  const value = await cacheProvider.getAsync(requestId);
+  await cacheProvider.removeAsync(requestId);
+  return value;
+}
+
+async function consumeInResponseToAsync(
+  cacheProvider: CacheProvider,
+  inResponseTo: string | null,
+): Promise<void> {
+  if (inResponseTo != null && (await consumeRequestIdAsync(cacheProvider, inResponseTo)) == null) {
+    throw new Error("InResponseTo is not valid");
+  }
+}
+
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -152,6 +198,48 @@ class SAML {
 
     if (!Object.values(ValidateInResponseTo).includes(options.validateInResponseTo)) {
       throw new TypeError("validateInResponseTo must be one of ['never', 'ifPresent', 'always']");
+    }
+
+    // Inheriting one of these defaults looks exactly like choosing it, so the notice that the
+    // next major requires a choice has to come from the option being absent.
+    if (ctorOptions.validateInResponseTo === undefined) {
+      debugLog(
+        "`validateInResponseTo` is not set, so it defaults to `never` and an InResponseTo is not checked against a request this library issued. A SAML response can then be replayed, or delivered unsolicited. The next major version requires it; set it to `always`, `ifPresent`, or `never` now.",
+      );
+    }
+
+    if (
+      options.validateInResponseTo !== ValidateInResponseTo.never &&
+      options.cacheProvider.consumeAsync == null
+    ) {
+      debugLog(
+        "`cacheProvider` has no `consumeAsync`, so a request ID is read and then removed in separate calls, and two copies of one response validated at the same moment can both be accepted. The next major version requires it; implement it to remove a key and return its value in one step.",
+      );
+    }
+
+    if (isValidSamlSigningOptions(ctorOptions)) {
+      for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
+        if (ctorOptions[option] === undefined) {
+          debugLog(
+            "`%s` is not set, so it defaults to `sha1`, which is no longer considered safe for signatures. The next major version requires it whenever `privateKey` is set; set it now.",
+            option,
+          );
+        }
+      }
+    }
+
+    // An unrecognized value is not an error today: it falls through to SHA-1, so a casing slip
+    // like "SHA256" silently downgrades the signature the caller asked for.
+    for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
+      const value = ctorOptions[option];
+      if (value !== undefined && !algorithms.isSupportedAlgorithm(value)) {
+        debugLog(
+          '`%s` is set to "%s", which is not recognized, so SHA-1 is used instead. Use one of %s. The next major version rejects an unrecognized value rather than downgrading.',
+          option,
+          value,
+          algorithms.SUPPORTED_ALGORITHMS.join(", "),
+        );
+      }
     }
 
     /**
@@ -497,11 +585,19 @@ class SAML {
     );
   }
 
+  /**
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeUrlAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
+   *
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
+   */
   async getAuthorizeUrlAsync(
     RelayState: string,
-    host: string | undefined,
-    options: AuthOptions,
+    hostOrOptions: string | AuthOptions | undefined,
+    legacyOptions?: AuthOptions,
   ): Promise<string> {
+    const options = resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeUrlAsync");
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, false);
     const operation = "authorize";
     const overrideParams = options ? options.additionalParams || {} : {};
@@ -513,11 +609,19 @@ class SAML {
     );
   }
 
+  /**
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeMessageAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
+   *
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
+   */
   async getAuthorizeMessageAsync(
     RelayState: string,
-    host?: string,
-    options?: AuthOptions,
+    hostOrOptions?: string | AuthOptions,
+    legacyOptions?: AuthOptions,
   ): Promise<querystring.ParsedUrlQueryInput> {
+    const options = resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeMessageAsync");
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     const request = await this.generateAuthorizeRequestAsync(this.options.passive, true);
@@ -540,11 +644,20 @@ class SAML {
     return samlMessage;
   }
 
+  /**
+   * The `host` argument is unused and is removed in the next major version; call
+   * `getAuthorizeFormAsync(RelayState, options)` instead. Passing it logs under `NODE_DEBUG=node-saml`.
+   *
+   * An override of this method must migrate alongside its callers: a two-argument call reaches
+   * the override directly, so one written for the old signature receives `options` as `host`.
+   */
   async getAuthorizeFormAsync(
     RelayState: string,
-    host?: string,
-    options?: AuthOptions,
+    hostOrOptions?: string | AuthOptions,
+    legacyOptions?: AuthOptions,
   ): Promise<string> {
+    // Called for the warning; the arguments are forwarded below as they arrived.
+    resolveAuthOptions(hostOrOptions, legacyOptions, "getAuthorizeFormAsync");
     assertRequired(this.options.entryPoint, "entryPoint is required");
 
     // The quoteattr() function is used in a context, where the result will not be evaluated by javascript
@@ -576,7 +689,12 @@ class SAML {
       );
     };
 
-    const samlMessage = await this.getAuthorizeMessageAsync(RelayState, host, options);
+    // Forwarded exactly as received: normalizing would change what a subclass override sees.
+    const samlMessage = await this.getAuthorizeMessageAsync(
+      RelayState,
+      hostOrOptions,
+      legacyOptions,
+    );
 
     const formInputs = Object.keys(samlMessage)
       .map((k) => {
@@ -719,7 +837,7 @@ class SAML {
 
       const inResponseToNodes = xpath.selectAttributes(
         doc,
-        "/*[local-name()='Response']/@InResponseTo",
+        "/*[local-name()='Response' or local-name()='LogoutResponse']/@InResponseTo",
       );
 
       if (inResponseToNodes) {
@@ -860,6 +978,9 @@ class SAML {
         }
         const logoutResponse = xmljsDoc.LogoutResponse;
         if (logoutResponse) {
+          if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+            await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+          }
           return { profile: null, loggedOut: true };
         } else {
           throw new Error("Unknown SAML response message");
@@ -938,6 +1059,12 @@ class SAML {
         throw new Error("Invalid query signature");
       }
     } else {
+      // Nothing here is authenticated: the issuer and the timestamps come from the same bytes
+      // an attacker supplies. Accepted for compatibility until a future major version rejects it.
+      debugLog(
+        "Processing a %s over the Redirect binding with no Signature parameter. Its contents are unverified. Configure the identity provider to sign logout messages; a future major version will reject unsigned ones.",
+        container.SAMLRequest ? "SAMLRequest" : "SAMLResponse",
+      );
       return true;
     }
   }
@@ -989,12 +1116,7 @@ class SAML {
       throw new Error("Bad status code: " + statusCode);
 
     this.verifyIssuer(doc.LogoutResponse);
-    const inResponseTo = doc.LogoutResponse.$.InResponseTo;
-    if (inResponseTo) {
-      return this.validateInResponseTo(inResponseTo);
-    }
-
-    return;
+    return this.validateInResponseTo(doc.LogoutResponse.$.InResponseTo ?? null);
   }
 
   protected verifyIssuer(samlMessage: XMLOutput): void {
@@ -1101,25 +1223,26 @@ class SAML {
               throw new Error("InResponseTo does not match subjectInResponseTo");
             } else if (subjectInResponseTo) {
               let foundValidInResponseTo = false;
-              const result = await this.cacheProvider.getAsync(subjectInResponseTo);
+              const result = await consumeRequestIdAsync(this.cacheProvider, subjectInResponseTo);
               if (result) {
                 const createdAt = new Date(result);
                 if (nowMs < createdAt.getTime() + this.options.requestIdExpirationPeriodMs)
                   foundValidInResponseTo = true;
               }
-              await this.cacheProvider.removeAsync(inResponseTo);
               if (!foundValidInResponseTo) {
                 throw new Error("SubjectInResponseTo is not valid");
               }
               break getInResponseTo;
             }
           }
+          await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+          break getInResponseTo;
         } else {
           if (subjectConfirmations != null && subjectConfirmation == null) {
             msg = "No valid subject confirmation found among those available in the SAML assertion";
             throw new Error(msg);
           } else {
-            await this.cacheProvider.removeAsync(inResponseTo);
+            await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
             break getInResponseTo;
           }
         }
@@ -1352,6 +1475,10 @@ class SAML {
     const request = doc.LogoutRequest;
 
     if (response) {
+      const inResponseTo = response.$.InResponseTo;
+      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+        await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+      }
       return { profile: null, loggedOut: true };
     } else if (request) {
       return await this.processValidlySignedPostRequestAsync(doc, dom);
