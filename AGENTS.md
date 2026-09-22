@@ -306,3 +306,10 @@ there.
   public API. Do not infer behavior from names or issue descriptions when the repository
   can answer the question. Keep the change scoped to the requested problem; do not combine
   bug fixes with unrelated refactoring or cleanup.
+- Scoped does not mean partial. What that rule keeps out is _unrelated_ work riding along;
+  a fix is expected to be complete. When the defect is in a shared function, fix it there
+  and cover every caller, even the ones the issue did not mention — shipping it for one
+  caller leaves the others wrong and makes the next person reconcile two half-changes.
+  Judge relatedness by whether the work shares a mechanism or a rationale with the fix, not
+  by whether it touches more than one entry point. Say in the pull request which callers the
+  fix reaches beyond the one that was reported.
