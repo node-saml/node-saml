@@ -207,18 +207,24 @@ describe("published type surface", function () {
 
     expect(ordinaryCall, "a one-argument call is what consumers write").to.equal("");
 
-    // 5.1 shipped the two parsers and `_validateSignature`; `_getVerifiedXml` replaced the last of
-    // those and is here only because a caller may have written against an interim build.
+    // The three properties 5.1 shipped. Written with inferred callback parameters, which is the shape
+    // that regresses if the parameter is narrowed to `unknown`: contextual typing stops supplying
+    // them and every one becomes TS7006. The parameterless form is here too because both compiled.
     const legacyCall = typeCheck(`
       import { SAML } from ${packageEntry};
 
       declare const saml: SAML;
       declare const body: Record<string, string>;
+
       void saml.validatePostRequestAsync(body, {
-        _parseDomFromString: () => Promise.reject(new Error("unused")),
-        _parseXml2JsFromString: () => Promise.reject(new Error("unused")),
+        _parseDomFromString: (xml) => Promise.reject(new Error(xml)),
+        _parseXml2JsFromString: (xml) => Promise.reject(new Error(String(xml))),
+        _validateSignature: (fullXml, currentNode, pemFiles) =>
+          fullXml.length > 0 && currentNode != null && pemFiles.length > 0,
+      });
+
+      void saml.validatePostRequestAsync(body, {
         _validateSignature: () => true,
-        _getVerifiedXml: () => "<LogoutRequest/>",
       });
     `);
 

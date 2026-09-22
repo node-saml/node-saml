@@ -27,6 +27,7 @@ import {
   SamlResponseXmlJs,
   SamlStatusError,
   ValidateInResponseTo,
+  XmlJsObject,
   XMLInput,
   XMLObject,
   XMLOutput,
@@ -1471,9 +1472,16 @@ class SAML {
     return null;
   }
 
+  // The second parameter keeps the shape v5.1 published rather than narrowing to `unknown`, so a
+  // caller who wrote its callbacks with inferred parameters still contextually types them instead of
+  // collecting TS7006. Nothing in it is read.
   async validatePostRequestAsync(
     container: Record<string, string>,
-    legacyInjectedDependencies?: unknown,
+    legacyInjectedDependencies?: {
+      _parseDomFromString?: (xml: string) => Promise<Document>;
+      _parseXml2JsFromString?: (xml: string | Buffer) => Promise<XmlJsObject>;
+      _validateSignature?: (fullXml: string, currentNode: Element, pemFiles: string[]) => boolean;
+    },
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     warnIgnoredInjectedDependencies(legacyInjectedDependencies);
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
