@@ -207,8 +207,7 @@ describe("published type surface", function () {
 
     // The forms the v5.1 declaration permits: callbacks whose parameters infer, which `() => true`
     // alone would not exercise; an explicitly `undefined` property; and an override forwarding the
-    // published type to `super`. `_getVerifiedXml` is absent because it never shipped, so an
-    // excess-property error on it is the right answer.
+    // published type to `super`.
     const legacyConsumer = `
       import { SAML, Profile } from ${packageEntry};
       import type { XmlJsObject } from ${JSON.stringify(path.join(repoRoot, "lib", "types"))};

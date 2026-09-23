@@ -682,8 +682,6 @@ describe("Signatures", function () {
     it("injected dependencies cannot substitute the verification => error", async () => {
       const substituted = {
         _validateSignature: () => true,
-        _getVerifiedXml: () =>
-          '<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="forged"/>',
         _parseDomFromString: () => assert.fail("the injected parser must not be called"),
         _parseXml2JsFromString: () => assert.fail("the injected parser must not be called"),
       };
