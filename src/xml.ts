@@ -119,9 +119,8 @@ export const getVerifiedXml = (
 
     assertRequired(refUri, "signature reference uri not found");
 
-    // For an ID of "foo" the reference URI must be "#foo"; a bare "foo" names a separate
-    // resource. SAML core 5.4.2:
-    // https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
+    // For an ID of "foo" the reference URI must be "#foo"; a bare "foo" names another resource.
+    // SAML core 5.4.2: https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
     if (!refUri.startsWith("#")) {
       throw new Error("Invalid signature: reference URI is not a same-document reference");
     }

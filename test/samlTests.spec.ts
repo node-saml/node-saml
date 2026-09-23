@@ -163,8 +163,8 @@ describe("saml.ts", function () {
       sinon
         .stub(SAML.prototype, "processValidlySignedPostRequestAsync" as unknown as keyof SAML)
         .resolves(null);
-      // `validatePostRequestAsync` takes no injected dependencies, so short-circuit the parsing and
-      // verification it would otherwise do on the empty request this test feeds it.
+      // The second argument is ignored now, so stub the module: this test only has to reach
+      // `getKeyInfosAsPem`, and the empty request would not survive real parsing.
       sinon
         .stub(xml, "parseDomFromString")
         .resolves({ documentElement: null } as unknown as Document);

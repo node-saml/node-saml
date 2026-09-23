@@ -69,10 +69,8 @@ function resolveAuthOptions(
   return hostOrOptions;
 }
 
-// The second argument to `validatePostRequestAsync` was an object of injected dependencies, one of
-// which replaced signature verification outright. It is ignored, so no caller can substitute the
-// verifier, and it is accepted so that a caller who passed it still compiles. Module-level so it
-// adds nothing to the `SAML` class surface, which subclasses inherit.
+// Ignored, so no caller can substitute the verifier, and accepted so that a caller who passed it
+// still compiles. Module-level: a `protected` helper would join the `SAML` class surface.
 function warnIgnoredInjectedDependencies(legacyInjectedDependencies: unknown): void {
   if (legacyInjectedDependencies !== undefined) {
     debugLog(
@@ -1472,10 +1470,8 @@ class SAML {
     return null;
   }
 
-  // The second parameter keeps the shape v5.1 published, down to the explicit `| undefined` that
-  // destructuring with defaults produced there. Narrowing it to `unknown` costs contextual typing, so
-  // a caller whose callbacks infer their parameters collects TS7006; dropping the `| undefined` costs
-  // `exactOptionalPropertyTypes` callers the right to pass one explicitly. Nothing in it is read.
+  // The v5.1 parameter shape kept verbatim, `| undefined` included, and never read.
+  // `typeSurface.spec.ts` pins the call and override forms it has to keep accepting.
   async validatePostRequestAsync(
     container: Record<string, string>,
     legacyInjectedDependencies?: {

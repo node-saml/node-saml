@@ -678,9 +678,7 @@ describe("Signatures", function () {
       ),
     );
 
-    // The second argument used to inject these, verification included. It is accepted until the
-    // next major so a 5.1 caller keeps compiling, and it cannot change the verdict.
-    // `_validateSignature` is the seam 5.1 shipped, so resurrecting that destructuring fails here.
+    // `_validateSignature` is the seam v5.1 shipped; the `assert.fail` parsers catch a wider relapse.
     it("injected dependencies cannot substitute the verification => error", async () => {
       const substituted = {
         _validateSignature: () => true,

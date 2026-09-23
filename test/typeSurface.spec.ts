@@ -192,11 +192,8 @@ describe("published type surface", function () {
     expect(errors).to.contain("error TS");
   });
 
-  // `validatePostRequestAsync`'s second parameter was an object of injected dependencies, which
-  // `declaration` emitted into the published types — a published parameter that switched signature
-  // verification off. The substitution is gone, but the parameter and its exact published type stay
-  // until the next major: `AGENTS.md` puts published API removal in a major, and a 5.1 consumer has
-  // to keep compiling. `test-signatures.spec.ts` proves that passing it cannot alter verification.
+  // The parameter and its exact published type stay until the next major, because a 5.1 consumer has
+  // to keep compiling. That it can no longer alter verification is `test-signatures.spec.ts`'s job.
   it("still accepts the injected-dependency argument it no longer honors", function () {
     const ordinaryCall = typeCheck(`
       import { SAML } from ${packageEntry};
@@ -208,16 +205,10 @@ describe("published type surface", function () {
 
     expect(ordinaryCall, "a one-argument call is what consumers write").to.equal("");
 
-    // Everything a v5.1 consumer could have written against the emitted declaration, recovered by
-    // compiling the tag with `--declaration` rather than reconstructed:
-    //
-    //  - callbacks with inferred parameters. Narrowing the parameter to `unknown` loses contextual
-    //    typing and every one becomes TS7006, so `() => true` alone would not catch that.
-    //  - an explicitly `undefined` property, which the published `| undefined` allowed.
-    //  - an override declaring that same type and forwarding it to `super`.
-    //
-    // `_getVerifiedXml` is deliberately absent: it never shipped, so the published type does not
-    // promise it and an excess-property error on it is correct.
+    // The forms the v5.1 declaration permits: callbacks whose parameters infer, which `() => true`
+    // alone would not exercise; an explicitly `undefined` property; and an override forwarding the
+    // published type to `super`. `_getVerifiedXml` is absent because it never shipped, so an
+    // excess-property error on it is the right answer.
     const legacyConsumer = `
       import { SAML, Profile } from ${packageEntry};
       import type { XmlJsObject } from ${JSON.stringify(path.join(repoRoot, "lib", "types"))};
