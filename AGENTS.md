@@ -113,8 +113,8 @@ A function that answers "did this verify?" with a boolean cannot uphold this rul
 its caller still has to go find the content somewhere else. We are moving away from that
 shape entirely: verification returns the verified bytes or it returns nothing.
 
-_Known debts:_ `validateSignature()` is still exported and still returns a boolean. It has no
-callers left inside the library, is deprecated, and goes in the next major.
+_Known debts:_ `validateSignature()` is still exported and still returns a boolean. It is
+deprecated and has no callers left inside the library.
 `Profile.getSamlResponseXml()` hands callers the response as received, without indicating which
 parts were authenticated, and `processValidlySignedAssertionAsync` takes that XML as a parameter
 only to back it. The accessor is deprecated and goes in the next major, and the parameter with it.
@@ -129,10 +129,10 @@ element, an `ID` that resolves to more than one element, a reference pointing so
 other than its own parent, a reference URI that is not a same-document reference, and more
 than two transforms.
 
-Each of those closes a real attack, a spec violation, or an ambiguity an attacker would be
-the one to resolve — none of them is a tidiness check, and a check does not need a working
-exploit behind it to belong here. Do not relax one to make a document parse. When you add a check of this kind, add its fixture to
-`test/static/signatures/invalid/` so the rejection is pinned.
+Each of those closes a real attack, a spec violation, or an ambiguity an attacker would
+otherwise resolve; none is a tidiness check, and a check does not need a working exploit
+behind it to belong here. Do not relax one to make a document parse. When you add a check of
+this kind, add its fixture to `test/static/signatures/invalid/` so the rejection is pinned.
 
 ### Fail closed, and say why
 
@@ -206,9 +206,8 @@ Two cautions specific to this repository:
 
 - A lint rule that errors on deprecated usage makes internal migration enforceable, and is
   worth adding when we have enough marked to justify it. Note that the `@deprecated` tag
-  and that rule arrive together or the build breaks on our own call sites. So deprecate the
-  call sites first, then the API: `validateSignature` only earned its tag once
-  `validatePostRequestAsync` had moved to `getVerifiedXml()`.
+  and that rule arrive together or the build breaks on our own call sites, so deprecate the
+  call sites first, then the API.
 - Deprecating a **default** is not the same as deprecating an API and is harder: silence is
   the thing being removed, so there is no call site to warn at. The migration is to warn
   when the option is absent, then require it in the next major.
@@ -307,12 +306,8 @@ there.
   public API. Do not infer behavior from names or issue descriptions when the repository
   can answer the question. Keep the change scoped to the requested problem; do not combine
   bug fixes with unrelated refactoring or cleanup.
-- Scoped does not mean partial. What that rule keeps out is _unrelated_ work riding along;
-  a fix is expected to be complete. When the defect is in a shared function, consider fixing
-  it there and covering every caller, including ones the issue did not mention — ask first
-  whether the invariant really holds for all of them, because a shared primitive sometimes
-  supports a broader contract than any one caller needs. Where it does hold, fixing one
-  caller leaves the others wrong and makes the next person reconcile two half-changes. Judge
-  relatedness by whether the work shares a mechanism or a rationale with the fix, not by
-  whether it touches more than one entry point. Say in the pull request which callers the fix
-  reaches beyond the one that was reported.
+- Scoped does not mean partial: that rule keeps out _unrelated_ work, and a fix is still
+  expected to be complete. When the defect is in a shared function, check whether the
+  invariant holds for every caller — a shared primitive sometimes supports a broader contract
+  than one caller needs — and where it does, fix it there rather than leaving the other
+  callers wrong. Say in the pull request which callers the fix reaches beyond the reported one.
