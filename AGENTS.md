@@ -115,16 +115,7 @@ shape entirely: verification returns the verified bytes or it returns nothing.
 ### Reject ambiguity rather than resolving it
 
 When a document admits two readings, the library refuses it. It does not pick one, and it
-does not pick "the one that verifies." `src/xml.ts` and `validatePostResponseAsync`
-already reject documents with more than one assertion, more than one signature on an
-element, an `ID` that resolves to more than one element, a reference pointing somewhere
-other than its own parent, a reference URI that is not a same-document reference, and more
-than two transforms.
-
-Each of those closes a real attack, a spec violation, or an ambiguity an attacker would
-otherwise resolve; none is a tidiness check, and a check does not need a working exploit
-behind it to belong here. Do not relax one to make a document parse. When you add a check of
-this kind, add its fixture to `test/static/signatures/invalid/` so the rejection is pinned.
+does not pick "the one that verifies."
 
 ### Fail closed, and say why
 
