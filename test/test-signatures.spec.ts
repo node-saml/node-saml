@@ -20,7 +20,7 @@ describe("Signatures", function () {
   const INVALID_DETACHED_REFERENCE =
     "Invalid signature: reference URI is not a same-document reference";
   const XMLDOM_ERROR =
-    "[xmldom error]\telement parse error: Error: Hierarchy request error: Only one element can be added and only after doctype\n@#[line:57,col:1]";
+    "[xmldom fatalError]\tError constructing the DOM: HierarchyRequestError: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
   const createBody = (pathToXml: string) => ({
     SAMLResponse: fs.readFileSync(__dirname + "/static/signatures" + pathToXml, "base64"),

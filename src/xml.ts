@@ -20,6 +20,35 @@ import { keyInfoToPem } from "./crypto";
 
 const debugLog = util.debuglog("node-saml");
 
+const samlNamespaces: Readonly<Record<string, string>> = {
+  saml: "urn:oasis:names:tc:SAML:2.0:assertion",
+  saml2: "urn:oasis:names:tc:SAML:2.0:assertion",
+  samlp: "urn:oasis:names:tc:SAML:2.0:protocol",
+  saml2p: "urn:oasis:names:tc:SAML:2.0:protocol",
+  ds: "http://www.w3.org/2000/09/xmldsig#",
+  xenc: "http://www.w3.org/2001/04/xmlenc#",
+  xs: "http://www.w3.org/2001/XMLSchema",
+  xsi: "http://www.w3.org/2001/XMLSchema-instance",
+};
+
+const getInScopeNamespaces = (node: Node): Record<string, string> => {
+  const namespaces: Record<string, string> = {};
+  for (let current: Node | null = node; current != null; current = current.parentNode) {
+    if (!isDomNode.isElementNode(current)) {
+      continue;
+    }
+    for (let index = 0; index < current.attributes.length; index++) {
+      const attribute = current.attributes.item(index);
+      if (attribute?.namespaceURI !== xmldom.NAMESPACE.XMLNS) {
+        continue;
+      }
+      const prefix = attribute.prefix === "xmlns" ? attribute.localName : "";
+      namespaces[prefix] ??= attribute.value;
+    }
+  }
+  return namespaces;
+};
+
 const selectXPath = <T extends Node>(
   guard: (values: SelectReturnType) => values is Array<T>,
   node: Node,
@@ -298,31 +327,49 @@ export const signXml = (
   return sig.getSignedXml();
 };
 
-export const parseDomFromString = (xml: string): Promise<Document> => {
+export const parseDomFromString = (
+  xml: string,
+  xmlns?: Readonly<Record<string, string>>,
+): Promise<Document> => {
   return new Promise(function (resolve, reject) {
-    function errHandler(msg: string) {
-      return reject(new Error(msg));
+    let parseError: Error | undefined;
+
+    try {
+      const dom = new xmldom.DOMParser({
+        locator: true,
+        xmlns,
+        onError: (level, message, context) => {
+          if (parseError || level === "warning") {
+            return;
+          }
+          if (message === "missing root element") {
+            parseError = new Error("Not a valid XML document");
+            return;
+          }
+
+          const { lineNumber, columnNumber } = context.locator;
+          parseError = new Error(
+            `[xmldom ${level}]\t${message}\n@#[line:${lineNumber},col:${columnNumber}]`,
+          );
+        },
+      }).parseFromString(xml, "text/xml");
+
+      if (parseError) {
+        return reject(parseError);
+      }
+
+      return resolve(dom as unknown as Document);
+    } catch (error: unknown) {
+      return reject(parseError ?? error);
     }
-
-    const dom = new xmldom.DOMParser({
-      /**
-       * locator is always need for error position info
-       */
-      locator: {},
-      /**
-       * you can override the errorHandler for xml parser
-       * @link http://www.saxproject.org/apidoc/org/xml/sax/ErrorHandler.html
-       */
-      errorHandler: { error: errHandler, fatalError: errHandler },
-    }).parseFromString(xml, "text/xml");
-
-    if (!Object.prototype.hasOwnProperty.call(dom, "documentElement")) {
-      return reject(new Error("Not a valid XML document"));
-    }
-
-    return resolve(dom);
   });
 };
+
+export const parseSamlXmlFragment = (xml: string, encryptedNode: Node): Promise<Document> =>
+  parseDomFromString(xml, {
+    ...samlNamespaces,
+    ...getInScopeNamespaces(encryptedNode),
+  });
 
 export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJsObject> => {
   const parserConfig = {
@@ -385,7 +432,7 @@ export const getNameIdAsync = async (
     const encryptedDataXml = encryptedData[0].toString();
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
-    const decryptedDoc = await parseDomFromString(decryptedXml);
+    const decryptedDoc = await parseSamlXmlFragment(decryptedXml, encryptedData[0]);
     const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
     if (decryptedIds.length !== 1) {
       throw new Error("Invalid EncryptedData content");
