@@ -119,10 +119,9 @@ export const getVerifiedXml = (
 
     assertRequired(refUri, "signature reference uri not found");
 
-    // SAML core 5.4.2 requires a same-document reference: for an ID of "foo" the URI is "#foo".
-    // A bare "foo" is a relative URI naming a separate resource, but xml-crypto resolves it as an
-    // ID all the same (node-saml/xml-crypto#594), so reject it here rather than verify a document
-    // under a reference model neither the SAML nor the XMLDSIG profile allows.
+    // For an ID of "foo" the reference URI must be "#foo"; a bare "foo" names a separate
+    // resource. SAML core 5.4.2:
+    // https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
     if (!refUri.startsWith("#")) {
       throw new Error("Invalid signature: reference URI is not a same-document reference");
     }

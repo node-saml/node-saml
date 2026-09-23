@@ -173,8 +173,7 @@ describe("Signatures", function () {
     );
   });
 
-  // SAML core 5.4.2: for an ID of "foo" the reference URI is "#foo". xml-crypto resolves a bare
-  // "foo" as that same ID (node-saml/xml-crypto#594), so the rejection has to be ours.
+  // SAML core 5.4.2: https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
   describe("Signatures - the reference must be a same-document reference", () => {
     it(
       "reference URI without the leading # => invalid",
@@ -679,9 +678,9 @@ describe("Signatures", function () {
       ),
     );
 
-    // The second argument used to inject these, verification included. It is accepted until the next
-    // major so a 5.1 caller keeps compiling, and it cannot change the verdict. `_validateSignature`
-    // is the seam 5.1 actually shipped, so resurrecting that destructuring has to fail here.
+    // The second argument used to inject these, verification included. It is accepted until the
+    // next major so a 5.1 caller keeps compiling, and it cannot change the verdict.
+    // `_validateSignature` is the seam 5.1 shipped, so resurrecting that destructuring fails here.
     it("injected dependencies cannot substitute the verification => error", async () => {
       const substituted = {
         _validateSignature: () => true,
