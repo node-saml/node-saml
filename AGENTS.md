@@ -15,10 +15,9 @@ The codebase carries years of contributions of varying quality, and some of it p
 the standards below.
 
 So: **this file wins over precedent.** Finding an existing pattern that contradicts a rule
-here is not permission to copy it — it is a debt, and the rules below name the ones we
-already know about. When you touch code near a named debt, move it toward the target if
-you can do so within the scope you were given. When you can't, leave it alone rather than
-widening the change; don't let cleanup swallow the fix you were asked for.
+here is not permission to copy it — it is a debt. When you touch such code, move it toward
+the target if you can do so within the scope you were given. When you can't, leave it alone
+rather than widening the change; don't let cleanup swallow the fix you were asked for.
 
 ## Layout
 
@@ -113,13 +112,6 @@ A function that answers "did this verify?" with a boolean cannot uphold this rul
 its caller still has to go find the content somewhere else. We are moving away from that
 shape entirely: verification returns the verified bytes or it returns nothing.
 
-_Known debts:_ `validateSignature()` is still exported and still returns a boolean. It is
-deprecated and has no callers left inside the library.
-`Profile.getSamlResponseXml()` hands callers the response as received, without indicating which
-parts were authenticated, and `processValidlySignedAssertionAsync` takes that XML as a parameter
-only to back it. The accessor is deprecated and goes in the next major, and the parameter with it.
-See the deprecation section; don't build anything new on top of these.
-
 ### Reject ambiguity rather than resolving it
 
 When a document admits two readings, the library refuses it. It does not pick one, and it
@@ -181,17 +173,9 @@ Rules that follow from that:
   `README.md` so they can choose knowingly. An option change that doesn't reach `README.md`
   isn't finished.
 
-_Known debts:_ `signatureAlgorithm` defaults to `sha1` in `initialize()`, and
-`getSigningAlgorithm`/`getDigestAlgorithm` in `src/algorithms.ts` fall through to SHA-1 for
-an unrecognized value — so a typo silently downgrades the caller. Both are backward
-compatibility, both are wrong by the standard above, and both are headed for removal
-through the process below. Don't add a third.
-
 ## Deprecation strategy
 
-We have things to deprecate — the debts named above are the list — and removing them is
-part of the work, not a someday. What we don't have yet is the mechanism. Establish it the
-first time it's needed:
+Removing a deprecated API is part of the work, not a someday. The process:
 
 1. **Mark it.** `@deprecated` JSDoc on the export, naming the replacement and the reason in
    one line. This surfaces in the consumer's editor, which is where the migration actually
