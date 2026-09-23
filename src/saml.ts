@@ -1472,15 +1472,17 @@ class SAML {
     return null;
   }
 
-  // The second parameter keeps the shape v5.1 published rather than narrowing to `unknown`, so a
-  // caller who wrote its callbacks with inferred parameters still contextually types them instead of
-  // collecting TS7006. Nothing in it is read.
+  // The second parameter keeps the shape v5.1 published, down to the explicit `| undefined` that
+  // destructuring with defaults produced there. Narrowing it to `unknown` costs contextual typing, so
+  // a caller whose callbacks infer their parameters collects TS7006; dropping the `| undefined` costs
+  // `exactOptionalPropertyTypes` callers the right to pass one explicitly. Nothing in it is read.
   async validatePostRequestAsync(
     container: Record<string, string>,
     legacyInjectedDependencies?: {
-      _parseDomFromString?: (xml: string) => Promise<Document>;
-      _parseXml2JsFromString?: (xml: string | Buffer) => Promise<XmlJsObject>;
-      _validateSignature?: (fullXml: string, currentNode: Element, pemFiles: string[]) => boolean;
+      _parseDomFromString?: ((xml: string) => Promise<Document>) | undefined;
+      _parseXml2JsFromString?: ((xml: string | Buffer) => Promise<XmlJsObject>) | undefined;
+      _validateSignature?:
+        ((fullXml: string, currentNode: Element, pemFiles: string[]) => boolean) | undefined;
     },
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
     warnIgnoredInjectedDependencies(legacyInjectedDependencies);

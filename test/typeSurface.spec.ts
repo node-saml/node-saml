@@ -10,7 +10,7 @@ const packageEntry = JSON.stringify(repoRoot);
 
 // Compiles `source` against the emitted `.d.ts` rather than the sources, because that is the
 // shape a consumer sees and `declaration` options can change it without changing `src`.
-function typeCheck(source: string): string {
+function typeCheck(source: string, extraOptions: string[] = []): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "node-saml-type-surface-"));
   try {
     const file = path.join(dir, "consumer.ts");
@@ -21,6 +21,7 @@ function typeCheck(source: string): string {
         tscEntry,
         "--noEmit",
         "--strict",
+        ...extraOptions,
         "--target",
         "es2018",
         "--module",
@@ -193,9 +194,9 @@ describe("published type surface", function () {
 
   // `validatePostRequestAsync`'s second parameter was an object of injected dependencies, which
   // `declaration` emitted into the published types — a published parameter that switched signature
-  // verification off. The substitution is gone, but the parameter stays until the next major:
-  // `AGENTS.md` puts published API removal in a major, and a 5.x consumer who passed it must keep
-  // compiling. `test-signatures.spec.ts` proves that passing it cannot alter verification.
+  // verification off. The substitution is gone, but the parameter and its exact published type stay
+  // until the next major: `AGENTS.md` puts published API removal in a major, and a 5.1 consumer has
+  // to keep compiling. `test-signatures.spec.ts` proves that passing it cannot alter verification.
   it("still accepts the injected-dependency argument it no longer honors", function () {
     const ordinaryCall = typeCheck(`
       import { SAML } from ${packageEntry};
@@ -207,11 +208,19 @@ describe("published type surface", function () {
 
     expect(ordinaryCall, "a one-argument call is what consumers write").to.equal("");
 
-    // The three properties 5.1 shipped. Written with inferred callback parameters, which is the shape
-    // that regresses if the parameter is narrowed to `unknown`: contextual typing stops supplying
-    // them and every one becomes TS7006. The parameterless form is here too because both compiled.
-    const legacyCall = typeCheck(`
-      import { SAML } from ${packageEntry};
+    // Everything a v5.1 consumer could have written against the emitted declaration, recovered by
+    // compiling the tag with `--declaration` rather than reconstructed:
+    //
+    //  - callbacks with inferred parameters. Narrowing the parameter to `unknown` loses contextual
+    //    typing and every one becomes TS7006, so `() => true` alone would not catch that.
+    //  - an explicitly `undefined` property, which the published `| undefined` allowed.
+    //  - an override declaring that same type and forwarding it to `super`.
+    //
+    // `_getVerifiedXml` is deliberately absent: it never shipped, so the published type does not
+    // promise it and an excess-property error on it is correct.
+    const legacyConsumer = `
+      import { SAML, Profile } from ${packageEntry};
+      import type { XmlJsObject } from ${JSON.stringify(path.join(repoRoot, "lib", "types"))};
 
       declare const saml: SAML;
       declare const body: Record<string, string>;
@@ -223,21 +232,8 @@ describe("published type surface", function () {
           fullXml.length > 0 && currentNode != null && pemFiles.length > 0,
       });
 
-      void saml.validatePostRequestAsync(body, {
-        _validateSignature: () => true,
-      });
-    `);
-
-    expect(legacyCall, "a 5.1 caller that passed the seam still compiles").to.equal("");
-
-    // An override written against the previous signature also still compiles. The parameter type is
-    // the one v5.1.0 emitted, copied from `git show v5.1.0:src/saml.ts` compiled with `--declaration`,
-    // because `unknown` here would only prove that an override written against the *new* signature
-    // compiles. The `XmlJsObject` deep import is what such an override had to write: the type is not
-    // re-exported from the barrel.
-    const legacySubclass = typeCheck(`
-      import { SAML, Profile } from ${packageEntry};
-      import type { XmlJsObject } from ${JSON.stringify(path.join(repoRoot, "lib", "types"))};
+      void saml.validatePostRequestAsync(body, { _validateSignature: () => true });
+      void saml.validatePostRequestAsync(body, { _validateSignature: undefined });
 
       class LegacySubclass extends SAML {
         async validatePostRequestAsync(
@@ -255,8 +251,15 @@ describe("published type surface", function () {
       }
 
       export { LegacySubclass };
-    `);
+    `;
 
-    expect(legacySubclass, "a v5.1 override still compiles").to.equal("");
+    expect(typeCheck(legacyConsumer), "a v5.1 consumer still compiles").to.equal("");
+
+    // `exactOptionalPropertyTypes` is what makes the `| undefined` load-bearing, in the call and in
+    // the override's `super`. The repository does not set it, but a consumer may.
+    expect(
+      typeCheck(legacyConsumer, ["--exactOptionalPropertyTypes"]),
+      "a v5.1 consumer with exactOptionalPropertyTypes still compiles",
+    ).to.equal("");
   });
 });
