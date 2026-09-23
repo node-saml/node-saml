@@ -247,6 +247,17 @@ res.redirect(url);
 `getLogoutResponseUrl(profile, relayState, options, success, callback)` is the callback-style
 equivalent of `getLogoutResponseUrlAsync`.
 
+`validatePostRequestAsync` also accepts a deprecated second argument, an object of injected
+dependencies — `_parseDomFromString`, `_parseXml2JsFromString` and `_validateSignature`. It is
+ignored: nothing passed there can substitute signature verification, which the last of those used to
+do. The argument is removed in the next major version, and calling it that way logs a warning under
+`NODE_DEBUG=node-saml`:
+
+```javascript
+await saml.validatePostRequestAsync(req.body, { _validateSignature }); // deprecated, and ignored
+await saml.validatePostRequestAsync(req.body); // use this
+```
+
 **Over the Redirect binding.** Redirect-binding signatures are computed over the exact bytes of the
 query string, so you must hand the raw query string through unchanged — not a re-serialized copy of
 the parsed object:
@@ -263,6 +274,13 @@ const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, origi
 > `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
 > messages; a future major version will reject unsigned ones. The POST binding is unaffected:
 > `validatePostRequestAsync` always requires a valid signature.
+
+On the POST binding the profile is built only from the bytes that signature covers. The signature
+has to envelope the message the way
+[SAML core §5.4](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf) and the
+protocol schema require — a `ds:Signature` that is a child of the `LogoutRequest` element it
+references — so a request whose signature sits elsewhere in the document is rejected even though
+that signature verifies.
 
 ### Service provider metadata
 
@@ -490,6 +508,40 @@ explain rejections that might otherwise look overly strict:
   `InResponseTo` are security controls rather than conveniences — an option that switches one off
   (`audience: false`, `acceptedClockSkewMs: -1`) is removing a control, so make that choice
   deliberately.
+
+### Low-level exports
+
+Most integrations need only what the package exports at the top level: `SAML`,
+`generateServiceProviderMetadata`, and the types. The compiled modules under `lib/` are reachable
+too, and three of their exports bear on the first property above: `getVerifiedXml()` is what upholds
+it, `validateSignature()` is the shape it replaces, and `parseDomFromString()` is how you read what
+either one was given. All three come from `lib/xml`:
+
+| Export                                              | Behavior                                                                                           |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `getVerifiedXml(fullXml, currentNode, pemFiles)`    | Returns the bytes the signature over `currentNode` covers, or `null` if none of `pemFiles` verify. |
+| `parseDomFromString(xml)`                           | Parses `xml` into a `Document`, rejecting anything that is not a well-formed XML document.         |
+| `validateSignature(fullXml, currentNode, pemFiles)` | **Deprecated.** Returns whether that signature verified, and nothing about what it covered.        |
+
+`validateSignature()` is removed in the next major version. Reporting only that a signature verified
+leaves you to find the signed content somewhere else, and an attacker controls the difference between
+what verified and what you then read — that is an XML signature wrapping attack.
+`getVerifiedXml()` returns the verified bytes, so there is nothing left to go looking for:
+
+```javascript
+// deprecated: `dom` is the document as received, not the part the signature covered
+if (validateSignature(xml, dom.documentElement, pemFiles)) {
+  readTheProfileFrom(dom);
+}
+
+// use this instead
+const verifiedXml = getVerifiedXml(xml, dom.documentElement, pemFiles);
+if (verifiedXml == null) {
+  throw new Error("Invalid signature");
+}
+
+readTheProfileFrom(await parseDomFromString(verifiedXml));
+```
 
 ### Configuration option `signatureAlgorithm`
 

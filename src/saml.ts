@@ -27,6 +27,7 @@ import {
   SamlResponseXmlJs,
   SamlStatusError,
   ValidateInResponseTo,
+  XmlJsObject,
   XMLInput,
   XMLObject,
   XMLOutput,
@@ -42,7 +43,6 @@ import {
   parseDomFromString,
   parseSamlXmlFragment,
   parseXml2JsFromString,
-  validateSignature,
   xpath,
 } from "./xml";
 
@@ -68,6 +68,16 @@ function resolveAuthOptions(
   }
 
   return hostOrOptions;
+}
+
+// Ignored, so no caller can substitute the verifier, and accepted so that a caller who passed it
+// still compiles. Module-level: a `protected` helper would join the `SAML` class surface.
+function warnIgnoredInjectedDependencies(legacyInjectedDependencies: unknown): void {
+  if (legacyInjectedDependencies !== undefined) {
+    debugLog(
+      "validatePostRequestAsync was called with injected dependencies. They are ignored — signature verification cannot be substituted — and the argument is removed in the next major version; call validatePostRequestAsync(container) instead.",
+    );
+  }
 }
 
 // Reading the ID and then removing it lets two concurrent copies of one response both find it,
@@ -1461,22 +1471,29 @@ class SAML {
     return null;
   }
 
+  // The v5.1 parameter shape kept verbatim, `| undefined` included, and never read.
+  // `typeSurface.spec.ts` pins the call and override forms it has to keep accepting.
   async validatePostRequestAsync(
     container: Record<string, string>,
-    {
-      _parseDomFromString = parseDomFromString,
-      _parseXml2JsFromString = parseXml2JsFromString,
-      _validateSignature = validateSignature,
-    } = {},
+    legacyInjectedDependencies?: {
+      _parseDomFromString?: ((xml: string) => Promise<Document>) | undefined;
+      _parseXml2JsFromString?: ((xml: string | Buffer) => Promise<XmlJsObject>) | undefined;
+      _validateSignature?:
+        ((fullXml: string, currentNode: Element, pemFiles: string[]) => boolean) | undefined;
+    },
   ): Promise<{ profile: Profile; loggedOut: boolean }> {
+    warnIgnoredInjectedDependencies(legacyInjectedDependencies);
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
-    const dom = await _parseDomFromString(xml);
-    const doc = await _parseXml2JsFromString(xml);
+    // The document as received locates the signature; only what that signature covers is read.
+    const receivedDom = await parseDomFromString(xml);
     const pemFiles = await this.getKeyInfosAsPem();
-    if (!_validateSignature(xml, dom.documentElement, pemFiles)) {
+    const verifiedXml = getVerifiedXml(xml, receivedDom.documentElement, pemFiles);
+    if (verifiedXml == null) {
       throw new Error("Invalid signature on documentElement");
     }
-    return await this.processValidlySignedPostRequestAsync(doc, dom);
+    const verifiedDom = await parseDomFromString(verifiedXml);
+    const verifiedDoc = await parseXml2JsFromString(verifiedXml);
+    return await this.processValidlySignedPostRequestAsync(verifiedDoc, verifiedDom);
   }
 
   protected async processValidlySignedPostRequestAsync(

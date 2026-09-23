@@ -15,6 +15,10 @@ describe("Signatures", function () {
   const INVALID_DOCUMENT_SIGNATURE = "Invalid document signature";
   const INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion";
   const INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms";
+  const INVALID_DOCUMENT_ELEMENT_SIGNATURE = "Invalid signature on documentElement";
+  const INVALID_AMBIGUOUS_ID = "Invalid signature: ID cannot refer to more than one element";
+  const INVALID_DETACHED_REFERENCE =
+    "Invalid signature: reference URI is not a same-document reference";
   const XMLDOM_ERROR =
     "[xmldom fatalError]\tError constructing the DOM: HierarchyRequestError: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
@@ -166,6 +170,19 @@ describe("Signatures", function () {
     it(
       "multiple roots => invalid",
       testOneResponse("/invalid/response.root-signed.multiple-root-elements.xml", XMLDOM_ERROR, 0),
+    );
+  });
+
+  // SAML core 5.4.2: https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
+  describe("Signatures - the reference must be a same-document reference", () => {
+    it(
+      "reference URI without the leading # => invalid",
+      testOneResponse(
+        "/invalid/response.root-signed-uri-without-hash.assertion-unsigned.xml",
+        INVALID_DETACHED_REFERENCE,
+        1,
+        { wantAssertionsSigned: false },
+      ),
     );
   });
 
@@ -604,5 +621,82 @@ describe("Signatures", function () {
         wantAssertionsSigned: false,
       }),
     );
+  });
+
+  describe("Signatures on samlp:LogoutRequest", () => {
+    const createRequestBody = (pathToXml: string) => ({
+      SAMLRequest: fs.readFileSync(__dirname + "/static" + pathToXml, "base64"),
+    });
+
+    const samlObj = () =>
+      new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        idpCert,
+        issuer: "onesaml_login",
+      });
+
+    const testOneRequest =
+      (pathToXml: string, shouldErrorWith: string, amountOfSignatureChecks = 1) =>
+      async () => {
+        await assert.rejects(samlObj().validatePostRequestAsync(createRequestBody(pathToXml)), {
+          message: shouldErrorWith,
+        });
+
+        expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
+      };
+
+    it("root signed => the expected profile, after one signature check", async () => {
+      const { profile } = await samlObj().validatePostRequestAsync(
+        createRequestBody("/logout_request_with_good_signature.xml"),
+      );
+
+      expect(profile.nameID).to.equal("ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7");
+      expect(validateSignatureSpy.callCount).to.equal(1);
+    });
+
+    it(
+      "signature displaced into samlp:Extensions => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.signature-in-extensions.xml",
+        INVALID_DOCUMENT_ELEMENT_SIGNATURE,
+      ),
+    );
+
+    it(
+      "a second element carries the root ID => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.duplicate-root-id.xml",
+        INVALID_AMBIGUOUS_ID,
+      ),
+    );
+
+    it(
+      "reference URI without the leading # => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.reference-uri-without-hash.xml",
+        INVALID_DETACHED_REFERENCE,
+      ),
+    );
+
+    // `_validateSignature` is the seam v5.1 shipped; the `assert.fail` parsers catch a wider relapse.
+    it("injected dependencies cannot substitute the verification => error", async () => {
+      const substituted = {
+        _validateSignature: () => true,
+        _parseDomFromString: () => assert.fail("the injected parser must not be called"),
+        _parseXml2JsFromString: () => assert.fail("the injected parser must not be called"),
+      };
+
+      await assert.rejects(
+        samlObj().validatePostRequestAsync(
+          createRequestBody(
+            "/signatures/invalid/logoutrequest.root-signed.signature-in-extensions.xml",
+          ),
+          substituted,
+        ),
+        { message: INVALID_DOCUMENT_ELEMENT_SIGNATURE },
+      );
+
+      expect(validateSignatureSpy.callCount, "the library's own verification ran").to.equal(1);
+    });
   });
 });
