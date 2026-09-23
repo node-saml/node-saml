@@ -10,7 +10,7 @@ const packageEntry = JSON.stringify(repoRoot);
 
 // Compiles `source` against the emitted `.d.ts` rather than the sources, because that is the
 // shape a consumer sees and `declaration` options can change it without changing `src`.
-function typeCheck(source: string): string {
+function typeCheck(source: string, extraOptions: string[] = []): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "node-saml-type-surface-"));
   try {
     const file = path.join(dir, "consumer.ts");
@@ -21,6 +21,7 @@ function typeCheck(source: string): string {
         tscEntry,
         "--noEmit",
         "--strict",
+        ...extraOptions,
         "--target",
         "es2018",
         "--module",
@@ -189,5 +190,66 @@ describe("published type surface", function () {
     `);
 
     expect(errors).to.contain("error TS");
+  });
+
+  // The parameter and its exact published type stay until the next major, because a 5.1 consumer has
+  // to keep compiling. That it can no longer alter verification is `test-signatures.spec.ts`'s job.
+  it("still accepts the injected-dependency argument it no longer honors", function () {
+    const ordinaryCall = typeCheck(`
+      import { SAML } from ${packageEntry};
+
+      declare const saml: SAML;
+      declare const body: Record<string, string>;
+      void saml.validatePostRequestAsync(body);
+    `);
+
+    expect(ordinaryCall, "a one-argument call is what consumers write").to.equal("");
+
+    // The forms the v5.1 declaration permits: callbacks whose parameters infer, which `() => true`
+    // alone would not exercise; an explicitly `undefined` property; and an override forwarding the
+    // published type to `super`.
+    const legacyConsumer = `
+      import { SAML, Profile } from ${packageEntry};
+      import type { XmlJsObject } from ${JSON.stringify(path.join(repoRoot, "lib", "types"))};
+
+      declare const saml: SAML;
+      declare const body: Record<string, string>;
+
+      void saml.validatePostRequestAsync(body, {
+        _parseDomFromString: (xml) => Promise.reject(new Error(xml)),
+        _parseXml2JsFromString: (xml) => Promise.reject(new Error(String(xml))),
+        _validateSignature: (fullXml, currentNode, pemFiles) =>
+          fullXml.length > 0 && currentNode != null && pemFiles.length > 0,
+      });
+
+      void saml.validatePostRequestAsync(body, { _validateSignature: () => true });
+      void saml.validatePostRequestAsync(body, { _validateSignature: undefined });
+
+      class LegacySubclass extends SAML {
+        async validatePostRequestAsync(
+          container: Record<string, string>,
+          injected?: {
+            _parseDomFromString?: ((xml: string) => Promise<Document>) | undefined;
+            _parseXml2JsFromString?: ((xml: string | Buffer) => Promise<XmlJsObject>) | undefined;
+            _validateSignature?:
+              | ((fullXml: string, currentNode: Element, pemFiles: string[]) => boolean)
+              | undefined;
+          },
+        ): Promise<{ profile: Profile; loggedOut: boolean }> {
+          return super.validatePostRequestAsync(container, injected);
+        }
+      }
+
+      export { LegacySubclass };
+    `;
+
+    expect(typeCheck(legacyConsumer), "a v5.1 consumer still compiles").to.equal("");
+
+    // `exactOptionalPropertyTypes` is what makes the `| undefined` load-bearing, in the call and in
+    // the override's `super`. The repository does not set it, but a consumer may.
+    expect(
+      typeCheck(legacyConsumer, ["--exactOptionalPropertyTypes"]),
+      "a v5.1 consumer with exactOptionalPropertyTypes still compiles",
+    ).to.equal("");
   });
 });
