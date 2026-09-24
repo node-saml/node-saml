@@ -1,5 +1,7 @@
 "use strict";
+import { spawnSync } from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 import * as sinon from "sinon";
 import { URL } from "url";
 import { expect } from "chai";
@@ -8,9 +10,8 @@ import { SAML } from "../src/saml";
 import { AuthOptions, IdpCertCallback } from "../src/types";
 import { assertRequired } from "../src/utility";
 import { FAKE_CERT, RequestWithUser, TEST_CERT_MULTILINE } from "./types";
-import { parseDomFromString, parseXml2JsFromString, validateSignature } from "../src/xml";
-
-const noop = (): void => undefined;
+import * as xml from "../src/xml";
+import type * as querystring from "querystring";
 
 describe("saml.ts", function () {
   it("should throw when instantiating a SAML object with a string instead of a boolean", function () {
@@ -25,6 +26,135 @@ describe("saml.ts", function () {
     ).to.throw("value is set but not boolean");
   });
 
+  // `util.debuglog` reads NODE_DEBUG once per process and the suite order is randomized, so
+  // these run in one child rather than mutating the shared environment.
+  describe("warnings on defaults the next major requires choosing", function () {
+    let stderr: string;
+
+    before(function () {
+      this.timeout(20000);
+      const privateKey = fs.readFileSync(path.join(__dirname, "static", "key.pem"), "utf-8");
+      const script = `
+        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        const base = {
+          issuer: "onesaml_login",
+          idpCert: ${JSON.stringify(FAKE_CERT)},
+          callbackUrl: "http://localhost/saml/consume",
+        };
+        const privateKey = ${JSON.stringify(privateKey)};
+        const cacheWithoutConsume = {
+          saveAsync: async (key, value) => ({ value, createdAt: Date.now() }),
+          getAsync: async () => null,
+          removeAsync: async () => null,
+        };
+        console.error("<<says-nothing>>");
+        new SAML({ ...base });
+        console.error("<<signs-says-nothing>>");
+        new SAML({ ...base, privateKey, validateInResponseTo: "always" });
+        console.error("<<signs-digest-omitted>>");
+        new SAML({ ...base, privateKey, validateInResponseTo: "always", signatureAlgorithm: "sha256" });
+        console.error("<<casing-slip>>");
+        new SAML({ ...base, validateInResponseTo: "always", signatureAlgorithm: "SHA256" });
+        console.error("<<digest-typo>>");
+        new SAML({
+          ...base,
+          validateInResponseTo: "always",
+          signatureAlgorithm: "sha256",
+          digestAlgorithm: "sha-256",
+        });
+        console.error("<<everything-chosen>>");
+        new SAML({
+          ...base,
+          privateKey,
+          validateInResponseTo: "always",
+          signatureAlgorithm: "sha256",
+          digestAlgorithm: "sha256",
+        });
+        console.error("<<cache-without-consume>>");
+        new SAML({ ...base, validateInResponseTo: "ifPresent", cacheProvider: cacheWithoutConsume });
+        console.error("<<cache-with-consume>>");
+        new SAML({
+          ...base,
+          validateInResponseTo: "always",
+          cacheProvider: { ...cacheWithoutConsume, consumeAsync: async () => null },
+        });
+        console.error("<<cache-never-consulted>>");
+        new SAML({ ...base, validateInResponseTo: "never", cacheProvider: cacheWithoutConsume });
+        console.error("<<end>>");
+      `;
+      const child = spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+      expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+      stderr = child.stderr;
+    });
+
+    // Returns only what was logged while constructing the case named by `marker`, so one case
+    // staying silent cannot be masked by another case warning.
+    function warningsFor(marker: string): string {
+      const section = stderr.split(`<<${marker}>>`)[1] ?? "";
+      return section.split("<<")[0].trim();
+    }
+
+    it("warns that `validateInResponseTo` defaults to never validating", function () {
+      const warnings = warningsFor("says-nothing");
+      expect(warnings).to.contain("`validateInResponseTo` is not set");
+      expect(warnings).to.contain("replayed");
+      expect(warnings).to.contain("The next major version requires it");
+    });
+
+    it("does not warn about signing algorithms when nothing is signed", function () {
+      const warnings = warningsFor("says-nothing");
+      expect(warnings).not.to.contain("`signatureAlgorithm` is not set");
+      expect(warnings).not.to.contain("`digestAlgorithm` is not set");
+    });
+
+    it("warns that `signatureAlgorithm` and `digestAlgorithm` default to sha1 when signing", function () {
+      const warnings = warningsFor("signs-says-nothing");
+      expect(warnings).to.contain("`signatureAlgorithm` is not set, so it defaults to `sha1`");
+      expect(warnings).to.contain("`digestAlgorithm` is not set, so it defaults to `sha1`");
+      expect(warnings).to.contain("requires it whenever `privateKey` is set");
+    });
+
+    it("warns about an omitted `digestAlgorithm` when only `signatureAlgorithm` is chosen", function () {
+      const warnings = warningsFor("signs-digest-omitted");
+      expect(warnings).to.contain("`digestAlgorithm` is not set");
+      expect(warnings).not.to.contain("`signatureAlgorithm`");
+    });
+
+    // "SHA256" is accepted today and signs with SHA-1, which is the whole reason this warns.
+    it("warns that an unrecognized `signatureAlgorithm` downgrades to SHA-1", function () {
+      const warnings = warningsFor("casing-slip");
+      expect(warnings).to.contain('`signatureAlgorithm` is set to "SHA256"');
+      expect(warnings).to.contain("SHA-1 is used instead");
+      expect(warnings).to.contain("sha1, sha256, sha512");
+    });
+
+    it("warns that an unrecognized `digestAlgorithm` downgrades to SHA-1", function () {
+      expect(warningsFor("digest-typo")).to.contain('`digestAlgorithm` is set to "sha-256"');
+    });
+
+    it("says nothing when every one of them is chosen explicitly", function () {
+      expect(warningsFor("everything-chosen")).to.equal("");
+    });
+
+    it("warns when InResponseTo is validated with a `cacheProvider` lacking `consumeAsync`", function () {
+      const warnings = warningsFor("cache-without-consume");
+      expect(warnings).to.contain("`cacheProvider` has no `consumeAsync`");
+      expect(warnings).to.contain("The next major version requires it");
+    });
+
+    it("says nothing about a `cacheProvider` that has `consumeAsync`", function () {
+      expect(warningsFor("cache-with-consume")).to.equal("");
+    });
+
+    it("says nothing about the `cacheProvider` when InResponseTo is never validated", function () {
+      expect(warningsFor("cache-never-consulted")).to.equal("");
+    });
+  });
+
   describe("resolveAndParseKeyInfosToPem", function () {
     let getKeyInfosAsPemSpy: sinon.SinonSpy;
 
@@ -33,6 +163,13 @@ describe("saml.ts", function () {
       sinon
         .stub(SAML.prototype, "processValidlySignedPostRequestAsync" as unknown as keyof SAML)
         .resolves(null);
+      // The second argument is ignored now, so stub the module: this test only has to reach
+      // `getKeyInfosAsPem`, and the empty request would not survive real parsing.
+      sinon
+        .stub(xml, "parseDomFromString")
+        .resolves({ documentElement: null } as unknown as Document);
+      sinon.stub(xml, "parseXml2JsFromString").resolves({});
+      sinon.stub(xml, "getVerifiedXml").returns("<LogoutRequest/>");
     });
 
     afterEach(function () {
@@ -49,16 +186,7 @@ describe("saml.ts", function () {
         audience: false,
       });
 
-      await samlObj.validatePostRequestAsync(
-        { SAMLRequest: "" },
-        {
-          _parseDomFromString: (() => {
-            return { documentElement: null };
-          }) as unknown as typeof parseDomFromString,
-          _parseXml2JsFromString: noop as unknown as typeof parseXml2JsFromString,
-          _validateSignature: (() => true) as unknown as typeof validateSignature,
-        },
-      );
+      await samlObj.validatePostRequestAsync({ SAMLRequest: "" });
 
       const pendingResult = getKeyInfosAsPemSpy.returnValues[0];
       const result = await pendingResult;
@@ -282,6 +410,129 @@ describe("saml.ts", function () {
       it("calls callback with saml request object", async () => {
         const target = await saml.getAuthorizeUrlAsync("", req.headers.host, {});
         expect(new URL(target).searchParams.get("SAMLRequest")).to.not.be.empty;
+      });
+    });
+
+    // Both shapes are accepted until `host` is removed, so both are exercised here.
+    describe("deprecated `host` argument", function () {
+      it("applies additionalParams whether or not `host` is passed", async () => {
+        const withHost = await saml.getAuthorizeUrlAsync("", req.headers.host, options);
+        const withoutHost = await saml.getAuthorizeUrlAsync("", options);
+
+        for (const target of [withHost, withoutHost]) {
+          expect(new URL(target).searchParams.get("additionalKey")).to.equal("additionalValue");
+        }
+      });
+
+      it("applies additionalParams when `host` is passed as undefined", async () => {
+        const target = await saml.getAuthorizeUrlAsync("", undefined, options);
+        expect(new URL(target).searchParams.get("additionalKey")).to.equal("additionalValue");
+      });
+
+      it("treats a lone options argument as options on getAuthorizeMessageAsync", async () => {
+        const message = await saml.getAuthorizeMessageAsync("", options);
+        expect(message.additionalKey).to.equal("additionalValue");
+      });
+
+      it("treats a lone options argument as options on getAuthorizeFormAsync", async () => {
+        const form = await saml.getAuthorizeFormAsync("", options);
+        expect(form).to.contain('name="additionalKey"');
+        expect(form).to.contain('value="additionalValue"');
+      });
+
+      // Dispatch is the half the emitted-type test cannot see.
+      it("calls a subclass override with the arguments it received, not normalized ones", async () => {
+        const received: Array<[string, string | undefined, AuthOptions | undefined]> = [];
+
+        class RecordingSaml extends SAML {
+          async getAuthorizeMessageAsync(
+            RelayState: string,
+            host?: string,
+            options?: AuthOptions,
+          ): Promise<querystring.ParsedUrlQueryInput> {
+            received.push([RelayState, host, options]);
+            return super.getAuthorizeMessageAsync(RelayState, host, options);
+          }
+        }
+
+        const subclass = new RecordingSaml({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "https://exampleidp.com/path?key=value",
+          idpCert: FAKE_CERT,
+          issuer: "onesaml_login",
+        });
+
+        const form = await subclass.getAuthorizeFormAsync("rs", "host.example", options);
+
+        expect(received).to.have.lengthOf(1);
+        expect(received[0][0]).to.equal("rs");
+        expect(received[0][1]).to.equal("host.example");
+        expect(received[0][2]).to.equal(options);
+        expect(form).to.contain('name="additionalKey"');
+      });
+
+      // The other direction: a migrated caller against an override that has not migrated.
+      it("hands a two-argument call straight to an unmigrated override", async () => {
+        const received: Array<[string, unknown, unknown]> = [];
+
+        class RecordingSaml extends SAML {
+          async getAuthorizeMessageAsync(
+            RelayState: string,
+            host?: string,
+            options?: AuthOptions,
+          ): Promise<querystring.ParsedUrlQueryInput> {
+            received.push([RelayState, host, options]);
+            return super.getAuthorizeMessageAsync(RelayState, host, options);
+          }
+        }
+
+        const subclass = new RecordingSaml({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "https://exampleidp.com/path?key=value",
+          idpCert: FAKE_CERT,
+          issuer: "onesaml_login",
+        });
+
+        const form = await subclass.getAuthorizeFormAsync("rs", options);
+
+        expect(received).to.have.lengthOf(1);
+        // The base class resolves by shape afterwards, so the form is still correct.
+        expect(received[0][1]).to.equal(options);
+        expect(received[0][2]).to.be.undefined;
+        expect(form).to.contain('name="additionalKey"');
+      });
+
+      // `util.debuglog` reads NODE_DEBUG once per process and the suite order is randomized,
+      // so this runs in a child rather than mutating the shared environment.
+      it("warns for the calls that pass `host`, and not at all otherwise", function () {
+        this.timeout(20000);
+        const script = `
+          const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+          const saml = new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            issuer: "onesaml_login",
+            idpCert: ${JSON.stringify(FAKE_CERT)},
+            entryPoint: "https://exampleidp.com/path?key=value",
+          });
+          (async () => {
+            await saml.getAuthorizeUrlAsync("", "a.example.com", {});
+            await saml.getAuthorizeFormAsync("", "a.example.com", {});
+            await saml.getAuthorizeUrlAsync("", {});
+            await saml.getAuthorizeFormAsync("", {});
+          })();
+        `;
+        const { stderr } = spawnSync(
+          process.execPath,
+          ["--require", "ts-node/register/transpile-only", "--eval", script],
+          { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+        );
+
+        expect(stderr).to.contain("getAuthorizeUrlAsync was called with a `host` argument");
+        expect(stderr).to.contain("getAuthorizeFormAsync was called with a `host` argument");
+        // `getAuthorizeFormAsync` forwards unchanged, so a call passing `host` warns twice.
+        expect(stderr).to.contain("getAuthorizeMessageAsync was called with a `host` argument");
+        // Three in total, so neither of the two-argument calls warned.
+        expect(stderr.match(/was called with a `host` argument/g)).to.have.lengthOf(3);
       });
     });
 

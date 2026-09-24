@@ -15,10 +15,9 @@ The codebase carries years of contributions of varying quality, and some of it p
 the standards below.
 
 So: **this file wins over precedent.** Finding an existing pattern that contradicts a rule
-here is not permission to copy it — it is a debt, and the rules below name the ones we
-already know about. When you touch code near a named debt, move it toward the target if
-you can do so within the scope you were given. When you can't, leave it alone rather than
-widening the change; don't let cleanup swallow the fix you were asked for.
+here is not permission to copy it — it is a debt. When you touch such code, move it toward
+the target if you can do so within the scope you were given. When you can't, leave it alone
+rather than widening the change; don't let cleanup swallow the fix you were asked for.
 
 ## Layout
 
@@ -113,23 +112,10 @@ A function that answers "did this verify?" with a boolean cannot uphold this rul
 its caller still has to go find the content somewhere else. We are moving away from that
 shape entirely: verification returns the verified bytes or it returns nothing.
 
-_Known debts:_ `validateSignature()` is still exported and still returns a boolean.
-`Profile.getSamlResponseXml()` hands callers the unsigned response XML, and
-`processValidlySignedAssertionAsync` takes that unsigned XML as a parameter — the source
-comment at `src/saml.ts` says it "should be deprecated" and is right. See the deprecation
-section; don't build anything new on top of these.
-
 ### Reject ambiguity rather than resolving it
 
 When a document admits two readings, the library refuses it. It does not pick one, and it
-does not pick "the one that verifies." `src/xml.ts` and `validatePostResponseAsync`
-already reject documents with more than one assertion, more than one signature on an
-element, an `ID` that resolves to more than one element, a reference pointing somewhere
-other than its own parent, and more than two transforms.
-
-Each of those was a real attack, not a tidiness check. Do not relax one to make a document
-parse. When you add a check of this kind, add its fixture to
-`test/static/signatures/invalid/` so the rejection is pinned.
+does not pick "the one that verifies."
 
 ### Fail closed, and say why
 
@@ -178,17 +164,9 @@ Rules that follow from that:
   `README.md` so they can choose knowingly. An option change that doesn't reach `README.md`
   isn't finished.
 
-_Known debts:_ `signatureAlgorithm` defaults to `sha1` in `initialize()`, and
-`getSigningAlgorithm`/`getDigestAlgorithm` in `src/algorithms.ts` fall through to SHA-1 for
-an unrecognized value — so a typo silently downgrades the caller. Both are backward
-compatibility, both are wrong by the standard above, and both are headed for removal
-through the process below. Don't add a third.
-
 ## Deprecation strategy
 
-We have things to deprecate — the debts named above are the list — and removing them is
-part of the work, not a someday. What we don't have yet is the mechanism. Establish it the
-first time it's needed:
+Removing a deprecated API is part of the work, not a someday. The process:
 
 1. **Mark it.** `@deprecated` JSDoc on the export, naming the replacement and the reason in
    one line. This surfaces in the consumer's editor, which is where the migration actually
@@ -203,9 +181,8 @@ Two cautions specific to this repository:
 
 - A lint rule that errors on deprecated usage makes internal migration enforceable, and is
   worth adding when we have enough marked to justify it. Note that the `@deprecated` tag
-  and that rule arrive together or the build breaks on our own call sites — which is why
-  `validateSignature` carries a comment instead of a tag today. Deprecate the call sites
-  first, then the API.
+  and that rule arrive together or the build breaks on our own call sites, so deprecate the
+  call sites first, then the API.
 - Deprecating a **default** is not the same as deprecating an API and is harder: silence is
   the thing being removed, so there is no call site to warn at. The migration is to warn
   when the option is absent, then require it in the next major.
@@ -304,3 +281,8 @@ there.
   public API. Do not infer behavior from names or issue descriptions when the repository
   can answer the question. Keep the change scoped to the requested problem; do not combine
   bug fixes with unrelated refactoring or cleanup.
+- Scoped does not mean partial: that rule keeps out _unrelated_ work, and a fix is still
+  expected to be complete. When the defect is in a shared function, check whether the
+  invariant holds for every caller — a shared primitive sometimes supports a broader contract
+  than one caller needs — and where it does, fix it there rather than leaving the other
+  callers wrong. Say in the pull request which callers the fix reaches beyond the reported one.

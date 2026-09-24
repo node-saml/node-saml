@@ -1,4 +1,3 @@
-import { stripPemHeaderAndFooter } from "./crypto";
 import {
   isValidSamlSigningOptions,
   ServiceMetadataXML,
@@ -7,7 +6,7 @@ import {
 } from "./types";
 import { assertRequired, signXmlMetadata } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
-import { generateUniqueId as generateUniqueIdDefault } from "./crypto";
+import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
 export const generateServiceProviderMetadata = (
@@ -45,7 +44,6 @@ export const generateServiceProviderMetadata = (
         "Missing publicCert while generating metadata for signing service provider messages",
       );
     }
-    publicCerts = !Array.isArray(publicCerts) ? [publicCerts] : publicCerts;
   } else {
     publicCerts = null;
   }
@@ -76,12 +74,15 @@ export const generateServiceProviderMetadata = (
       metadata.EntityDescriptor.SPSSODescriptor["@AuthnRequestsSigned"] = true;
 
       const certArray = Array.isArray(publicCerts) ? publicCerts : [publicCerts];
-      const signingKeyDescriptors = certArray.map((cert) => ({
+      const signingKeyDescriptors = certArray.map((cert, index) => ({
         "@use": "signing",
         "ds:KeyInfo": {
           "ds:X509Data": {
             "ds:X509Certificate": {
-              "#text": stripPemHeaderAndFooter(cert),
+              "#text": keyInfoToBase64Certificate(
+                cert,
+                Array.isArray(publicCerts) ? `publicCerts[${index}]` : "publicCerts",
+              ),
             },
           },
         },
@@ -95,14 +96,12 @@ export const generateServiceProviderMetadata = (
         "Missing decryptionCert while generating metadata for decrypting service provider",
       );
 
-      decryptionCert = stripPemHeaderAndFooter(decryptionCert);
-
       metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor.push({
         "@use": "encryption",
         "ds:KeyInfo": {
           "ds:X509Data": {
             "ds:X509Certificate": {
-              "#text": decryptionCert,
+              "#text": keyInfoToBase64Certificate(decryptionCert, "decryptionCert"),
             },
           },
         },

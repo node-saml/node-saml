@@ -1,5 +1,7 @@
 import { SAML } from "../src";
+import { spawnSync } from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types";
 import * as xml from "../src/xml";
@@ -13,6 +15,10 @@ describe("Signatures", function () {
   const INVALID_DOCUMENT_SIGNATURE = "Invalid document signature";
   const INVALID_ENCRYPTED_SIGNATURE = "Invalid signature from encrypted assertion";
   const INVALID_TOO_MANY_TRANSFORMS = "Invalid signature, too many transforms";
+  const INVALID_DOCUMENT_ELEMENT_SIGNATURE = "Invalid signature on documentElement";
+  const INVALID_AMBIGUOUS_ID = "Invalid signature: ID cannot refer to more than one element";
+  const INVALID_DETACHED_REFERENCE =
+    "Invalid signature: reference URI is not a same-document reference";
   const XMLDOM_ERROR =
     "[xmldom error]\telement parse error: Error: Hierarchy request error: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
@@ -73,10 +79,110 @@ describe("Signatures", function () {
       );
   };
 
+  describe("Signatures - Profile.getSamlResponseXml returns the response as received", () => {
+    const validResponse = "/valid/response.root-unsigned.assertion-signed.xml";
+    // The fixture's assertion is long expired in real time, like every other valid one here.
+    const fixtureNow = "2020-09-25T16:59:00Z";
+    const config: SamlConfig = {
+      callbackUrl: "http://localhost/saml/consume",
+      idpCert,
+      issuer: "onesaml_login",
+      audience: false,
+      wantAuthnResponseSigned: false,
+    };
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers({ now: Date.parse(fixtureNow), toFake: ["Date"] });
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
+    it("returns response-level material that no signature covered", async () => {
+      const received = fs
+        .readFileSync(__dirname + "/static/signatures" + validResponse, "utf8")
+        // The first Issuer is the response's own; the assertion's sits inside the signed element.
+        .replace(
+          "<saml:Issuer>https://evil-corp.com</saml:Issuer>",
+          "<saml:Issuer>https://attacker.example</saml:Issuer>",
+        );
+
+      const { profile } = await new SAML(config).validatePostResponseAsync({
+        SAMLResponse: Buffer.from(received).toString("base64"),
+      });
+      assert.ok(profile != null);
+
+      expect(profile.issuer).to.equal("https://evil-corp.com");
+      expect(profile.getAssertionXml?.()).to.not.contain("https://attacker.example");
+      expect(profile.getSamlResponseXml?.()).to.contain("https://attacker.example");
+    });
+
+    it("warns when it is called, and stays quiet for the verified accessors", function () {
+      this.timeout(20000);
+      const script = `
+        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        const fs = require("fs");
+        require("sinon").useFakeTimers({
+          now: Date.parse(${JSON.stringify(fixtureNow)}),
+          toFake: ["Date"],
+        });
+        const samlObj = new SAML(${JSON.stringify(config)});
+        const body = {
+          SAMLResponse: fs.readFileSync(
+            ${JSON.stringify(path.join(__dirname, "static", "signatures" + validResponse))},
+            "base64",
+          ),
+        };
+        (async () => {
+          const { profile } = await samlObj.validatePostResponseAsync(body);
+          console.error("<<verified-accessors>>");
+          profile.getAssertionXml();
+          profile.getAssertion();
+          console.error("<<unverified-accessor>>");
+          profile.getSamlResponseXml();
+          console.error("<<end>>");
+        })().catch((err) => {
+          console.error("FAILED", err);
+          process.exit(1);
+        });
+      `;
+      const child = spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+      expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+
+      const section = (marker: string) =>
+        (child.stderr.split(`<<${marker}>>`)[1] ?? "").split("<<")[0].trim();
+
+      expect(section("verified-accessors")).to.equal("");
+      expect(section("unverified-accessor")).to.contain("getSamlResponseXml");
+      expect(section("unverified-accessor")).to.contain(
+        "Don't treat what it returns as authenticated",
+      );
+    });
+  });
+
   describe("Signatures - multiple roots are considered invalid", () => {
     it(
       "multiple roots => invalid",
       testOneResponse("/invalid/response.root-signed.multiple-root-elements.xml", XMLDOM_ERROR, 0),
+    );
+  });
+
+  // SAML core 5.4.2: https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
+  describe("Signatures - the reference must be a same-document reference", () => {
+    it(
+      "reference URI without the leading # => invalid",
+      testOneResponse(
+        "/invalid/response.root-signed-uri-without-hash.assertion-unsigned.xml",
+        INVALID_DETACHED_REFERENCE,
+        1,
+        { wantAssertionsSigned: false },
+      ),
     );
   });
 
@@ -515,5 +621,82 @@ describe("Signatures", function () {
         wantAssertionsSigned: false,
       }),
     );
+  });
+
+  describe("Signatures on samlp:LogoutRequest", () => {
+    const createRequestBody = (pathToXml: string) => ({
+      SAMLRequest: fs.readFileSync(__dirname + "/static" + pathToXml, "base64"),
+    });
+
+    const samlObj = () =>
+      new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        idpCert,
+        issuer: "onesaml_login",
+      });
+
+    const testOneRequest =
+      (pathToXml: string, shouldErrorWith: string, amountOfSignatureChecks = 1) =>
+      async () => {
+        await assert.rejects(samlObj().validatePostRequestAsync(createRequestBody(pathToXml)), {
+          message: shouldErrorWith,
+        });
+
+        expect(validateSignatureSpy.callCount).to.equal(amountOfSignatureChecks);
+      };
+
+    it("root signed => the expected profile, after one signature check", async () => {
+      const { profile } = await samlObj().validatePostRequestAsync(
+        createRequestBody("/logout_request_with_good_signature.xml"),
+      );
+
+      expect(profile.nameID).to.equal("ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7");
+      expect(validateSignatureSpy.callCount).to.equal(1);
+    });
+
+    it(
+      "signature displaced into samlp:Extensions => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.signature-in-extensions.xml",
+        INVALID_DOCUMENT_ELEMENT_SIGNATURE,
+      ),
+    );
+
+    it(
+      "a second element carries the root ID => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.duplicate-root-id.xml",
+        INVALID_AMBIGUOUS_ID,
+      ),
+    );
+
+    it(
+      "reference URI without the leading # => error",
+      testOneRequest(
+        "/signatures/invalid/logoutrequest.root-signed.reference-uri-without-hash.xml",
+        INVALID_DETACHED_REFERENCE,
+      ),
+    );
+
+    // `_validateSignature` is the seam v5.1 shipped; the `assert.fail` parsers catch a wider relapse.
+    it("injected dependencies cannot substitute the verification => error", async () => {
+      const substituted = {
+        _validateSignature: () => true,
+        _parseDomFromString: () => assert.fail("the injected parser must not be called"),
+        _parseXml2JsFromString: () => assert.fail("the injected parser must not be called"),
+      };
+
+      await assert.rejects(
+        samlObj().validatePostRequestAsync(
+          createRequestBody(
+            "/signatures/invalid/logoutrequest.root-signed.signature-in-extensions.xml",
+          ),
+          substituted,
+        ),
+        { message: INVALID_DOCUMENT_ELEMENT_SIGNATURE },
+      );
+
+      expect(validateSignatureSpy.callCount, "the library's own verification ran").to.equal(1);
+    });
   });
 });
