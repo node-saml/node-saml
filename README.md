@@ -221,6 +221,25 @@ profile.getSamlResponseXml(); // deprecated
 profile.getAssertionXml(); // use this, or getAssertion() for the parsed form
 ```
 
+#### Attributes with no value
+
+An attribute sent without a usable value reaches the profile in one of two ways:
+
+```xml
+<Attribute Name="roles"/>                                            <!-- left out -->
+<Attribute Name="team"><AttributeValue/></Attribute>                 <!-- undefined -->
+<Attribute Name="team"><AttributeValue xsi:nil="true"/></Attribute>  <!-- undefined -->
+```
+
+The first is left out, so it looks the same as an attribute the identity provider did not send. The
+others are present with the value `undefined`, which `JSON.stringify` drops and code commonly treats
+as absent.
+
+The next major version keeps the first with a `null` value, and represents an empty `AttributeValue`
+as the empty string and one marked `xsi:nil` as `null`, which is what they mean in
+[SAML core §2.7.3.1.1](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf). Run
+with `NODE_DEBUG=node-saml` to be told which attributes in a response you received are affected.
+
 ### Single logout (SLO)
 
 Node-SAML supports SP-initiated and IdP-initiated logout, over both the `Redirect` and `POST`
@@ -727,23 +746,6 @@ with an expired — or unrecognized — `InResponseTo` is rejected. Accepting a 
 request ID, so presenting the same response again later fails. Two copies arriving at the same
 moment can both be accepted unless the cache provider removes the ID atomically, which the built-in
 one does and a custom one does if it implements `consumeAsync`, described below.
-
-## Attributes with no value
-
-Two shapes of `Attribute` reach the profile in a way callers cannot act on today:
-
-```xml
-<Attribute Name="roles"/>                              <!-- left out of the profile entirely -->
-<Attribute Name="team"><AttributeValue/></Attribute>   <!-- present, but `undefined` -->
-```
-
-The first is dropped, so it cannot be told apart from an attribute the identity provider never
-sent. The second arrives as `undefined`, which for most consumers is the same as absent.
-
-The next major version keeps the first with a `null` value and represents the second as an
-empty string, so both stay distinguishable from an attribute that was not sent
-([#413](https://github.com/node-saml/node-saml/pull/413)). Until then, run with
-`NODE_DEBUG=node-saml` to be told when either occurs in a response you received.
 
 ## Cache provider
 

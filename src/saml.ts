@@ -79,6 +79,21 @@ function warnIgnoredInjectedDependencies(legacyInjectedDependencies: unknown): v
   }
 }
 
+// xml2js keeps attribute prefixes as written, so `xsi` is resolved against the declarations in
+// scope rather than trusted by name.
+function isXsiNil(value: XMLOutput, ancestors: XMLOutput[]): boolean {
+  const own: XMLOutput = value.$ ?? {};
+  const inScope: XMLOutput = Object.assign({}, ...ancestors.map((element) => element.$), own);
+  return Object.keys(own).some((name) => {
+    const [prefix, localName] = name.split(":");
+    return (
+      localName === "nil" &&
+      inScope[`xmlns:${prefix}`] === "http://www.w3.org/2001/XMLSchema-instance" &&
+      /^\s*(true|1)\s*$/.test(own[name])
+    );
+  });
+}
+
 // Reading the ID and then removing it lets two concurrent copies of one response both find it,
 // so a provider that can take it in one step does.
 async function consumeRequestIdAsync(
@@ -1343,10 +1358,12 @@ class SAML {
 
     const attributeStatement = assertion.AttributeStatement;
     if (attributeStatement) {
-      const attributes: XMLOutput[] = [].concat(
+      const attributes: { statement: XMLOutput; attribute: XMLOutput }[] = [].concat(
         ...attributeStatement
-          .filter((attr: XMLObject) => Array.isArray(attr.Attribute))
-          .map((attr: XMLObject) => attr.Attribute),
+          .filter((statement: XMLObject) => Array.isArray(statement.Attribute))
+          .map((statement: XMLOutput) =>
+            statement.Attribute.map((attribute: XMLOutput) => ({ statement, attribute })),
+          ),
       );
 
       const attrValueMapper = (value: XMLObject) => {
@@ -1359,14 +1376,14 @@ class SAML {
       if (attributes.length > 0) {
         const profileAttributes: Record<string, XMLValue | XMLValue[]> = {};
 
-        attributes.forEach((attribute) => {
+        attributes.forEach(({ statement, attribute }) => {
           if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
-            // Dropping it makes it indistinguishable from one the IdP never sent.
-            // https://github.com/node-saml/node-saml/pull/413 keeps it as null instead.
-            debugLog(
-              'The SAML attribute "%s" has no AttributeValue child, so it is left out of the profile entirely and cannot be told apart from an attribute the identity provider never sent. The next major version keeps it with a null value. See https://github.com/node-saml/node-saml/pull/413',
-              attribute.$.Name,
-            );
+            if (attribute.$?.Name != null) {
+              debugLog(
+                'The SAML attribute "%s" has no AttributeValue, so it is left out of the profile and cannot be told apart from an attribute the identity provider did not send. The next major version keeps it with a null value.',
+                attribute.$.Name,
+              );
+            }
             return;
           }
 
@@ -1376,11 +1393,23 @@ class SAML {
               ? attrValueMapper(attribute.AttributeValue[0])
               : attribute.AttributeValue.map(attrValueMapper);
 
-          // `<AttributeValue/>` has no character data, so xml2js leaves `_` unset and the
-          // mapper yields `undefined`. SAML Core says such a value is the empty string.
-          if (Array.isArray(value) ? value.some((one) => one === undefined) : value === undefined) {
+          // An empty AttributeValue is the empty string, or null when it carries xsi:nil: SAML
+          // Core 2.7.3.1.1, https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
+          const unset = attribute.AttributeValue.filter(
+            (one: XMLOutput) => attrValueMapper(one) === undefined,
+          );
+          const nulls = unset.filter((one: XMLOutput) =>
+            isXsiNil(one, [assertion, statement, attribute]),
+          );
+          if (nulls.length > 0) {
             debugLog(
-              'The SAML attribute "%s" has an empty AttributeValue, which reaches the profile as `undefined`. The next major version represents it as an empty string. See https://github.com/node-saml/node-saml/pull/413',
+              'The SAML attribute "%s" has an AttributeValue marked xsi:nil, which reaches the profile as `undefined`. The next major version represents it as null.',
+              name,
+            );
+          }
+          if (unset.length > nulls.length) {
+            debugLog(
+              'The SAML attribute "%s" has an empty AttributeValue, which reaches the profile as `undefined`. The next major version represents it as an empty string.',
               name,
             );
           }

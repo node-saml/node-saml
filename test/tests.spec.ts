@@ -1,8 +1,5 @@
 "use strict";
 import { SAML } from "../src/saml";
-import { spawnSync } from "child_process";
-import * as os from "os";
-import * as path from "path";
 import { URL } from "url";
 import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
@@ -16,7 +13,8 @@ import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
 import { getVerifiedXml, parseDomFromString, validateSignature } from "../src/xml";
 import { generateServiceProviderMetadata } from "../src/metadata";
-import { signSamlPost } from "../src/saml-post-signing";
+import { spawnSync } from "child_process";
+import * as path from "path";
 
 const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -916,121 +914,103 @@ describe("node-saml /", function () {
         expect(profile).to.not.have.property("evilcorp.roles");
       });
 
-      // Both shapes reach the profile in a way a caller cannot act on, and
-      // https://github.com/node-saml/node-saml/pull/413 changes both in the next major.
       describe("attributes with no usable value", function () {
-        const staticDir = path.join(__dirname, "static");
-        const responseXPath =
-          '/*[local-name(.)="Response" and namespace-uri(.)="urn:oasis:names:tc:SAML:2.0:protocol"]';
-
-        // No committed fixture has an empty `<AttributeValue/>`, and the one that comes
-        // closest is signed, so the extra attribute has to go in before signing.
-        function buildResponseWithAnEmptyAttributeValue(): string {
-          const original = fs.readFileSync(
-            path.join(staticDir, "response-with-uncomplete-attribute.xml"),
-            "utf8",
-          );
-          const unsigned = original
-            .replace(/<ds:Signature[\s\S]*?<\/ds:Signature>/, "")
-            .replace(
-              '<Attribute Name="evilcorp.roles"/>',
-              '<Attribute Name="evilcorp.roles"/>' +
-                '<Attribute Name="evilcorp.empty"><AttributeValue/></Attribute>' +
-                '<Attribute Name="evilcorp.multi">' +
-                "<AttributeValue>first</AttributeValue><AttributeValue/>" +
-                "</Attribute>",
-            );
-          return signSamlPost(unsigned, responseXPath, {
-            privateKey: fs.readFileSync(path.join(staticDir, "key.pem")),
-            signatureAlgorithm: "sha1",
-          });
-        }
-
-        const samlConfig = {
+        const samlConfig: SamlConfig = {
           callbackUrl: "http://localhost/saml/consume",
-          audience: false as const,
+          idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
+          audience: false,
           issuer: "onesaml_login",
           wantAssertionsSigned: false,
         };
+        // Inclusive c14n leaves `xmlns:xsi` on the Attribute, so `xsi:nil` has to be resolved
+        // through an ancestor rather than read off the AttributeValue.
+        const samlResponse = Buffer.from(
+          signXmlResponse(
+            '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
+              '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
+              "<saml2:AttributeStatement>" +
+              "<saml2:Attribute/>" +
+              '<saml2:Attribute Name="none"/>' +
+              '<saml2:Attribute Name="empty"><saml2:AttributeValue/></saml2:Attribute>' +
+              '<saml2:Attribute Name="nil" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+              '<saml2:AttributeValue xsi:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="other-nil">' +
+              '<saml2:AttributeValue xmlns:xsi="urn:example:not-xsi" xsi:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="multi">' +
+              "<saml2:AttributeValue>first</saml2:AttributeValue><saml2:AttributeValue/>" +
+              "</saml2:Attribute>" +
+              "</saml2:AttributeStatement>" +
+              "</saml2:Assertion>" +
+              "</Response>",
+            {
+              privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
+              signatureAlgorithm: "sha1",
+              xmlSignatureTransforms: [
+                "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+                "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
+              ],
+            },
+          ),
+        ).toString("base64");
 
-        let fakeClock: sinon.SinonFakeTimers;
-
-        beforeEach(function () {
-          fakeClock = sinon.useFakeTimers({
-            now: Date.parse("2015-08-31T08:55:00+00:00"),
-            toFake: ["Date"],
-          });
-        });
-
-        afterEach(function () {
-          fakeClock.restore();
-        });
-
-        it("drops one with no AttributeValue, and yields undefined for an empty one", async () => {
-          const samlObj = new SAML({
-            ...samlConfig,
-            idpCert: fs.readFileSync(path.join(staticDir, "cert.pem"), "utf-8"),
-          });
-          const { profile } = await samlObj.validatePostResponseAsync({
-            SAMLResponse: Buffer.from(buildResponseWithAnEmptyAttributeValue()).toString("base64"),
+        it("leaves out one with no AttributeValue, and makes an empty or nil one undefined", async () => {
+          const { profile } = await new SAML(samlConfig).validatePostResponseAsync({
+            SAMLResponse: samlResponse,
           });
           assertRequired(profile, "profile must exist");
-
-          // Indistinguishable from an attribute the IdP never sent. Becomes null.
-          expect(profile).to.not.have.property("evilcorp.roles");
-          // Present, but holding nothing a caller can use. Becomes "".
-          expect(profile).to.have.property("evilcorp.empty");
-          expect(profile["evilcorp.empty"]).to.be.undefined;
-          // Only one of several values is empty, so the hole is inside the array.
-          expect(profile["evilcorp.multi"]).to.deep.equal(["first", undefined]);
+          expect(profile.attributes).to.deep.equal({
+            empty: undefined,
+            nil: undefined,
+            "other-nil": undefined,
+            multi: ["first", undefined],
+          });
         });
 
-        it("warns about each of them", function () {
-          this.timeout(20000);
-          const responseFile = path.join(
-            fs.mkdtempSync(path.join(os.tmpdir(), "node-saml-attrs-")),
-            "response.xml",
-          );
-          fs.writeFileSync(responseFile, buildResponseWithAnEmptyAttributeValue());
+        describe("under NODE_DEBUG", function () {
+          let stderr: string;
 
-          const script = `
-            const fs = require("fs");
-            const sinon = require(${JSON.stringify(path.join(__dirname, "..", "node_modules", "sinon"))});
-            const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
-            sinon.useFakeTimers({
-              now: Date.parse("2015-08-31T08:55:00+00:00"),
-              toFake: ["Date"],
-            });
-            const samlObj = new SAML({
-              ...${JSON.stringify(samlConfig)},
-              idpCert: fs.readFileSync(${JSON.stringify(path.join(staticDir, "cert.pem"))}, "utf-8"),
-            });
-            samlObj
-              .validatePostResponseAsync({
-                SAMLResponse: fs.readFileSync(${JSON.stringify(responseFile)}).toString("base64"),
-              })
-              .catch((err) => {
-                console.error("FAILED", err);
-                process.exit(1);
-              });
-          `;
-          const child = spawnSync(
-            process.execPath,
-            ["--require", "ts-node/register/transpile-only", "--eval", script],
-            { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
-          );
-          fs.rmSync(path.dirname(responseFile), { recursive: true, force: true });
-          expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+          // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child.
+          before(function () {
+            this.timeout(20000);
+            const script = `
+              const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+              new SAML(${JSON.stringify(samlConfig)})
+                .validatePostResponseAsync({ SAMLResponse: ${JSON.stringify(samlResponse)} })
+                .catch((error) => {
+                  console.error(error);
+                  process.exitCode = 1;
+                });
+            `;
+            const child = spawnSync(
+              process.execPath,
+              ["--require", "ts-node/register/transpile-only", "--eval", script],
+              { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+            );
+            expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+            stderr = child.stderr;
+          });
 
-          expect(child.stderr).to.contain(
-            'The SAML attribute "evilcorp.roles" has no AttributeValue child',
-          );
-          expect(child.stderr).to.contain(
-            'The SAML attribute "evilcorp.empty" has an empty AttributeValue',
-          );
-          expect(child.stderr).to.contain(
-            'The SAML attribute "evilcorp.multi" has an empty AttributeValue',
-          );
+          it("warns about an attribute with no AttributeValue", function () {
+            expect(stderr).to.contain('The SAML attribute "none" has no AttributeValue');
+          });
+
+          it("warns about an empty AttributeValue, including one among several", function () {
+            expect(stderr).to.contain('The SAML attribute "empty" has an empty AttributeValue');
+            expect(stderr).to.contain('The SAML attribute "multi" has an empty AttributeValue');
+          });
+
+          it("warns about an xsi:nil AttributeValue as null, not as empty", function () {
+            expect(stderr).to.contain(
+              'The SAML attribute "nil" has an AttributeValue marked xsi:nil',
+            );
+            expect(stderr).to.not.contain('The SAML attribute "nil" has an empty AttributeValue');
+          });
+
+          it("treats nil in another namespace as an empty AttributeValue", function () {
+            expect(stderr).to.contain('The SAML attribute "other-nil" has an empty AttributeValue');
+          });
         });
       });
 
