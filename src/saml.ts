@@ -146,6 +146,16 @@ async function getInResponseToAsync(xml: string): Promise<string | null> {
   return inResponseToNodes.length ? inResponseToNodes[0].nodeValue : null;
 }
 
+async function getSubjectInResponseTosAsync(assertionXml: string): Promise<string[]> {
+  return xpath
+    .selectAttributes(
+      await parseDomFromString(assertionXml),
+      "/*[local-name()='Assertion']/*[local-name()='Subject']/*[local-name()='SubjectConfirmation']/*[local-name()='SubjectConfirmationData']/@InResponseTo",
+    )
+    .map((attribute) => attribute.nodeValue)
+    .filter((value): value is string => value != null);
+}
+
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -884,6 +894,7 @@ class SAML {
     let doc: Document;
     let inResponseTo: string | null = null;
     let verifiedInResponseTo: string | null = null;
+    let verifiedAssertionXml: string | null = null;
 
     try {
       xml = Buffer.from(container.SAMLResponse, "base64").toString("utf8");
@@ -978,6 +989,7 @@ class SAML {
         if (signedAssertion == null) {
           throw new Error("Cannot obtain assertion from signed data");
         }
+        verifiedAssertionXml = signedAssertion;
         return await this.processValidlySignedAssertionAsync(
           signedAssertion,
           xml,
@@ -1050,8 +1062,18 @@ class SAML {
       debugLog.enabled && debugLog("validatePostResponse resulted in an error: %s", err);
       // A failure the IdP signed means it answered the request, so no other response is coming.
       // An unsigned one proves nothing about the request it names, so that request stays pending.
-      if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
-        await this.cacheProvider.removeAsync(verifiedInResponseTo);
+      if (this.mustValidateInResponseTo(true)) {
+        const answeredRequestIds = new Set(
+          verifiedAssertionXml == null
+            ? []
+            : await getSubjectInResponseTosAsync(verifiedAssertionXml),
+        );
+        if (verifiedInResponseTo != null) {
+          answeredRequestIds.add(verifiedInResponseTo);
+        }
+        for (const requestId of answeredRequestIds) {
+          await this.cacheProvider.removeAsync(requestId);
+        }
       }
       throw err;
     }
@@ -1084,7 +1106,15 @@ class SAML {
       ? await this.verifyLogoutResponse(doc)
       : this.verifyLogoutRequest(doc);
     await this.hasValidSignatureForRedirect(container, originalQuery);
-    return await this.processValidlySignedSamlLogoutAsync(doc, dom, Boolean(container.Signature));
+    // Consumed here, not in the overridable processing method, so an override can't lose track of
+    // whether the message was signed. An unsigned one can name anyone's pending request.
+    if (samlMessageType === "SAMLResponse" && container.Signature) {
+      const inResponseTo = doc.LogoutResponse.$.InResponseTo ?? null;
+      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+        await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+      }
+    }
+    return await this.processValidlySignedSamlLogoutAsync(doc, dom);
   }
 
   protected async hasValidSignatureForRedirect(
@@ -1589,19 +1619,11 @@ class SAML {
     this: SAML,
     doc: XMLOutput,
     dom: Document,
-    // Whether a verified signature covers the message. Defaulting to true keeps an override that
-    // passes two arguments consuming the ID, so its signed responses can't be presented again.
-    isSigned = true,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
     const response = doc.LogoutResponse;
     const request = doc.LogoutRequest;
 
     if (response) {
-      const inResponseTo = response.$.InResponseTo;
-      // An unsigned LogoutResponse can name anyone's pending request, so it must not retire it.
-      if (isSigned && this.mustValidateInResponseTo(Boolean(inResponseTo))) {
-        await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
-      }
       return { profile: null, loggedOut: true };
     } else if (request) {
       return await this.processValidlySignedPostRequestAsync(doc, dom);

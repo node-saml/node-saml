@@ -275,7 +275,7 @@ describe("InResponseTo request ID consumption", function () {
 
     it("retires the request when a signed Response answering it fails", async () => {
       const expired = loginResponse({
-        subjectConfirmations: [{ inResponseTo: true, expired: true }],
+        subjectConfirmations: [{ inResponseTo: false, expired: true }],
         signResponse: true,
       });
 
@@ -285,6 +285,19 @@ describe("InResponseTo request ID consumption", function () {
       expect(
         await outcome(saml.validatePostResponseAsync(loginResponse({ signResponse: true }))),
       ).to.equal("InResponseTo is not valid");
+    });
+
+    it("retires the request when a signed assertion answering it fails in an unsigned Response", async () => {
+      const expired = loginResponse({
+        subjectConfirmations: [{ inResponseTo: true, expired: true }],
+      });
+
+      expect(await outcome(saml.validatePostResponseAsync(expired))).to.equal(
+        "No valid subject confirmation found among those available in the SAML assertion",
+      );
+      expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal(
+        "InResponseTo is not valid",
+      );
     });
 
     it("leaves the request pending when an unsigned Response names it under ifPresent", async () => {
@@ -326,10 +339,10 @@ describe("InResponseTo request ID consumption", function () {
       );
     });
 
-    // Defaulting to unverified would stop an override written before the parameter from consuming
-    // signed responses, and let them be presented again.
-    it("still consumes the ID when an override passes only two arguments", async () => {
-      class TwoArgumentSaml extends SAML {
+    // Whether the message was signed must not travel through an overridable method, which an
+    // override written against its two-argument signature would drop.
+    describe("through an override of processValidlySignedSamlLogoutAsync", function () {
+      class OverridingSaml extends SAML {
         protected async processValidlySignedSamlLogoutAsync(
           doc: Record<string, unknown>,
           dom: Document,
@@ -337,14 +350,30 @@ describe("InResponseTo request ID consumption", function () {
           return super.processValidlySignedSamlLogoutAsync(doc, dom);
         }
       }
-      saml = newSaml({ wantAuthnResponseSigned: true }, TwoArgumentSaml);
-      await saml.getLogoutUrlAsync(user, "", {});
-      const { container, query } = signedRedirectLogoutResponse(logoutResponseXml());
 
-      await saml.validateRedirectAsync(container, query);
-      expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal(
-        "InResponseTo is not valid",
-      );
+      beforeEach(async function () {
+        saml = newSaml({ wantAuthnResponseSigned: true }, OverridingSaml);
+        await saml.getLogoutUrlAsync(user, "", {});
+      });
+
+      it("rejects a signed one presented again on the Redirect binding", async () => {
+        const { container, query } = signedRedirectLogoutResponse(logoutResponseXml());
+
+        await saml.validateRedirectAsync(container, query);
+        expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal(
+          "InResponseTo is not valid",
+        );
+      });
+
+      it("leaves the request pending when an unsigned one answers it on the Redirect binding", async () => {
+        const unsigned = redirectLogoutResponse(logoutResponseXml());
+        const signed = signedRedirectLogoutResponse(logoutResponseXml());
+
+        await saml.validateRedirectAsync(unsigned.container, unsigned.query);
+        expect(await outcome(saml.validateRedirectAsync(signed.container, signed.query))).to.equal(
+          "accepted",
+        );
+      });
     });
 
     it("accepts one over POST that answers a recorded request", async () => {
