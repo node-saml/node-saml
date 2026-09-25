@@ -16,7 +16,7 @@ import {
   XmlSignatureLocation,
 } from "./types";
 import { assertRequired } from "./utility";
-import { keyInfoToPem } from "./crypto";
+import { decryptionPvkToPem, keyInfoToPem, privateKeyToPem } from "./crypto";
 
 const debugLog = util.debuglog("node-saml");
 
@@ -45,8 +45,8 @@ export const xpath = {
     selectXPath(elementsXPathTypeGuard, node, xpath),
 };
 
-export const decryptXml = async (xml: string, decryptionKey: string | Buffer) =>
-  util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionKey });
+export const decryptXml = async (xml: string, decryptionPvk: string | Buffer) =>
+  util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionPvkToPem(decryptionPvk) });
 
 /**
  * we can use this utility before passing XML to `xml-crypto`
@@ -282,7 +282,7 @@ export const signXml = (
     transforms,
     digestAlgorithm: algorithms.getDigestAlgorithm(options.digestAlgorithm),
   });
-  sig.privateKey = keyInfoToPem(options.privateKey, "PRIVATE KEY", "privateKey");
+  sig.privateKey = privateKeyToPem(options.privateKey, "privateKey");
   if (options.publicCert != null) {
     const publicCert = keyInfoToPem(options.publicCert, "CERTIFICATE", "publicCert");
     // toPem() keeps a PEM's own label, and xml-crypto omits KeyInfo when it finds no certificate.
