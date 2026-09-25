@@ -1109,7 +1109,7 @@ class SAML {
     // Consumed here, not in the overridable processing method, so an override can't lose track of
     // whether the message was signed. An unsigned one can name anyone's pending request.
     if (samlMessageType === "SAMLResponse" && container.Signature) {
-      const inResponseTo = doc.LogoutResponse.$.InResponseTo ?? null;
+      const inResponseTo = doc.LogoutResponse.$.InResponseTo;
       if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
         await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
       }
