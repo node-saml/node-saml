@@ -221,6 +221,25 @@ profile.getSamlResponseXml(); // deprecated
 profile.getAssertionXml(); // use this, or getAssertion() for the parsed form
 ```
 
+#### Attributes with no value
+
+An attribute sent without a usable value reaches the profile in one of two ways:
+
+```xml
+<Attribute Name="roles"/>                                            <!-- left out -->
+<Attribute Name="team"><AttributeValue/></Attribute>                 <!-- undefined -->
+<Attribute Name="team"><AttributeValue xsi:nil="true"/></Attribute>  <!-- undefined -->
+```
+
+The first is left out, so it looks the same as an attribute the identity provider did not send. The
+others are present with the value `undefined`, which `JSON.stringify` drops and code commonly treats
+as absent.
+
+The next major version keeps the first with a `null` value, and represents an empty `AttributeValue`
+as the empty string and one marked `xsi:nil` as `null`, which is what they mean in
+[SAML core §2.7.3.1.1](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf). Run
+with `NODE_DEBUG=node-saml` to be told which attributes in a response you received are affected.
+
 ### Single logout (SLO)
 
 Node-SAML supports SP-initiated and IdP-initiated logout, over both the `Redirect` and `POST`

@@ -914,6 +914,118 @@ describe("node-saml /", function () {
         expect(profile).to.not.have.property("evilcorp.roles");
       });
 
+      describe("attributes with no usable value", function () {
+        const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
+          idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
+          audience: false,
+          issuer: "onesaml_login",
+          wantAssertionsSigned: false,
+        };
+        // Inclusive c14n leaves `xmlns:xsi` on the Attribute, so `xsi:nil` has to be resolved
+        // through an ancestor rather than read off the AttributeValue.
+        const samlResponse = Buffer.from(
+          signXmlResponse(
+            '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
+              '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
+              "<saml2:AttributeStatement>" +
+              "<saml2:Attribute/>" +
+              '<saml2:Attribute Name="none"/>' +
+              '<saml2:Attribute Name="empty"><saml2:AttributeValue/></saml2:Attribute>' +
+              '<saml2:Attribute Name="nil" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+              '<saml2:AttributeValue xsi:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="other-nil">' +
+              '<saml2:AttributeValue xmlns:xsi="urn:example:not-xsi" xsi:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="rebound" ' +
+              'xmlns:x500="urn:oasis:names:tc:SAML:2.0:profiles:attribute:X500" x500:Encoding="LDAP">' +
+              '<saml2:AttributeValue xmlns:x500="http://www.w3.org/2001/XMLSchema-instance" ' +
+              'x500:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="multi">' +
+              "<saml2:AttributeValue>first</saml2:AttributeValue><saml2:AttributeValue/>" +
+              "</saml2:Attribute>" +
+              "</saml2:AttributeStatement>" +
+              "</saml2:Assertion>" +
+              "</Response>",
+            {
+              privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
+              signatureAlgorithm: "sha1",
+              xmlSignatureTransforms: [
+                "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+                "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
+              ],
+            },
+          ),
+        ).toString("base64");
+
+        it("leaves out one with no AttributeValue, and makes an empty or nil one undefined", async () => {
+          const { profile } = await new SAML(samlConfig).validatePostResponseAsync({
+            SAMLResponse: samlResponse,
+          });
+          assertRequired(profile, "profile must exist");
+          expect(profile.attributes).to.deep.equal({
+            empty: undefined,
+            nil: undefined,
+            "other-nil": undefined,
+            rebound: undefined,
+            multi: ["first", undefined],
+          });
+        });
+
+        describe("under NODE_DEBUG", function () {
+          let stderr: string;
+
+          // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child.
+          before(function () {
+            this.timeout(20000);
+            const script = `
+              const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+              new SAML(${JSON.stringify(samlConfig)})
+                .validatePostResponseAsync({ SAMLResponse: ${JSON.stringify(samlResponse)} })
+                .catch((error) => {
+                  console.error(error);
+                  process.exitCode = 1;
+                });
+            `;
+            const child = spawnSync(
+              process.execPath,
+              ["--require", "ts-node/register/transpile-only", "--eval", script],
+              { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+            );
+            expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+            stderr = child.stderr;
+          });
+
+          it("warns about an attribute with no AttributeValue", function () {
+            expect(stderr).to.contain('The SAML attribute "none" has no AttributeValue');
+          });
+
+          it("warns about an empty AttributeValue, including one among several", function () {
+            expect(stderr).to.contain('The SAML attribute "empty" has an empty AttributeValue');
+            expect(stderr).to.contain('The SAML attribute "multi" has an empty AttributeValue');
+          });
+
+          it("warns about an xsi:nil AttributeValue as null, not as empty", function () {
+            expect(stderr).to.contain(
+              'The SAML attribute "nil" has an AttributeValue marked xsi:nil',
+            );
+            expect(stderr).to.not.contain('The SAML attribute "nil" has an empty AttributeValue');
+          });
+
+          it("treats nil in another namespace as an empty AttributeValue", function () {
+            expect(stderr).to.contain('The SAML attribute "other-nil" has an empty AttributeValue');
+          });
+
+          it("resolves xsi:nil against the nearest declaration of its prefix", function () {
+            expect(stderr).to.contain(
+              'The SAML attribute "rebound" has an AttributeValue marked xsi:nil',
+            );
+          });
+        });
+      });
+
       it("valid xml document with multiple SubjectConfirmation should validate", async () => {
         fakeClock = sinon.useFakeTimers({
           now: Date.parse("2020-09-24T16:00:00+00:00"),
