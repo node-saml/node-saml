@@ -1,4 +1,6 @@
+import * as crypto from "crypto";
 import * as fs from "fs";
+import * as sinon from "sinon";
 import { SAML } from "../src/saml";
 import { FAKE_CERT } from "./types";
 import * as zlib from "zlib";
@@ -8,6 +10,9 @@ import { assertRequired } from "../src/utility";
 import { SamlConfig } from "../src/types";
 import * as assert from "assert";
 import { getVerifiedXml, parseDomFromString } from "../src/xml";
+
+const pkcs1Base64 = (pem: string) =>
+  crypto.createPrivateKey(pem).export({ type: "pkcs1", format: "der" }).toString("base64");
 
 describe("SAML request", function () {
   describe("Config with Extensions", function () {
@@ -579,6 +584,18 @@ describe("SAML request", function () {
       assert.ok(getVerifiedXml(request, dom.documentElement, [certificate]));
     });
 
+    it("signs with a PKCS #1 private key given as Base64", async function () {
+      const request = await signedRequest({ privateKey: pkcs1Base64(privateKey) });
+      const dom = await parseDomFromString(request);
+      assert.ok(getVerifiedXml(request, dom.documentElement, [certificate]));
+    });
+
+    it("should throw if privateKey is not a private key, naming it", async function () {
+      await assert.rejects(signedRequest({ privateKey: readStatic("pub.pem") }), {
+        message: /^privateKey is not a private key: /,
+      });
+    });
+
     it("publishes a certificate given as Base64 in KeyInfo", async function () {
       const base64 = readStatic("acme_tools_com_without_header_and_footer.cert").replace(/\s/g, "");
       const request = await signedRequest({ privateKey, publicCert: base64 });
@@ -595,6 +612,41 @@ describe("SAML request", function () {
       await assert.rejects(signedRequest({ privateKey, publicCert: readStatic("pub.pem") }), {
         message: "publicCert must hold at least one certificate",
       });
+    });
+  });
+
+  describe("signing with the HTTP-Redirect binding", function () {
+    const privateKey = fs.readFileSync(`${__dirname}/static/acme_tools_com.key`, "utf-8");
+    let clock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      clock = sinon.useFakeTimers({ now: Date.parse("2026-01-01T00:00:00Z"), toFake: ["Date"] });
+    });
+
+    afterEach(function () {
+      clock.restore();
+    });
+
+    const signature = async (key: string) => {
+      const saml = new SAML({
+        callbackUrl: "http://localhost/saml/consume",
+        entryPoint: "https://idp.example.com/saml",
+        issuer: "http://sp.example.com",
+        idpCert: FAKE_CERT,
+        signatureAlgorithm: "sha256",
+        generateUniqueId: () => "_request0",
+        privateKey: key,
+      });
+      return new URL(await saml.getAuthorizeUrlAsync("", {})).searchParams.get("Signature");
+    };
+
+    it("signs with a PKCS #1 private key given as Base64 as with its PEM", async function () {
+      expect(await signature(pkcs1Base64(privateKey))).to.equal(await signature(privateKey));
+    });
+
+    it("should throw if privateKey is not a private key, naming it", async function () {
+      const publicKey = fs.readFileSync(`${__dirname}/static/pub.pem`, "utf-8");
+      await assert.rejects(signature(publicKey), { message: /^privateKey is not a private key: / });
     });
   });
 });

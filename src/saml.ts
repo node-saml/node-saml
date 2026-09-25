@@ -6,7 +6,7 @@ import * as util from "util";
 import * as zlib from "zlib";
 import * as algorithms from "./algorithms";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
-import { generateUniqueId, keyInfoToPem } from "./crypto";
+import { generateUniqueId, keyInfoToPem, privateKeyToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
 import { generateServiceProviderMetadata } from "./metadata";
@@ -324,7 +324,7 @@ class SAML {
     }
     signer.update(querystring.stringify(samlMessageToSign));
     samlMessage.Signature = signer.sign(
-      keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
+      privateKeyToPem(this.options.privateKey, "privateKey"),
       "base64",
     );
   }
