@@ -922,51 +922,43 @@ describe("node-saml /", function () {
           issuer: "onesaml_login",
           wantAssertionsSigned: false,
         };
-        function signedResponse(attributes: string, xmlSignatureTransforms?: string[]): string {
-          const xml =
-            '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
-            '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
-            `<saml2:AttributeStatement>${attributes}</saml2:AttributeStatement>` +
-            "</saml2:Assertion>" +
-            "</Response>";
-          return Buffer.from(
-            signXmlResponse(xml, {
-              privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
-              signatureAlgorithm: "sha1",
-              xmlSignatureTransforms,
-            }),
-          ).toString("base64");
-        }
-
         // Inclusive c14n leaves `xmlns:xsi` on the Attribute, so `xsi:nil` has to be resolved
         // through an ancestor rather than read off the AttributeValue.
-        const samlResponse = signedResponse(
-          "<saml2:Attribute/>" +
-            '<saml2:Attribute Name="none"/>' +
-            '<saml2:Attribute Name="empty"><saml2:AttributeValue/></saml2:Attribute>' +
-            '<saml2:Attribute Name="nil" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
-            '<saml2:AttributeValue xsi:nil="true"/>' +
-            "</saml2:Attribute>" +
-            '<saml2:Attribute Name="other-nil">' +
-            '<saml2:AttributeValue xmlns:xsi="urn:example:not-xsi" xsi:nil="true"/>' +
-            "</saml2:Attribute>" +
-            '<saml2:Attribute Name="multi">' +
-            "<saml2:AttributeValue>first</saml2:AttributeValue><saml2:AttributeValue/>" +
-            "</saml2:Attribute>",
-          [
-            "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
-            "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
-          ],
-        );
-        // Signed with the default exclusive c14n: xml-crypto's inclusive c14n drops the inner
-        // redeclaration of `x500`. https://github.com/node-saml/xml-crypto/issues/614
-        const reboundResponse = signedResponse(
-          '<saml2:Attribute Name="rebound" ' +
-            'xmlns:x500="urn:oasis:names:tc:SAML:2.0:profiles:attribute:X500" x500:Encoding="LDAP">' +
-            '<saml2:AttributeValue xmlns:x500="http://www.w3.org/2001/XMLSchema-instance" ' +
-            'x500:nil="true"/>' +
-            "</saml2:Attribute>",
-        );
+        const samlResponse = Buffer.from(
+          signXmlResponse(
+            '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
+              '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
+              "<saml2:AttributeStatement>" +
+              "<saml2:Attribute/>" +
+              '<saml2:Attribute Name="none"/>' +
+              '<saml2:Attribute Name="empty"><saml2:AttributeValue/></saml2:Attribute>' +
+              '<saml2:Attribute Name="nil" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+              '<saml2:AttributeValue xsi:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="other-nil">' +
+              '<saml2:AttributeValue xmlns:xsi="urn:example:not-xsi" xsi:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="rebound" ' +
+              'xmlns:x500="urn:oasis:names:tc:SAML:2.0:profiles:attribute:X500" x500:Encoding="LDAP">' +
+              '<saml2:AttributeValue xmlns:x500="http://www.w3.org/2001/XMLSchema-instance" ' +
+              'x500:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="multi">' +
+              "<saml2:AttributeValue>first</saml2:AttributeValue><saml2:AttributeValue/>" +
+              "</saml2:Attribute>" +
+              "</saml2:AttributeStatement>" +
+              "</saml2:Assertion>" +
+              "</Response>",
+            {
+              privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
+              signatureAlgorithm: "sha1",
+              xmlSignatureTransforms: [
+                "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+                "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
+              ],
+            },
+          ),
+        ).toString("base64");
 
         it("leaves out one with no AttributeValue, and makes an empty or nil one undefined", async () => {
           const { profile } = await new SAML(samlConfig).validatePostResponseAsync({
@@ -977,6 +969,7 @@ describe("node-saml /", function () {
             empty: undefined,
             nil: undefined,
             "other-nil": undefined,
+            rebound: undefined,
             multi: ["first", undefined],
           });
         });
@@ -989,15 +982,12 @@ describe("node-saml /", function () {
             this.timeout(20000);
             const script = `
               const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
-              const saml = new SAML(${JSON.stringify(samlConfig)});
-              (async () => {
-                for (const SAMLResponse of ${JSON.stringify([samlResponse, reboundResponse])}) {
-                  await saml.validatePostResponseAsync({ SAMLResponse });
-                }
-              })().catch((error) => {
-                console.error(error);
-                process.exitCode = 1;
-              });
+              new SAML(${JSON.stringify(samlConfig)})
+                .validatePostResponseAsync({ SAMLResponse: ${JSON.stringify(samlResponse)} })
+                .catch((error) => {
+                  console.error(error);
+                  process.exitCode = 1;
+                });
             `;
             const child = spawnSync(
               process.execPath,

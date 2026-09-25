@@ -1360,7 +1360,7 @@ class SAML {
     if (attributeStatement) {
       const attributes: { statement: XMLOutput; attribute: XMLOutput }[] = [].concat(
         ...attributeStatement
-          .filter((statement: XMLObject) => Array.isArray(statement.Attribute))
+          .filter((statement: XMLOutput) => Array.isArray(statement.Attribute))
           .map((statement: XMLOutput) =>
             statement.Attribute.map((attribute: XMLOutput) => ({ statement, attribute })),
           ),
