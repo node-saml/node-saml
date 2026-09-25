@@ -51,9 +51,9 @@ export const privateKeyToPem = (keyInfo: string | Buffer, optionName: string): s
     return pem;
   }
 
-  // Base64 carries no label, and an RSA key is as often PKCS #1 as PKCS #8. The two structures are
-  // disjoint, so at most one label reads the data. toPem() keeps a PEM's own label, so only base64
-  // is relabelled here.
+  // Base64 carries no label, and an RSA key is as often PKCS #1 as PKCS #8. OpenSSL reads PKCS #8
+  // under either label but PKCS #1 only under its own, so trying PKCS #8 first keeps each key's own
+  // label. toPem() keeps a PEM's own label, so only base64 is relabelled here.
   const rsaPem = keyInfoToPem(keyInfo, "RSA PRIVATE KEY", optionName);
   assertPrivateKey(rsaPem, optionName);
   return rsaPem;
