@@ -118,17 +118,22 @@ async function consumeInResponseToAsync(
   }
 }
 
-// An unsigned Response's InResponseTo can name a request the sender started themselves, so under
-// "always" it cannot be what ties an assertion to a request. "ifPresent" accepts unsolicited
-// responses anyway, so there it is only consumed, which still stops a replay.
+// An unsigned Response's InResponseTo can name any request, the sender's own or someone else's
+// pending one, so it can neither tie an assertion to a request under "always" nor retire the
+// request under "ifPresent", which accepts the response as unsolicited instead.
 async function consumeResponseInResponseToAsync(
   cacheProvider: CacheProvider,
   validateInResponseTo: ValidateInResponseTo,
   inResponseTo: string | null,
   inResponseToIsVerified: boolean,
 ): Promise<void> {
-  if (!inResponseToIsVerified && validateInResponseTo === ValidateInResponseTo.always) {
-    throw new Error("SubjectInResponseTo is missing and the Response's InResponseTo is not signed");
+  if (!inResponseToIsVerified) {
+    if (validateInResponseTo === ValidateInResponseTo.always) {
+      throw new Error(
+        "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
+      );
+    }
+    return;
   }
   await consumeInResponseToAsync(cacheProvider, inResponseTo);
 }
@@ -878,6 +883,7 @@ class SAML {
     let xml: string;
     let doc: Document;
     let inResponseTo: string | null = null;
+    let verifiedInResponseTo: string | null = null;
 
     try {
       xml = Buffer.from(container.SAMLResponse, "base64").toString("utf8");
@@ -903,6 +909,7 @@ class SAML {
 
       if (responseVerifiedXml) {
         validSignature = true;
+        verifiedInResponseTo = await getInResponseToAsync(responseVerifiedXml);
       }
 
       if (this.options.wantAuthnResponseSigned === true && validSignature === false) {
@@ -974,7 +981,7 @@ class SAML {
         return await this.processValidlySignedAssertionAsync(
           signedAssertion,
           xml,
-          responseVerifiedXml ? await getInResponseToAsync(responseVerifiedXml) : inResponseTo,
+          responseVerifiedXml ? verifiedInResponseTo : inResponseTo,
           responseVerifiedXml != null,
         );
       }
@@ -1031,8 +1038,8 @@ class SAML {
         }
         const logoutResponse = xmljsDoc.LogoutResponse;
         if (logoutResponse) {
-          if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
-            await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+          if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
+            await consumeInResponseToAsync(this.cacheProvider, verifiedInResponseTo);
           }
           return { profile: null, loggedOut: true };
         } else {
@@ -1041,8 +1048,10 @@ class SAML {
       }
     } catch (err) {
       debugLog.enabled && debugLog("validatePostResponse resulted in an error: %s", err);
-      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
-        await this.cacheProvider.removeAsync(inResponseTo);
+      // A failure the IdP signed means it answered the request, so no other response is coming.
+      // An unsigned one proves nothing about the request it names, so that request stays pending.
+      if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
+        await this.cacheProvider.removeAsync(verifiedInResponseTo);
       }
       throw err;
     }
@@ -1075,7 +1084,7 @@ class SAML {
       ? await this.verifyLogoutResponse(doc)
       : this.verifyLogoutRequest(doc);
     await this.hasValidSignatureForRedirect(container, originalQuery);
-    return await this.processValidlySignedSamlLogoutAsync(doc, dom);
+    return await this.processValidlySignedSamlLogoutAsync(doc, dom, Boolean(container.Signature));
   }
 
   protected async hasValidSignatureForRedirect(
@@ -1292,7 +1301,6 @@ class SAML {
             const subjectInResponseTo = confirmData.$.InResponseTo;
 
             if (inResponseTo && subjectInResponseTo && subjectInResponseTo != inResponseTo) {
-              await this.cacheProvider.removeAsync(inResponseTo);
               throw new Error("InResponseTo does not match subjectInResponseTo");
             } else if (subjectInResponseTo) {
               let foundValidInResponseTo = false;
@@ -1581,13 +1589,17 @@ class SAML {
     this: SAML,
     doc: XMLOutput,
     dom: Document,
+    // Whether a verified signature covers the message. Defaulting to true keeps an override that
+    // passes two arguments consuming the ID, so its signed responses can't be presented again.
+    isSigned = true,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
     const response = doc.LogoutResponse;
     const request = doc.LogoutRequest;
 
     if (response) {
       const inResponseTo = response.$.InResponseTo;
-      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+      // An unsigned LogoutResponse can name anyone's pending request, so it must not retire it.
+      if (isSigned && this.mustValidateInResponseTo(Boolean(inResponseTo))) {
         await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
       }
       return { profile: null, loggedOut: true };

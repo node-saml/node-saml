@@ -747,6 +747,15 @@ request ID, so presenting the same response again later fails. Two copies arrivi
 moment can both be accepted unless the cache provider removes the ID atomically, which the built-in
 one does and a custom one does if it implements `consumeAsync`, described below.
 
+Only an `InResponseTo` that a verified signature covers removes a request ID, whether the response
+is accepted or rejected. Anyone who learns a pending request ID can put it in a response, so an
+unsigned one is still checked against the recorded IDs but never retires one, and the IdP's genuine
+response validates after it. That covers a rejected response whose `Response` is unsigned, an
+unsigned `Response` accepted under `"ifPresent"` on the strength of its assertion alone, and an
+unsigned Redirect-binding `LogoutResponse`. None of these can be presented again with more effect
+than before: an unsigned `InResponseTo` can be deleted, making the response unsolicited, and an
+unsigned logout message can be forged outright.
+
 ## Cache provider
 
 With `InResponseTo` validation on, the generated request IDs have to be stored somewhere. That is
