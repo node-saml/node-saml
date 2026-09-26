@@ -1214,7 +1214,7 @@ describe("node-saml /", function () {
       [ValidateInResponseTo.always, ValidateInResponseTo.ifPresent].forEach(
         (validateInResponseTo) => {
           describe(`with validateInResponseTo set to ${validateInResponseTo}`, () => {
-            it(`removes InResponseTo value if response validation fails when validateInResponseTo=${validateInResponseTo}`, async () => {
+            it(`keeps the InResponseTo value pending when an unsigned response fails validation when validateInResponseTo=${validateInResponseTo}`, async () => {
               const requestId = "_a6fc46be84e1e3cf3c50";
               const xml =
                 '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
@@ -1242,10 +1242,10 @@ describe("node-saml /", function () {
               });
 
               await assert.rejects(samlObj.validatePostResponseAsync(container), {
-                message: "InResponseTo is not valid",
+                message: "Invalid signature",
               });
 
-              expect(await samlObj.cacheProvider.getAsync(requestId)).to.be.null;
+              expect(await samlObj.cacheProvider.getAsync(requestId)).to.not.be.null;
             });
           });
         },
