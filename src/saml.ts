@@ -1102,16 +1102,25 @@ class SAML {
 
     const dom = await parseDomFromString(inflated.toString());
     const doc: XMLOutput = await parseXml2JsFromString(inflated);
-    samlMessageType === "SAMLResponse"
-      ? await this.verifyLogoutResponse(doc)
-      : this.verifyLogoutRequest(doc);
+    // Before the checks below, so a signed response that fails them still retires its request.
     await this.hasValidSignatureForRedirect(container, originalQuery);
-    // Consumed here, not in the overridable processing method, so an override can't lose track of
-    // whether the message was signed. An unsigned one can name anyone's pending request.
-    if (samlMessageType === "SAMLResponse" && container.Signature) {
-      const inResponseTo = doc.LogoutResponse.$.InResponseTo;
-      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
-        await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+    if (samlMessageType === "SAMLRequest") {
+      this.verifyLogoutRequest(doc);
+    } else {
+      // Retired here, not in the overridable processing method, so an override can't lose track of
+      // whether the message was signed. An unsigned one can name anyone's pending request.
+      const signedInResponseTo = container.Signature ? doc.LogoutResponse.$.InResponseTo : null;
+      const retire = signedInResponseTo != null && this.mustValidateInResponseTo(true);
+      try {
+        await this.verifyLogoutResponse(doc);
+      } catch (err) {
+        if (retire) {
+          await this.cacheProvider.removeAsync(signedInResponseTo);
+        }
+        throw err;
+      }
+      if (retire) {
+        await consumeInResponseToAsync(this.cacheProvider, signedInResponseTo);
       }
     }
     return await this.processValidlySignedSamlLogoutAsync(doc, dom);

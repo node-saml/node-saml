@@ -748,8 +748,8 @@ moment can both be accepted unless the cache provider removes the ID atomically,
 one does and a custom one does if it implements `consumeAsync`, described below.
 
 A request ID is removed when a verified signature covers an `InResponseTo` naming it — on the
-`Response`, or on a `SubjectConfirmationData` in the assertion — whether the response is then
-accepted or rejected, and never otherwise. Anyone who learns a pending request ID can put it in a
+`Response` or `LogoutResponse`, or on a `SubjectConfirmationData` in the assertion — whether the
+response is then accepted or rejected, and never otherwise. Anyone who learns a pending request ID can put it in a
 response, so an unsigned one is still checked against the recorded IDs but never retires one, and
 the IdP's genuine response validates after it. That covers a rejected response in which nothing
 signed names the request, an unsigned `Response` accepted under `"ifPresent"` on the strength of its

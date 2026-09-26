@@ -14,6 +14,8 @@ const namespaces =
   'xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"';
 const success =
   '<samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>';
+const requesterError =
+  '<samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Requester"/></samlp:Status>';
 
 function instant(offsetMs = 0): string {
   return new Date(Date.now() + offsetMs).toISOString();
@@ -76,11 +78,11 @@ function loginResponse({
   };
 }
 
-function logoutResponseXml({ inResponseTo = true } = {}): string {
+function logoutResponseXml({ inResponseTo = true, status = success } = {}): string {
   const inResponseToAttribute = inResponseTo ? ` InResponseTo="${requestId}"` : "";
   return (
     `<samlp:LogoutResponse ${namespaces} ID="_logout_response" Version="2.0" IssueInstant="${instant()}"${inResponseToAttribute}>` +
-    `<saml:Issuer>idp</saml:Issuer>${success}</samlp:LogoutResponse>`
+    `<saml:Issuer>idp</saml:Issuer>${status}</samlp:LogoutResponse>`
   );
 }
 
@@ -324,6 +326,30 @@ describe("InResponseTo request ID consumption", function () {
       expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal("accepted");
       expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal(
         "InResponseTo is not valid",
+      );
+    });
+
+    it("retires the request when a signed one answering it fails on the Redirect binding", async () => {
+      const failed = signedRedirectLogoutResponse(logoutResponseXml({ status: requesterError }));
+      const signed = signedRedirectLogoutResponse(logoutResponseXml());
+
+      expect(await outcome(saml.validateRedirectAsync(failed.container, failed.query))).to.equal(
+        "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester",
+      );
+      expect(await outcome(saml.validateRedirectAsync(signed.container, signed.query))).to.equal(
+        "InResponseTo is not valid",
+      );
+    });
+
+    it("leaves the request pending when an unsigned one naming it fails on the Redirect binding", async () => {
+      const failed = redirectLogoutResponse(logoutResponseXml({ status: requesterError }));
+      const signed = signedRedirectLogoutResponse(logoutResponseXml());
+
+      expect(await outcome(saml.validateRedirectAsync(failed.container, failed.query))).to.equal(
+        "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester",
+      );
+      expect(await outcome(saml.validateRedirectAsync(signed.container, signed.query))).to.equal(
+        "accepted",
       );
     });
 
