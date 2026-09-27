@@ -1062,7 +1062,8 @@ class SAML {
       debugLog.enabled && debugLog("validatePostResponse resulted in an error: %s", err);
       // A failure the IdP signed means it answered the request, so no other response is coming.
       // An unsigned one proves nothing about the request it names, so that request stays pending.
-      if (this.mustValidateInResponseTo(true)) {
+      // Gated as success is, so under "ifPresent" a failure retires nothing a success would keep.
+      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
         const answeredRequestIds = new Set(
           verifiedAssertionXml == null
             ? []

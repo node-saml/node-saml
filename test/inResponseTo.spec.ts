@@ -302,6 +302,20 @@ describe("InResponseTo request ID consumption", function () {
       );
     });
 
+    it("leaves an assertion-level request pending under ifPresent when the Response has no InResponseTo and validation fails", async () => {
+      saml = newSaml({ validateInResponseTo: ValidateInResponseTo.ifPresent });
+      await saml.getAuthorizeUrlAsync("", {});
+      const expired = loginResponse({
+        responseInResponseTo: null,
+        subjectConfirmations: [{ inResponseTo: true, expired: true }],
+      });
+
+      expect(await outcome(saml.validatePostResponseAsync(expired))).to.equal(
+        "No valid subject confirmation found among those available in the SAML assertion",
+      );
+      expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal("accepted");
+    });
+
     it("leaves the request pending when an unsigned Response names it under ifPresent", async () => {
       saml = newSaml({ validateInResponseTo: ValidateInResponseTo.ifPresent });
       await saml.getAuthorizeUrlAsync("", {});
