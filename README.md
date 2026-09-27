@@ -751,13 +751,13 @@ While `InResponseTo` is validated — always under `"always"`, and under `"ifPre
 `Response` or `LogoutResponse` element carries one — a request ID is removed when a verified
 signature covers an `InResponseTo` naming it, on that element or on a `SubjectConfirmationData` in
 the assertion, whether the response is then accepted or rejected. Nothing else removes one. Anyone
-who learns a pending request ID can put it in a response, so an unsigned one is still checked
-against the recorded IDs but never retires one, and the IdP's genuine response validates after it.
-That covers a rejected response in which nothing signed names the request, an unsigned `Response`
-accepted under `"ifPresent"` on the strength of its assertion alone, and an unsigned
-Redirect-binding `LogoutResponse`. None of these can be presented again with more effect than
-before: an unsigned `InResponseTo` can be deleted, making the response unsolicited, and an unsigned
-logout message can be forged outright.
+who learns a pending request ID can put it in a response, so an unsigned `InResponseTo` is still
+checked against the recorded IDs but cannot by itself retire one, and the IdP's genuine response
+validates after it. That covers a rejected response in which nothing signed names the request, an
+unsigned `Response` accepted under `"ifPresent"` on the strength of its assertion alone, and an
+unsigned Redirect-binding `LogoutResponse`. None of these can be presented again with more effect
+than before: an unsigned `InResponseTo` can be deleted, making the response unsolicited, and an
+unsigned logout message can be forged outright.
 
 A signature shows that the IdP answered a request, not that whoever presents the response started
 it. Someone with an account at your IdP who gets it to answer a request carrying another user's
