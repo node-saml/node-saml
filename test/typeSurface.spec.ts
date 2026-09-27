@@ -92,6 +92,13 @@ describe("published type surface", function () {
         ): Promise<{ profile: Profile; loggedOut: boolean }> {
           return super.processValidlySignedAssertionAsync(xml, samlResponseXml, inResponseTo);
         }
+
+        protected async processValidlySignedSamlLogoutAsync(
+          doc: Record<string, any>,
+          dom: Document,
+        ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
+          return super.processValidlySignedSamlLogoutAsync(doc, dom);
+        }
       }
 
       export { LegacySubclass };
