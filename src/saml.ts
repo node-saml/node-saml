@@ -119,23 +119,15 @@ async function consumeInResponseToAsync(
 }
 
 // An unsigned Response's InResponseTo can name any request, the sender's own or someone else's
-// pending one, so it can neither tie an assertion to a request under "always" nor retire the
-// request under "ifPresent", which accepts the response as unsolicited instead.
-async function consumeResponseInResponseToAsync(
-  cacheProvider: CacheProvider,
+// pending one, so under "always" it cannot tie an assertion to a request. "ifPresent" accepts the
+// response as unsolicited instead.
+function assertResponseInResponseToCanAnswer(
   validateInResponseTo: ValidateInResponseTo,
-  inResponseTo: string | null,
   inResponseToIsVerified: boolean,
-): Promise<void> {
-  if (!inResponseToIsVerified) {
-    if (validateInResponseTo === ValidateInResponseTo.always) {
-      throw new Error(
-        "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
-      );
-    }
-    return;
+): void {
+  if (!inResponseToIsVerified && validateInResponseTo === ValidateInResponseTo.always) {
+    throw new Error("SubjectInResponseTo is missing and the Response's InResponseTo is not signed");
   }
-  await consumeInResponseToAsync(cacheProvider, inResponseTo);
 }
 
 async function getInResponseToAsync(xml: string): Promise<string | null> {
@@ -990,12 +982,24 @@ class SAML {
           throw new Error("Cannot obtain assertion from signed data");
         }
         verifiedAssertionXml = signedAssertion;
-        return await this.processValidlySignedAssertionAsync(
+        const result = await this.processValidlySignedAssertionAsync(
           signedAssertion,
           xml,
           responseVerifiedXml ? verifiedInResponseTo : inResponseTo,
           responseVerifiedXml != null,
         );
+        // Consumed here, not in the overridable method, whose inResponseToIsVerified an override
+        // written before that parameter drops. Unless the Response is signed, only the assertion
+        // can name the request it answers.
+        if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+          const answeredRequestId = responseVerifiedXml
+            ? verifiedInResponseTo
+            : (await getSubjectInResponseTosAsync(signedAssertion)).find(
+                (subjectInResponseTo) => subjectInResponseTo === inResponseTo,
+              );
+          await consumeInResponseToAsync(this.cacheProvider, answeredRequestId ?? null);
+        }
+        return result;
       }
 
       const xmljsDoc = (await parseXml2JsFromString(xml)) as SamlResponseXmlJs;
@@ -1344,7 +1348,7 @@ class SAML {
               throw new Error("InResponseTo does not match subjectInResponseTo");
             } else if (subjectInResponseTo) {
               let foundValidInResponseTo = false;
-              const result = await consumeRequestIdAsync(this.cacheProvider, subjectInResponseTo);
+              const result = await this.cacheProvider.getAsync(subjectInResponseTo);
               if (result) {
                 const createdAt = new Date(result);
                 if (nowMs < createdAt.getTime() + this.options.requestIdExpirationPeriodMs)
@@ -1356,18 +1360,14 @@ class SAML {
               break getInResponseTo;
             }
           }
-          await consumeResponseInResponseToAsync(
-            this.cacheProvider,
+          assertResponseInResponseToCanAnswer(
             this.options.validateInResponseTo,
-            inResponseTo,
             inResponseToIsVerified,
           );
           break getInResponseTo;
         } else {
-          await consumeResponseInResponseToAsync(
-            this.cacheProvider,
+          assertResponseInResponseToCanAnswer(
             this.options.validateInResponseTo,
-            inResponseTo,
             inResponseToIsVerified,
           );
           break getInResponseTo;

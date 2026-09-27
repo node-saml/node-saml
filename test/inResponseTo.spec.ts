@@ -170,7 +170,7 @@ describe("InResponseTo request ID consumption", function () {
         outcome(saml.validatePostResponseAsync(response)),
       ]);
 
-      expect(outcomes).to.have.members(["accepted", "SubjectInResponseTo is not valid"]);
+      expect(outcomes).to.have.members(["accepted", "InResponseTo is not valid"]);
     });
 
     it("rejects one presented again when its SubjectConfirmationData omits InResponseTo", async () => {
@@ -223,8 +223,9 @@ describe("InResponseTo request ID consumption", function () {
       expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
     });
 
-    // Defaulting to verified would leave an override written before the parameter open to #433.
-    it("treats the Response as unsigned when an override passes only three arguments", async () => {
+    // Whether the Response was signed must not travel only through an overridable method, which an
+    // override written against its three-argument signature would drop.
+    describe("through an override of processValidlySignedAssertionAsync", function () {
       class ThreeArgumentSaml extends SAML {
         protected async processValidlySignedAssertionAsync(
           xml: string,
@@ -234,16 +235,56 @@ describe("InResponseTo request ID consumption", function () {
           return super.processValidlySignedAssertionAsync(xml, samlResponseXml, inResponseTo);
         }
       }
-      saml = newSaml({}, ThreeArgumentSaml);
-      await saml.getAuthorizeUrlAsync("", {});
-      const response = loginResponse({
-        subjectConfirmations: [{ inResponseTo: false }],
-        signResponse: true,
+
+      async function overridingSaml(config: Partial<SamlConfig> = {}): Promise<SAML> {
+        const overriding = newSaml(config, ThreeArgumentSaml);
+        await overriding.getAuthorizeUrlAsync("", {});
+        return overriding;
+      }
+
+      // Defaulting to verified would leave an override written before the parameter open to #433.
+      it("treats the Response as unsigned when it passes only three arguments", async () => {
+        saml = await overridingSaml();
+        const response = loginResponse({
+          subjectConfirmations: [{ inResponseTo: false }],
+          signResponse: true,
+        });
+
+        expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+          "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
+        );
       });
 
-      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
-        "SubjectInResponseTo is missing and the Response's InResponseTo is not signed",
-      );
+      it("rejects a signed one presented again under ifPresent when its SubjectConfirmationData omits InResponseTo", async () => {
+        saml = await overridingSaml({ validateInResponseTo: ValidateInResponseTo.ifPresent });
+        const response = loginResponse({
+          subjectConfirmations: [{ inResponseTo: false }],
+          signResponse: true,
+        });
+
+        expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
+        expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+          "InResponseTo is not valid",
+        );
+      });
+
+      it("rejects a signed one presented again when its SubjectConfirmationData carries InResponseTo", async () => {
+        saml = await overridingSaml();
+        const response = loginResponse({ signResponse: true });
+
+        expect(await outcome(saml.validatePostResponseAsync(response))).to.equal("accepted");
+        expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+          "InResponseTo is not valid",
+        );
+      });
+
+      it("leaves the request pending when an unsigned Response names it under ifPresent", async () => {
+        saml = await overridingSaml({ validateInResponseTo: ValidateInResponseTo.ifPresent });
+        const wrapped = loginResponse({ subjectConfirmations: [{ inResponseTo: false }] });
+
+        expect(await outcome(saml.validatePostResponseAsync(wrapped))).to.equal("accepted");
+        expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal("accepted");
+      });
     });
 
     // Only a signature says the IdP answered the request, so nothing unsigned may retire it:
@@ -465,7 +506,7 @@ describe("InResponseTo request ID consumption", function () {
       await saml.getAuthorizeUrlAsync("", {});
 
       expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal(
-        "SubjectInResponseTo is not valid",
+        "InResponseTo is not valid",
       );
     });
 
