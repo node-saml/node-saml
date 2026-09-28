@@ -5,7 +5,13 @@ import * as querystring from "querystring";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
-import { Profile, SamlConfig, ValidateInResponseTo, XMLOutput } from "../src/types";
+import {
+  Profile,
+  SamlConfig,
+  SamlStatusError,
+  ValidateInResponseTo,
+  XMLOutput,
+} from "../src/types";
 import { RacComparison } from "../src/types.js";
 import { expect } from "chai";
 import * as assert from "assert";
@@ -882,6 +888,59 @@ describe("node-saml /", function () {
         });
         const response = await samlObj.validatePostResponseAsync(container);
         expect(response).to.deep.equal({ profile: null, loggedOut: false });
+      });
+
+      describe("error status under the default `wantAuthnResponseSigned`", function () {
+        const errorResponse =
+          '<?xml version="1.0" encoding="UTF-8"?><saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" Destination="http://localhost/browserSamlLogin" ID="_6a377272c8662561acf1056274ef3f81" InResponseTo="_4324fb0d00661146f7dc" IssueInstant="2014-07-02T18:16:31.278Z" Version="2.0"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">https://idp.testshib.org/idp/shibboleth</saml2:Issuer><saml2p:Status><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Responder"><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:InvalidNameIDPolicy"/></saml2p:StatusCode><saml2p:StatusMessage>Required NameID format not supported</saml2p:StatusMessage></saml2p:Status></saml2p:Response>';
+        const samlObj = () =>
+          new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
+            issuer: "onesaml_login",
+          });
+
+        it("rejects an unsigned one for the missing signature, before reading its status", async () => {
+          await assert.rejects(
+            samlObj().validatePostResponseAsync({
+              SAMLResponse: Buffer.from(errorResponse).toString("base64"),
+            }),
+            { message: "Invalid document signature" },
+          );
+        });
+
+        it("rejects a signed one with a SamlStatusError whose xmlStatus is the Status element", async () => {
+          const signed = signXmlResponse(errorResponse, {
+            privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
+            signatureAlgorithm: "sha256",
+            digestAlgorithm: "sha256",
+          });
+
+          const rejection: unknown = await samlObj()
+            .validatePostResponseAsync({ SAMLResponse: Buffer.from(signed).toString("base64") })
+            .then(
+              () => assert.fail("a non-Success status must be rejected"),
+              (err: unknown) => err,
+            );
+
+          assert.ok(rejection instanceof SamlStatusError);
+          expect(rejection.message).to.equal(
+            "SAML provider returned Responder error: Required NameID format not supported",
+          );
+          expect(await parseStringPromise(rejection.xmlStatus)).to.deep.equal({
+            Status: {
+              StatusCode: [
+                {
+                  $: { Value: "urn:oasis:names:tc:SAML:2.0:status:Responder" },
+                  StatusCode: [
+                    { $: { Value: "urn:oasis:names:tc:SAML:2.0:status:InvalidNameIDPolicy" } },
+                  ],
+                },
+              ],
+              StatusMessage: ["Required NameID format not supported"],
+            },
+          });
+        });
       });
 
       it("accept response with an attributeStatement element without attributeValue", async () => {

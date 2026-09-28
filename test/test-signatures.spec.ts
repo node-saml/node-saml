@@ -19,6 +19,12 @@ describe("Signatures", function () {
   const INVALID_AMBIGUOUS_ID = "Invalid signature: ID cannot refer to more than one element";
   const INVALID_DETACHED_REFERENCE =
     "Invalid signature: reference URI is not a same-document reference";
+  const INVALID_TOO_MANY_SIGNATURES = "Too many signatures found for this element";
+  const INVALID_REFERENCE_NOT_PARENT =
+    "Invalid signature: Referenced node does not refer to its parent element";
+  const INVALID_QUOTE_IN_REFERENCE =
+    "ref URI included quote character ' or \". Not a valid ID, and not allowed";
+  const INVALID_MULTIPLE_ASSERTIONS = "Invalid signature: multiple assertions";
   const XMLDOM_ERROR =
     "[xmldom error]\telement parse error: Error: Hierarchy request error: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
@@ -182,6 +188,68 @@ describe("Signatures", function () {
         INVALID_DETACHED_REFERENCE,
         1,
         { wantAssertionsSigned: false },
+      ),
+    );
+  });
+
+  describe("Signatures - an ambiguous signature is rejected, not resolved", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
+    it(
+      "a second signature on the root => error",
+      testOneResponse(
+        "/invalid/response.root-signed-twice.assertion-unsigned.xml",
+        INVALID_TOO_MANY_SIGNATURES,
+        1,
+        { wantAssertionsSigned: false },
+      ),
+    );
+    it(
+      "the assertion's signature moved to the root to pass as a signed response => error",
+      testOneResponse(
+        "/invalid/response.root-carries-assertion-signature.assertion-unsigned.xml",
+        INVALID_REFERENCE_NOT_PARENT,
+        1,
+        { wantAssertionsSigned: false },
+      ),
+    );
+    it(
+      "a quote in the reference URI => error",
+      testOneResponse(
+        "/invalid/response.root-signed-uri-with-quote.assertion-unsigned.xml",
+        INVALID_QUOTE_IN_REFERENCE,
+        1,
+        { wantAssertionsSigned: false },
+      ),
+    );
+    // `getVerifiedXml()` returns nothing for a second reference rather than naming it.
+    it(
+      "a second reference in the root's signature => error",
+      testOneResponse(
+        "/invalid/response.root-signed-2references.assertion-unsigned.xml",
+        INVALID_DOCUMENT_SIGNATURE,
+        1,
+        { wantAssertionsSigned: false },
+      ),
+    );
+    it(
+      "an unsigned assertion beside the signed one => error",
+      testOneResponse(
+        "/invalid/response.root-unsigned.assertion-signed.assertion-unsigned.xml",
+        INVALID_MULTIPLE_ASSERTIONS,
+        1,
+        { wantAuthnResponseSigned: false },
       ),
     );
   });

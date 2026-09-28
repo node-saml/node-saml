@@ -1025,9 +1025,8 @@ class SAML {
               }
             }
 
-            // Note that we're not requiring a valid signature before this logic -- since we are
-            //   throwing an error in any case, and some providers don't sign error results,
-            //   let's go ahead and give the potentially more helpful error.
+            // No signature is required to report a failure, since the response is rejected either
+            // way. An unsigned one only gets this far under `wantAuthnResponseSigned: false`.
             if (statusCode && statusCode[0].$?.Value) {
               const msgType = statusCode[0].$.Value.match(/[^:]*$/);
               if (msgType && msgType[0] != "Success") {
