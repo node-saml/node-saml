@@ -187,6 +187,21 @@ describe("published type surface", function () {
     expect(errors).to.equal("");
   });
 
+  it("exports InMemoryCacheProvider for a SamlConfig, with or without options", function () {
+    const errors = typeCheck(`
+      import { InMemoryCacheProvider, SAML } from ${packageEntry};
+
+      const config = { callbackUrl: "https://sp.example.com/callback", issuer: "sp", idpCert: "cert" };
+      void new SAML({ ...config, cacheProvider: new InMemoryCacheProvider() });
+      void new SAML({
+        ...config,
+        cacheProvider: new InMemoryCacheProvider({ keyExpirationPeriodMs: 3600000 }),
+      });
+    `);
+
+    expect(errors).to.equal("");
+  });
+
   // Without this, the tests above would pass if `typeCheck` stopped reporting anything.
   it("reports an error when the consumer really is wrong", function () {
     const errors = typeCheck(`

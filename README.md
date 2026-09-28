@@ -105,9 +105,9 @@ than in the middle of someone's login.
 
 In TypeScript, the constructor takes a `SamlConfig` and `saml.options` is a `SamlOptions`; both are
 exported from the package root, along with `Profile`, `CacheProvider`, `CacheItem`,
-`ValidateInResponseTo`, `RacComparison`, `SignatureAlgorithm`, `SamlScopingConfig`,
-`SamlIDPListConfig`, `SamlIDPEntryConfig`, `IdpCertCallback`, `AuthOptions`, `MandatorySamlOptions`,
-and `SamlStatusError`.
+`InMemoryCacheProvider`, `ValidateInResponseTo`, `RacComparison`, `SignatureAlgorithm`,
+`SamlScopingConfig`, `SamlIDPListConfig`, `SamlIDPEntryConfig`, `IdpCertCallback`, `AuthOptions`,
+`MandatorySamlOptions`, and `SamlStatusError`.
 
 ### Start a login
 
@@ -771,10 +771,11 @@ pending ID receives a genuinely signed response, and presenting it retires that 
 With `InResponseTo` validation on, the generated request IDs have to be stored somewhere. That is
 the `cacheProvider`'s job.
 
-The default is a simple in-memory provider. It is not sufficient across multiple servers or
-processes: the instance that generated the request ID may not be the one that handles the response,
-and validation then fails for legitimate logins. For those deployments, back the cache with
-something shared — Redis, a database, your session store — by implementing:
+The default is an `InMemoryCacheProvider`, which keeps request IDs in one process's memory. It is
+not sufficient across multiple servers or processes: the instance that generated the request ID may
+not be the one that handles the response, and validation then fails for legitimate logins. For
+those deployments, back the cache with something shared — Redis, a database, your session store —
+by implementing:
 
 ```typescript
 interface CacheProvider {
@@ -796,7 +797,33 @@ it in separate calls, both copies can be accepted, and a warning is logged under
 `NODE_DEBUG=node-saml` whenever `InResponseTo` is validated. The next major version requires it. The
 built-in provider implements it.
 
-`CacheProvider` and `CacheItem` are exported from the package root.
+Give each identity provider its own cache. In a shared store, that means a provider for each
+identity provider that prefixes every key with its name. Request IDs are looked up by ID alone, so
+when several identity providers share one cache, a response signed by one of them can answer, and
+retire, a request sent to another.
+
+Within one process `InMemoryCacheProvider` is enough, but each `SAML` instance given no
+`cacheProvider` creates its own, which lasts only as long as that instance. Code that constructs a
+`SAML` for each request, as passport-saml's `MultiSamlStrategy` does, would record a login's request
+ID in one cache and look for it in another, rejecting the response with `InResponseTo is not valid`.
+Create one `InMemoryCacheProvider` for each identity provider, once, and pass it every time:
+
+```javascript
+const { InMemoryCacheProvider, SAML } = require("@node-saml/node-saml");
+
+// Once, at startup, for each identity provider:
+const cacheProvider = new InMemoryCacheProvider();
+
+// On each request to that identity provider:
+const saml = new SAML({ ...idpOptions, cacheProvider });
+```
+
+It keeps a request ID for `keyExpirationPeriodMs`, 8 hours by default. If you change
+`requestIdExpirationPeriodMs`, pass the same value as
+`new InMemoryCacheProvider({ keyExpirationPeriodMs })`. The `SAML` constructor does that for the
+provider it creates, but a cache you supply expires IDs on its own schedule.
+
+`CacheProvider`, `CacheItem`, and `InMemoryCacheProvider` are exported from the package root.
 
 ## Node support policy
 
