@@ -2,6 +2,7 @@ import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import * as ts from "typescript";
 import { expect } from "chai";
 
 const repoRoot = path.join(__dirname, "..");
@@ -39,6 +40,61 @@ function typeCheck(source: string, extraOptions: string[] = []): string {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// Walks the declarations of everything `entry` exports, and of every type they reach that is
+// declared beside `entry`, and returns each such type that `entry` itself does not export.
+function unexportedTypesReachableFrom(entry: string): string[] {
+  const ownDir = path.dirname(entry) + path.sep;
+  const program = ts.createProgram([entry], { noEmit: true, types: [] });
+  const checker = program.getTypeChecker();
+  const entryFile = program.getSourceFile(entry);
+  const entryModule = entryFile && checker.getSymbolAtLocation(entryFile);
+  if (entryModule == null) {
+    throw new Error(`${entry} is not a module`);
+  }
+
+  const resolve = (symbol: ts.Symbol | undefined) =>
+    symbol != null && symbol.flags & ts.SymbolFlags.Alias
+      ? checker.getAliasedSymbol(symbol)
+      : symbol;
+  const ownDeclarations = (symbol: ts.Symbol) =>
+    (symbol.declarations ?? []).filter((declaration) =>
+      path.normalize(declaration.getSourceFile().fileName).startsWith(ownDir),
+    );
+  const referencedName = (node: ts.Node): ts.Node | undefined => {
+    let name: ts.Node | undefined;
+    if (ts.isTypeReferenceNode(node)) name = node.typeName;
+    else if (ts.isExpressionWithTypeArguments(node)) name = node.expression;
+    else if (ts.isTypeQueryNode(node)) name = node.exprName;
+    else if (ts.isImportTypeNode(node)) name = node.qualifier;
+    if (name != null && ts.isQualifiedName(name)) return name.right;
+    if (name != null && ts.isPropertyAccessExpression(name)) return name.name;
+    return name;
+  };
+
+  const exported = new Set(checker.getExportsOfModule(entryModule).map(resolve));
+  const reachedFrom = new Map<ts.Symbol, ts.Symbol>();
+  const pending = [...exported].filter((symbol): symbol is ts.Symbol => symbol != null);
+
+  for (let symbol = pending.shift(); symbol != null; symbol = pending.shift()) {
+    const referrer = symbol;
+    const visit = (node: ts.Node): void => {
+      const name = referencedName(node);
+      const referenced = name && resolve(checker.getSymbolAtLocation(name));
+      if (referenced && !reachedFrom.has(referenced) && ownDeclarations(referenced).length > 0) {
+        reachedFrom.set(referenced, referrer);
+        pending.push(referenced);
+      }
+      ts.forEachChild(node, visit);
+    };
+    ownDeclarations(symbol).forEach(visit);
+  }
+
+  return [...reachedFrom]
+    .filter(([symbol]) => !exported.has(symbol))
+    .map(([symbol, referrer]) => `${symbol.getName()} (via ${referrer.getName()})`)
+    .sort();
 }
 
 describe("published type surface", function () {
@@ -273,5 +329,42 @@ describe("published type surface", function () {
       typeCheck(legacyConsumer, ["--exactOptionalPropertyTypes"]),
       "a v5.1 consumer with exactOptionalPropertyTypes still compiles",
     ).to.equal("");
+  });
+
+  // A consumer should never need a path under `lib/` to name a type the root API makes it use.
+  it("exports from the package root every type its API references", function () {
+    expect(unexportedTypesReachableFrom(path.join(repoRoot, "lib", "index.d.ts"))).to.deep.equal(
+      [],
+    );
+  });
+
+  // Without this, the test above would pass if the walk stopped finding anything.
+  it("reports an unexported type reached through a protected member, and what that type uses", function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "node-saml-type-walk-"));
+    try {
+      fs.writeFileSync(path.join(dir, "index.d.ts"), `export { Api, Shown } from "./api";\n`);
+      fs.writeFileSync(
+        path.join(dir, "api.d.ts"),
+        `import { Hidden, Shown } from "./types";
+        export { Shown };
+        export declare class Api {
+          protected hook(value: Hidden): Shown;
+        }`,
+      );
+      fs.writeFileSync(
+        path.join(dir, "types.d.ts"),
+        `export interface Nested { value: string }
+        export interface Hidden { nested: Nested }
+        export interface Shown { value: string }
+        export interface Unused { value: string }`,
+      );
+
+      expect(unexportedTypesReachableFrom(path.join(dir, "index.d.ts"))).to.deep.equal([
+        "Hidden (via Api)",
+        "Nested (via Hidden)",
+      ]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

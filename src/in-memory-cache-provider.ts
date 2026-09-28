@@ -1,6 +1,6 @@
 import { CacheItem, CacheProvider } from "./types";
 
-interface CacheProviderOptions {
+export interface CacheProviderOptions {
   /**
    * How long a key lasts after it is saved, in milliseconds. Defaults to 8 hours. Set it to the
    * `requestIdExpirationPeriodMs` of the `SAML` instances that use this cache.
