@@ -43,9 +43,9 @@ function typeCheck(source: string, extraOptions: string[] = []): string {
 }
 
 // Walks the declarations of everything `entry` exports, and of every type they reach that is
-// declared beside `entry`, and returns each such type that `entry` itself does not export.
-function unexportedTypesReachableFrom(entry: string): string[] {
-  const ownDir = path.dirname(entry) + path.sep;
+// declared in `packageDir`, and returns each such type that `entry` itself does not export.
+function unexportedTypesReachableFrom(entry: string, packageDir = path.dirname(entry)): string[] {
+  const ownDir = packageDir + path.sep;
   const program = ts.createProgram([entry], { noEmit: true, types: [] });
   const checker = program.getTypeChecker();
   const entryFile = program.getSourceFile(entry);
@@ -338,30 +338,33 @@ describe("published type surface", function () {
     );
   });
 
-  // Without this, the test above would pass if the walk stopped finding anything.
-  it("reports an unexported type reached through a protected member, and what that type uses", function () {
+  // Without this, the test above would pass if the walk stopped finding anything. The entry is the
+  // package root as it was before these types were exported, over the real build.
+  it("finds the types an earlier, narrower root left reachable only through lib/", function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "node-saml-type-walk-"));
     try {
-      fs.writeFileSync(path.join(dir, "index.d.ts"), `export { Api, Shown } from "./api";\n`);
+      const entry = path.join(dir, "index.d.ts");
       fs.writeFileSync(
-        path.join(dir, "api.d.ts"),
-        `import { Hidden, Shown } from "./types";
-        export { Shown };
-        export declare class Api {
-          protected hook(value: Hidden): Shown;
-        }`,
-      );
-      fs.writeFileSync(
-        path.join(dir, "types.d.ts"),
-        `export interface Nested { value: string }
-        export interface Hidden { nested: Nested }
-        export interface Shown { value: string }
-        export interface Unused { value: string }`,
+        entry,
+        `export {
+          SAML, generateServiceProviderMetadata, CacheItem, CacheProvider, InMemoryCacheProvider,
+          SamlOptions, MandatorySamlOptions, Profile, SamlConfig, ValidateInResponseTo, RacComparison,
+          SamlScopingConfig, SamlIDPListConfig, SamlIDPEntryConfig, SignatureAlgorithm, IdpCertCallback,
+          AuthOptions, SamlStatusError,
+        } from ${JSON.stringify(path.join(repoRoot, "lib"))};`,
       );
 
-      expect(unexportedTypesReachableFrom(path.join(dir, "index.d.ts"))).to.deep.equal([
-        "Hidden (via Api)",
-        "Nested (via Hidden)",
+      const found = unexportedTypesReachableFrom(entry, path.join(repoRoot, "lib"));
+
+      expect(found.map((type) => type.split(" ")[0])).to.include.members([
+        "AudienceRestrictionXML",
+        "CacheProviderOptions",
+        "GenerateServiceProviderMetadataParams",
+        "SamlSigningOptions",
+        "XMLObject",
+        "XMLOutput",
+        "XMLValue",
+        "XmlJsObject",
       ]);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
