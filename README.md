@@ -838,8 +838,8 @@ NODE_DEBUG=node-saml node server.js
 ```
 
 Node reads `NODE_DEBUG` once, at startup, so assigning `process.env.NODE_DEBUG` inside your
-application has no effect. To combine it with other sections, separate them with commas, as in
-`NODE_DEBUG=node-saml,http`. Each line goes to stderr, prefixed with `NODE-SAML` and the process ID.
+application has no effect. If you already set other sections, add `node-saml` to the
+comma-separated list. Each line goes to stderr, prefixed with `NODE-SAML` and the process ID.
 
 The output covers two things:
 
