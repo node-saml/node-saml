@@ -15,8 +15,9 @@ const SHA1 = "http://www.w3.org/2000/09/xmldsig#sha1";
 const SHA256 = "http://www.w3.org/2001/04/xmlenc#sha256";
 const SHA512 = "http://www.w3.org/2001/04/xmlenc#sha512";
 
-// An unrecognized name ("SHA256", "sha-256") signs with SHA-1 instead of throwing. Making it throw
-// is breaking, so the rows that use one should change only in a major.
+// An omitted option (#422) or an unrecognized name such as "SHA256" or "sha-256" (#423) falls back
+// to SHA-1 instead of throwing. Making either an error is breaking, so the rows that use one should
+// change only in a major.
 const UNRECOGNIZED = "SHA256" as SignatureAlgorithm;
 
 const label = (value: string | undefined) => (value === undefined ? "omitted" : `"${value}"`);
@@ -28,7 +29,7 @@ const algorithmsIn = (signedXml: string) => ({
 
 const xmlSigningCases: Array<{
   signatureAlgorithm: SignatureAlgorithm;
-  digestAlgorithm: string;
+  digestAlgorithm?: string;
   expected: { signature: string; digest: string };
 }> = [
   {
@@ -54,6 +55,11 @@ const xmlSigningCases: Array<{
   {
     signatureAlgorithm: "sha256",
     digestAlgorithm: "sha-256",
+    expected: { signature: RSA_SHA256, digest: SHA1 },
+  },
+  {
+    signatureAlgorithm: "sha256",
+    digestAlgorithm: undefined,
     expected: { signature: RSA_SHA256, digest: SHA1 },
   },
 ];
