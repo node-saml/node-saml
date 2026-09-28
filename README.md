@@ -772,9 +772,10 @@ With `InResponseTo` validation on, the generated request IDs have to be stored s
 the `cacheProvider`'s job.
 
 The default is an `InMemoryCacheProvider`, which keeps request IDs in one process's memory. It is
-not sufficient across multiple servers or processes: the instance that generated the request ID may not be the one that handles the response,
-and validation then fails for legitimate logins. For those deployments, back the cache with
-something shared — Redis, a database, your session store — by implementing:
+not sufficient across multiple servers or processes: the instance that generated the request ID may
+not be the one that handles the response, and validation then fails for legitimate logins. For
+those deployments, back the cache with something shared — Redis, a database, your session store —
+by implementing:
 
 ```typescript
 interface CacheProvider {
@@ -796,12 +797,16 @@ it in separate calls, both copies can be accepted, and a warning is logged under
 `NODE_DEBUG=node-saml` whenever `InResponseTo` is validated. The next major version requires it. The
 built-in provider implements it.
 
+Give each identity provider its own cache. In a shared store, that means a provider for each
+identity provider that prefixes every key with its name. Request IDs are looked up by ID alone, so
+when several identity providers share one cache, a response signed by one of them can answer, and
+retire, a request sent to another.
+
 Within one process `InMemoryCacheProvider` is enough, but each `SAML` instance given no
 `cacheProvider` creates its own, which lasts only as long as that instance. Code that constructs a
 `SAML` for each request, as passport-saml's `MultiSamlStrategy` does, would record a login's request
 ID in one cache and look for it in another, rejecting the response with `InResponseTo is not valid`.
-Create one `InMemoryCacheProvider` for each identity provider, once, and pass it every time. Keeping
-one per identity provider means a response from one cannot answer a request sent to another.
+Create one `InMemoryCacheProvider` for each identity provider, once, and pass it every time:
 
 ```javascript
 const { InMemoryCacheProvider, SAML } = require("@node-saml/node-saml");

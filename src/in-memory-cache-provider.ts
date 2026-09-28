@@ -12,8 +12,9 @@ interface CacheProviderOptions {
  * The `cacheProvider` a `SAML` instance creates when given none. It keeps keys in this process's
  * memory, so it cannot serve request IDs across servers or processes; supply a shared store there.
  *
- * Within one process, pass the same instance to every `SAML` instance that has to recognize the
- * request IDs of the others, such as ones constructed per request.
+ * Within one process, pass the same instance to every `SAML` instance for one identity provider,
+ * such as ones constructed per request. Give each identity provider its own instance, or a
+ * response signed by one can answer a request sent to another.
  */
 export class InMemoryCacheProvider implements CacheProvider {
   private cacheKeys: Record<string, CacheItem>;
