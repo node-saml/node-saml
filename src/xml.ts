@@ -49,15 +49,6 @@ export const decryptXml = async (xml: string, decryptionKey: string | Buffer) =>
   util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionKey });
 
 /**
- * we can use this utility before passing XML to `xml-crypto`
- * we are considered the XML processor and are responsible for newline normalization
- * https://github.com/node-saml/passport-saml/issues/431#issuecomment-718132752
- */
-const normalizeNewlines = (xml: string): string => {
-  return xml.replace(/\r\n?/g, "\n");
-};
-
-/**
  * // modeled after the current validateSignature method, to maintain consistency for unit tests
  * Input: fullXml, the document for SignedXML context
  * Input: currentNode, this node must have a Signature
@@ -71,8 +62,6 @@ export const getVerifiedXml = (
   currentNode: Element,
   pemFiles: string[],
 ): string | null => {
-  fullXml = normalizeNewlines(fullXml);
-
   // find any signature
   const signatures = xpath.selectElements(
     currentNode,
@@ -246,7 +235,6 @@ const validateXmlSignatureWithPemFile = (
   if (totalReferencedNodes.length > 1) {
     return false;
   }
-  fullXml = normalizeNewlines(fullXml);
 
   try {
     return sig.checkSignature(fullXml);
