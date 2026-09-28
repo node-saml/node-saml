@@ -167,7 +167,9 @@ app.post("/login/callback", express.urlencoded({ extended: false }), async (req,
 
 `validatePostResponseAsync` rejects with an `Error` on anything it cannot vouch for, and the message
 says what failed — an invalid signature, a mismatched audience, an expired assertion, and a missing
-decryption key are all distinguishable. Nothing is returned for a document that did not verify.
+decryption key are all distinguishable. Nothing is returned for a document that did not verify. If
+something between Node-SAML and you hides that message, run with `NODE_DEBUG=node-saml` to have it
+logged; see [Troubleshooting](#troubleshooting).
 
 Two cases resolve without a `profile`:
 
@@ -824,6 +826,34 @@ It keeps a request ID for `keyExpirationPeriodMs`, 8 hours by default. If you ch
 provider it creates, but a cache you supply expires IDs on its own schedule.
 
 `CacheProvider`, `CacheItem`, and `InMemoryCacheProvider` are exported from the package root.
+
+## Troubleshooting
+
+Node-SAML writes debug output through Node's
+[`util.debuglog`](https://nodejs.org/api/util.html#utildebuglogsection-callback), and is silent
+until you turn it on. Set `NODE_DEBUG=node-saml` in the environment the process starts with:
+
+```shell
+NODE_DEBUG=node-saml node server.js
+```
+
+Node reads `NODE_DEBUG` once, at startup, so assigning `process.env.NODE_DEBUG` inside your
+application has no effect. If you already set other sections, add `node-saml` to the
+comma-separated list. Each line goes to stderr, prefixed with `NODE-SAML` and the process ID.
+
+The output covers two things:
+
+- **Why a response was rejected.** When `validatePostResponseAsync` rejects, it logs the error too.
+  That helps when the code between Node-SAML and you, such as a Passport `failureRedirect`, reports
+  only that the login failed.
+- **What the next major version changes.** Configuration or input that works today, but that the
+  next major version rejects or handles differently, logs a warning when it is used. Examples are a
+  security-relevant option left at its default, a deprecated argument or accessor, an unsigned logout
+  message on the Redirect binding, and an attribute with no usable value. Each warning says what to
+  change, and the sections above describe each one next to the option it concerns.
+
+Version 5.1.0 and earlier used the `debug` package, turned on with `DEBUG=node-saml`. That variable
+no longer does anything; use `NODE_DEBUG=node-saml` instead.
 
 ## Node support policy
 
