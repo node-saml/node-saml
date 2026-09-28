@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { URL } from "url";
 import { expect } from "chai";
 import { generateServiceProviderMetadata, SAML, SignatureAlgorithm } from "../src";
-import { FAKE_CERT } from "./types";
+import { TEST_CERT } from "./types";
 
 const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
 const publicCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
@@ -62,7 +62,7 @@ describe("Signing algorithms /", function () {
   const config = {
     callbackUrl: "http://localhost/saml/consume",
     entryPoint: "https://idp.example.com/saml/sso",
-    idpCert: FAKE_CERT,
+    idpCert: TEST_CERT,
     issuer: "onesaml_login",
     privateKey,
   };
@@ -107,12 +107,15 @@ describe("Signing algorithms /", function () {
       signatureAlgorithm?: SignatureAlgorithm;
       digestAlgorithm?: string;
     }) => {
-      const { SAMLRequest } = await new SAML({
+      const form = await new SAML({
         ...config,
+        authnRequestBinding: "HTTP-POST",
+        // Without it the form carries a DEFLATE-compressed request, which HTTP-POST doesn't allow (#463).
         skipRequestCompression: true,
         ...options,
-      }).getAuthorizeMessageAsync("", undefined, {});
-      return Buffer.from(SAMLRequest as string, "base64").toString("utf-8");
+      }).getAuthorizeFormAsync("", {});
+      const samlRequest = /name="SAMLRequest" value="([^"]+)"/.exec(form)?.[1] ?? "";
+      return Buffer.from(samlRequest, "base64").toString("utf-8");
     };
 
     it("both omitted => rsa-sha1 and sha1", async () => {
