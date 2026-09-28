@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import * as sinon from "sinon";
+import { InMemoryCacheProvider } from "../src";
 import { SAML } from "../src/saml";
 import { SamlConfig, ValidateInResponseTo } from "../src/types";
 import { FAKE_CERT } from "./types";
@@ -177,5 +178,17 @@ describe("Cache tests /", () => {
     await fakeClock.tickAsync(300);
 
     expect(await samlObj.cacheProvider.consumeAsync?.(requestId)).to.equal(null);
+  });
+
+  it("expires a key after 8 hours when InMemoryCacheProvider is constructed without options", async () => {
+    const requestId = "_dfab47d5d46374cd4b76";
+    const cacheProvider = new InMemoryCacheProvider();
+
+    await cacheProvider.saveAsync(requestId, new Date().toISOString());
+    await fakeClock.tickAsync("07:59:59");
+    expect(await cacheProvider.getAsync(requestId)).to.exist;
+
+    await fakeClock.tickAsync(1000);
+    expect(await cacheProvider.getAsync(requestId)).to.not.exist;
   });
 });

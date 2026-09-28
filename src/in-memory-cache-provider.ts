@@ -1,22 +1,20 @@
-/**
- * Simple in memory cache provider.  To be used to store state of requests that needs
- * to be validated/checked when a response is received.
- *
- * This is the default implementation of a cache provider used by Node SAML.  For
- * multiple server instances/load balanced scenarios (I.e. the SAML request could have
- * been generated from a different server/process handling the SAML response) this
- * implementation will NOT be sufficient.
- *
- * The caller should provide their own implementation for a cache provider as defined
- * in the config options.
- */
-
 import { CacheItem, CacheProvider } from "./types";
 
 interface CacheProviderOptions {
+  /**
+   * How long a key lasts after it is saved, in milliseconds. Defaults to 8 hours. Set it to the
+   * `requestIdExpirationPeriodMs` of the `SAML` instances that use this cache.
+   */
   keyExpirationPeriodMs: number;
 }
 
+/**
+ * The `cacheProvider` a `SAML` instance creates when given none. It keeps keys in this process's
+ * memory, so it cannot serve request IDs across servers or processes; supply a shared store there.
+ *
+ * Within one process, pass the same instance to every `SAML` instance that has to recognize the
+ * request IDs of the others, such as ones constructed per request.
+ */
 export class InMemoryCacheProvider implements CacheProvider {
   private cacheKeys: Record<string, CacheItem>;
   private options: CacheProviderOptions;
@@ -24,7 +22,7 @@ export class InMemoryCacheProvider implements CacheProvider {
   private prune: () => void;
   private removeKeyIfExpired: (key: keyof typeof this.cacheKeys, nowMs: number) => Promise<void>;
 
-  constructor(options: Partial<CacheProviderOptions>) {
+  constructor(options: Partial<CacheProviderOptions> = {}) {
     this.cacheKeys = {};
 
     this.options = {

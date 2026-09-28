@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as zlib from "zlib";
 import { expect } from "chai";
+import { InMemoryCacheProvider } from "../src";
 import { SAML } from "../src/saml";
 import { CacheProvider, Profile, SamlConfig, ValidateInResponseTo } from "../src/types";
 import { signXml } from "../src/xml";
@@ -526,6 +527,28 @@ describe("InResponseTo request ID consumption", function () {
 
       expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal("accepted");
       expect(await cacheProvider.getAsync(requestId)).to.equal(null);
+    });
+  });
+
+  // As passport-saml's MultiSamlStrategy does, constructing a SAML for every request.
+  describe("a SAML instance per request", function () {
+    it("accepts the response to a login another instance started when they share an InMemoryCacheProvider", async () => {
+      const cacheProvider = new InMemoryCacheProvider();
+      await newSaml({ cacheProvider }).getAuthorizeUrlAsync("", {});
+
+      const saml = newSaml({ cacheProvider });
+
+      expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal("accepted");
+    });
+
+    it("rejects the response to a login another instance started when each has its own cache", async () => {
+      await newSaml().getAuthorizeUrlAsync("", {});
+
+      const saml = newSaml();
+
+      expect(await outcome(saml.validatePostResponseAsync(loginResponse()))).to.equal(
+        "InResponseTo is not valid",
+      );
     });
   });
 
