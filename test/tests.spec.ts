@@ -969,8 +969,8 @@ describe("node-saml /", function () {
         expect(profile.issuer).to.equal("https://evil-corp.com");
         expect(profile.nameID).to.equal("vincent.vega@evil-corp.com");
         expect(profile).to.have.property("evil-corp.egroupid", "vincent.vega@evil-corp.com");
-        // attributes without attributeValue child should be ignored
-        expect(profile).to.not.have.property("evilcorp.roles");
+        // an attribute with no attributeValue child exists but has no value
+        expect(profile).to.have.property("evilcorp.roles", null);
       });
 
       describe("attributes with no usable value", function () {
@@ -1019,69 +1019,27 @@ describe("node-saml /", function () {
           ),
         ).toString("base64");
 
-        it("leaves out one with no AttributeValue, and makes an empty or nil one undefined", async () => {
+        it("keeps them, as null for no value and as the empty string for an empty one", async () => {
           const { profile } = await new SAML(samlConfig).validatePostResponseAsync({
             SAMLResponse: samlResponse,
           });
           assertRequired(profile, "profile must exist");
           expect(profile.attributes).to.deep.equal({
-            empty: undefined,
-            nil: undefined,
-            "other-nil": undefined,
-            rebound: undefined,
-            multi: ["first", undefined],
+            none: null,
+            empty: "",
+            nil: null,
+            "other-nil": "",
+            rebound: null,
+            multi: ["first", ""],
           });
         });
 
-        describe("under NODE_DEBUG", function () {
-          let stderr: string;
-
-          // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child.
-          before(function () {
-            this.timeout(20000);
-            const script = `
-              const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
-              new SAML(${JSON.stringify(samlConfig)})
-                .validatePostResponseAsync({ SAMLResponse: ${JSON.stringify(samlResponse)} })
-                .catch((error) => {
-                  console.error(error);
-                  process.exitCode = 1;
-                });
-            `;
-            const child = spawnSync(
-              process.execPath,
-              ["--require", "ts-node/register/transpile-only", "--eval", script],
-              { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
-            );
-            expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
-            stderr = child.stderr;
+        it("leaves out an Attribute with no Name rather than throwing", async () => {
+          const { profile } = await new SAML(samlConfig).validatePostResponseAsync({
+            SAMLResponse: samlResponse,
           });
-
-          it("warns about an attribute with no AttributeValue", function () {
-            expect(stderr).to.contain('The SAML attribute "none" has no AttributeValue');
-          });
-
-          it("warns about an empty AttributeValue, including one among several", function () {
-            expect(stderr).to.contain('The SAML attribute "empty" has an empty AttributeValue');
-            expect(stderr).to.contain('The SAML attribute "multi" has an empty AttributeValue');
-          });
-
-          it("warns about an xsi:nil AttributeValue as null, not as empty", function () {
-            expect(stderr).to.contain(
-              'The SAML attribute "nil" has an AttributeValue marked xsi:nil',
-            );
-            expect(stderr).to.not.contain('The SAML attribute "nil" has an empty AttributeValue');
-          });
-
-          it("treats nil in another namespace as an empty AttributeValue", function () {
-            expect(stderr).to.contain('The SAML attribute "other-nil" has an empty AttributeValue');
-          });
-
-          it("resolves xsi:nil against the nearest declaration of its prefix", function () {
-            expect(stderr).to.contain(
-              'The SAML attribute "rebound" has an AttributeValue marked xsi:nil',
-            );
-          });
+          assertRequired(profile, "profile must exist");
+          expect(profile.attributes).to.not.have.property("undefined");
         });
       });
 
@@ -1772,7 +1730,7 @@ describe("node-saml /", function () {
           });
         });
 
-        it("An undefined value given with an object should still be undefined", async () => {
+        it("An empty AttributeValue given with an object should be the empty string", async () => {
           const xml =
             '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
             '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
@@ -1805,7 +1763,7 @@ describe("node-saml /", function () {
           });
           const { profile } = await samlObj.validatePostResponseAsync(container);
           assertRequired(profile, "profile must exist");
-          expect(profile["attributeName"]).to.be.undefined;
+          expect(profile["attributeName"]).to.equal("");
         });
       });
     });
