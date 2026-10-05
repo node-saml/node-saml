@@ -144,6 +144,151 @@ export enum ValidateInResponseTo {
 }
 
 /**
+ * Describes an AttributeConsumingService element in the SAML metadata.
+ * Used by service providers to specify required attributes.
+ *
+ * @see {@link https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf SAML 2.0 Metadata Specification, Section 2.4.4}
+ *
+ * @example
+ * ```typescript
+ * const attributeConsumingService: AttributeConsumingService = {
+ *   "@index": "0",
+ *   "@isDefault": true,
+ *   ServiceName: [{
+ *     "@xml:lang": "en",
+ *     "#text": "Employee Portal"
+ *   }],
+ *   ServiceDescription: [{
+ *     "@xml:lang": "en",
+ *     "#text": "Authentication service for employee portal access"
+ *   }],
+ *   RequestedAttribute: [
+ *     {
+ *       "@Name": "urn:oid:2.5.4.42",
+ *       "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+ *       "@FriendlyName": "givenName",
+ *       "@isRequired": true
+ *     },
+ *     {
+ *       "@Name": "urn:oid:2.5.4.4",
+ *       "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+ *       "@FriendlyName": "sn",
+ *       "@isRequired": true
+ *     },
+ *     {
+ *       "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
+ *       "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+ *       "@FriendlyName": "mail",
+ *       "@isRequired": false
+ *     }
+ *   ]
+ * };
+ * ```
+ */
+export interface AttributeConsumingService {
+  /**
+   * Index for the service within the SP metadata, as a string of digits from
+   * "0" to "65535". No two services may use the same index.
+   * @example "0", "1", "2"
+   */
+  "@index": string;
+
+  /**
+   * Marks this service as the default for the SP. At most one service may set
+   * this to `true`. Leaving it out is not the same as `false`: when no service
+   * is `true`, the default is the first one that is not `false`; if all are
+   * `false`, the first service is the default.
+   * @see {@link https://docs.oasis-open.org/security/saml/v2.0/errata05/os/saml-v2.0-errata05-os.html SAML 2.0 Approved Errata, E87}
+   */
+  "@isDefault"?: boolean;
+
+  /**
+   * Names of the service in multiple languages.
+   * At least one ServiceName is required.
+   */
+  ServiceName: {
+    /**
+     * Language tag identifying the language of the text, as defined by BCP 47.
+     * Rejected unless it has the form `xs:language` allows, which every BCP 47
+     * tag does.
+     * @see {@link https://www.rfc-editor.org/info/bcp47 BCP 47}
+     * @example "en", "en-GB", "es", "de", "zh-Hant"
+     */
+    "@xml:lang": string;
+
+    /**
+     * The actual service name text
+     * @example "My Authentication Service", "Employee Portal"
+     */
+    "#text": string;
+  }[];
+
+  /**
+   * Descriptions of the service in multiple languages.
+   * Optional but recommended for better user experience.
+   */
+  ServiceDescription?: {
+    /**
+     * Language tag identifying the language of the text, as defined by BCP 47.
+     * Rejected unless it has the form `xs:language` allows, which every BCP 47
+     * tag does.
+     * @see {@link https://www.rfc-editor.org/info/bcp47 BCP 47}
+     * @example "en", "en-GB", "es", "de", "zh-Hant"
+     */
+    "@xml:lang": string;
+
+    /**
+     * The actual service description text
+     * @example "This service provides authentication for the employee portal"
+     */
+    "#text": string;
+  }[];
+
+  /**
+   * Attributes requested by the service, with specifications
+   */
+  RequestedAttribute: {
+    /**
+     * Name of the requested attribute, typically an OID or URI.
+     * @example "urn:oid:2.5.4.42", "urn:oid:0.9.2342.19200300.100.1.3"
+     */
+    "@Name": string;
+
+    /**
+     * Format of the attribute name. SAML 2.0 Core, section 8.2 defines the
+     * three listed here; any other absolute URI is permitted. A value that is
+     * not an absolute URI, such as `"uri"`, is rejected.
+     *
+     * Omitting this emits no `NameFormat` attribute, which SAML 2.0 Core,
+     * section 2.7.3.1 states is equivalent to
+     * `urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified`. Nothing is
+     * substituted on your behalf. Set this explicitly to
+     * `urn:oasis:names:tc:SAML:2.0:attrname-format:uri` when the attribute is
+     * named by an OID or URI, as the examples here do: an identity provider
+     * that distinguishes the formats will not match a URI-named attribute
+     * against an unspecified request.
+     */
+    "@NameFormat"?:
+      | "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"
+      | "urn:oasis:names:tc:SAML:2.0:attrname-format:basic"
+      | "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"
+      | (string & {});
+
+    /**
+     * Human-readable name of the attribute
+     * @example "givenName", "sn", "emailAddress", "mail"
+     */
+    "@FriendlyName"?: string;
+
+    /**
+     * Indicates if the attribute is required for the service to function
+     * @default false
+     */
+    "@isRequired"?: boolean;
+  }[];
+}
+
+/**
  * The options required to use a SAML strategy
  * These may be provided by means of defaults specified in the constructor
  */
@@ -191,6 +336,30 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   disableRequestAcsUrl: boolean;
   samlAuthnRequestExtensions?: Record<string, unknown>;
   samlLogoutRequestExtensions?: Record<string, unknown>;
+
+  /**
+   * Attribute consuming services to include in the metadata.
+   * These describe the attributes that the service provider wishes to receive.
+   *
+   * @example
+   * ```typescript
+   * metadataAttributeConsumingServices: [{
+   *   "@index": "0",
+   *   "@isDefault": true,
+   *   ServiceName: [{
+   *     "@xml:lang": "en",
+   *     "#text": "My Service"
+   *   }],
+   *   RequestedAttribute: [{
+   *     "@Name": "urn:oid:2.5.4.42",
+   *     "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+   *     "@FriendlyName": "givenName",
+   *     "@isRequired": true
+   *   }]
+   * }]
+   * ```
+   */
+  metadataAttributeConsumingServices?: AttributeConsumingService[];
   metadataContactPerson?: {
     "@contactType": "technical" | "support" | "administrative" | "billing" | "other";
     Extensions?: string;
@@ -230,6 +399,7 @@ export interface GenerateServiceProviderMetadataParams {
   xmlSignatureTransforms?: SamlOptions["xmlSignatureTransforms"];
   digestAlgorithm?: SamlOptions["digestAlgorithm"];
   signMetadata?: SamlOptions["signMetadata"];
+  metadataAttributeConsumingServices?: SamlOptions["metadataAttributeConsumingServices"];
   metadataContactPerson?: SamlOptions["metadataContactPerson"];
   metadataOrganization?: SamlOptions["metadataOrganization"];
   generateUniqueId?: SamlOptions["generateUniqueId"];
