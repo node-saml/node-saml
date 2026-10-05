@@ -7,6 +7,7 @@ import {
   GenerateServiceProviderMetadataParams,
 } from "./types";
 import {
+  assertBooleanIfPresent,
   assertNonEmptyArray,
   assertNonEmptyString,
   assertObject,
@@ -20,6 +21,8 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 const debugLog = util.debuglog("node-saml");
 
 const CONTACT_TYPES = ["technical", "support", "administrative", "billing", "other"];
+const SERVICES_OPTION = "metadataAttributeConsumingServices";
+const MAX_UNSIGNED_SHORT = 65535;
 // The lexical space of `xs:language`, the type the schema gives `xml:lang`:
 // https://www.w3.org/TR/xmlschema-2/#language
 const LANGUAGE_TAG = /^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$/;
@@ -46,6 +49,95 @@ function assertLocalizedNames(value: unknown, path: string): void {
     assertNonEmptyString(name["#text"], `${path}[${i}]["#text"]`);
   });
 }
+
+// SAML 2.0 Metadata, sections 2.4.4 and 2.4.4.1, and its schema. The schema alone would not do: a
+// repeated `index` and a second default both validate against it.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
+export const assertValidAttributeConsumingServices = (services: unknown): void => {
+  if (services == null) {
+    return;
+  }
+  if (!Array.isArray(services)) {
+    throw new TypeError(`${SERVICES_OPTION} must be an array`);
+  }
+
+  const entryByIndex = new Map<number, number>();
+  let defaultEntry: number | undefined;
+
+  services.forEach((service: unknown, i) => {
+    const path = `${SERVICES_OPTION}[${i}]`;
+    assertObject(service, path, [
+      "@index",
+      "@isDefault",
+      "ServiceName",
+      "ServiceDescription",
+      "RequestedAttribute",
+    ]);
+
+    const index = service["@index"];
+    if (
+      typeof index !== "string" ||
+      !/^[0-9]+$/.test(index) ||
+      Number(index) > MAX_UNSIGNED_SHORT
+    ) {
+      throw new TypeError(
+        `${path}["@index"] must be a string of digits from "0" to "${MAX_UNSIGNED_SHORT}"`,
+      );
+    }
+    // Compared as numbers, because "1" and "01" are the same `xs:unsignedShort`.
+    const entryWithIndex = entryByIndex.get(Number(index));
+    if (entryWithIndex !== undefined) {
+      throw new TypeError(
+        `${path}["@index"] is "${index}", but ${SERVICES_OPTION}[${entryWithIndex}] already uses that index`,
+      );
+    }
+    entryByIndex.set(Number(index), i);
+
+    assertBooleanIfPresent(service["@isDefault"], `${path}["@isDefault"] must be a boolean`);
+    if (service["@isDefault"] === true) {
+      if (defaultEntry !== undefined) {
+        throw new TypeError(
+          `${path}["@isDefault"] is true, but ${SERVICES_OPTION}[${defaultEntry}] is already the default`,
+        );
+      }
+      defaultEntry = i;
+    }
+
+    assertNonEmptyArray(service.ServiceName, `${path}.ServiceName`);
+    assertLocalizedNames(service.ServiceName, `${path}.ServiceName`);
+    if (service.ServiceDescription != null) {
+      assertLocalizedNames(service.ServiceDescription, `${path}.ServiceDescription`);
+    }
+
+    assertNonEmptyArray(service.RequestedAttribute, `${path}.RequestedAttribute`);
+    service.RequestedAttribute.forEach((attribute, j) => {
+      const attributePath = `${path}.RequestedAttribute[${j}]`;
+      assertObject(attribute, attributePath, [
+        "@Name",
+        "@NameFormat",
+        "@FriendlyName",
+        "@isRequired",
+      ]);
+      assertNonEmptyString(attribute["@Name"], `${attributePath}["@Name"]`);
+      const nameFormat = attribute["@NameFormat"];
+      if (
+        nameFormat != null &&
+        (typeof nameFormat !== "string" || !ABSOLUTE_URI.test(nameFormat))
+      ) {
+        throw new TypeError(
+          `${attributePath}["@NameFormat"] must be an absolute URI, such as "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"`,
+        );
+      }
+      if (attribute["@FriendlyName"] != null) {
+        assertNonEmptyString(attribute["@FriendlyName"], `${attributePath}["@FriendlyName"]`);
+      }
+      assertBooleanIfPresent(
+        attribute["@isRequired"],
+        `${attributePath}["@isRequired"] must be a boolean`,
+      );
+    });
+  });
+};
 
 function assertValidContactPersons(contacts: unknown): void {
   if (contacts == null) {
@@ -267,6 +359,25 @@ export const buildServiceProviderMetadata = (
     "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
     "@Location": callbackUrl,
   } as XMLObject;
+
+  assertValidAttributeConsumingServices(params.metadataAttributeConsumingServices);
+
+  // This must be assigned after `AssertionConsumerService` above, because
+  // `SPSSODescriptorType` sequences `AssertionConsumerService` before
+  // `AttributeConsumingService`. Likewise, the fields below are copied one by
+  // one rather than spread, so that the children are emitted in the order
+  // `AttributeConsumingServiceType` sequences them, whatever order the caller
+  // happened to write them in.
+  if (params.metadataAttributeConsumingServices?.length) {
+    metadata.EntityDescriptor.SPSSODescriptor.AttributeConsumingService =
+      params.metadataAttributeConsumingServices.map((service) => ({
+        "@index": service["@index"],
+        ...(service["@isDefault"] != null ? { "@isDefault": service["@isDefault"] } : {}),
+        ServiceName: service.ServiceName,
+        ...(service.ServiceDescription ? { ServiceDescription: service.ServiceDescription } : {}),
+        RequestedAttribute: service.RequestedAttribute,
+      }));
+  }
 
   let metadataXml = buildXmlBuilderObject(metadata, true);
   if (params.signMetadata === true && isValidSamlSigningOptions(params)) {

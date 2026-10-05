@@ -339,7 +339,8 @@ const metadata = generateServiceProviderMetadata({
 It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from the configuration tables below:
 `logoutCallbackUrl`, `identifierFormat`, `wantAssertionsSigned`, `decryptionPvk`, `decryptionCert`,
 `privateKey`, `publicCerts`, `signatureAlgorithm`, `digestAlgorithm`, `xmlSignatureTransforms`,
-`signMetadata`, `metadataContactPerson`, `metadataOrganization`, and `generateUniqueId`.
+`signMetadata`, `metadataContactPerson`, `metadataOrganization`,
+`metadataAttributeConsumingServices`, and `generateUniqueId`.
 
 Called directly, it signs the metadata when `signMetadata` is `true` and `privateKey` is set. Choose
 both algorithms when it does: `signatureAlgorithm` has no default here, so omitting it is an error,
@@ -462,11 +463,12 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 
 ### Metadata
 
-| Option                  | Default | Description                                                                                               |
-| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
-| `signMetadata`          | `false` | Sign the generated service provider metadata. Requires `privateKey`.                                      |
-| `metadataContactPerson` | —       | `ContactPerson` entries to include in the generated metadata. An array, since metadata may carry several. |
-| `metadataOrganization`  | —       | `Organization` details to include in the generated metadata.                                              |
+| Option                               | Default | Description                                                                                                                                   |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `signMetadata`                       | `false` | Sign the generated service provider metadata. Requires `privateKey`.                                                                          |
+| `metadataContactPerson`              | —       | `ContactPerson` entries to include in the generated metadata. An array, since metadata may carry several.                                     |
+| `metadataOrganization`               | —       | `Organization` details to include in the generated metadata.                                                                                  |
+| `metadataAttributeConsumingServices` | —       | `AttributeConsumingService` entries to include in the generated metadata, each listing the attributes this service provider asks the IdP for. |
 
 ```javascript
 metadataContactPerson: [
@@ -481,12 +483,41 @@ metadataOrganization: {
   OrganizationDisplayName: [{ "@xml:lang": "en", "#text": "node-saml" }],
   OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml/node-saml" }],
 },
+metadataAttributeConsumingServices: [
+  {
+    "@index": "0",
+    "@isDefault": true,
+    ServiceName: [{ "@xml:lang": "en", "#text": "My Service" }],
+    ServiceDescription: [{ "@xml:lang": "en", "#text": "Needs the user's name and email" }],
+    RequestedAttribute: [
+      {
+        "@Name": "urn:oid:2.5.4.42",
+        "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+        "@FriendlyName": "givenName",
+        "@isRequired": true,
+      },
+      {
+        "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
+        "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+        "@FriendlyName": "mail",
+        "@isRequired": false,
+      },
+    ],
+  },
+],
 ```
 
+Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
+other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
+entry may set `@isDefault` to `true`. An entry that breaks these rules, carries a key not shown
+above, or holds a malformed value such as an `@xml:lang` that is not a language tag, is rejected
+with a `TypeError` when the `SAML` is constructed or the metadata is generated.
+Set `attributeConsumingServiceIndex` to have an `AuthnRequest` select one of them by its `@index`.
+
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
-Neither option is checked at run time: one in any other shape is still written into the metadata as
-given, which can leave the metadata invalid. Run with `NODE_DEBUG=node-saml` to be told when that
-happens. The next major version rejects it.
+`metadataContactPerson` and `metadataOrganization` are not rejected yet: either one in any other
+shape is still written into the metadata as given, which can leave the metadata invalid. Run with
+`NODE_DEBUG=node-saml` to be told when that happens. The next major version rejects it.
 
 ### Extensions
 
