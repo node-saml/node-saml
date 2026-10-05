@@ -665,6 +665,38 @@ describe("node-saml /", function () {
         expect(metadata).to.contain('AuthnRequestsSigned="true"');
       });
 
+      it("emits every EmailAddress and TelephoneNumber, and Extensions given as elements", async function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          idpCert: FAKE_CERT,
+          metadataContactPerson: [
+            {
+              "@contactType": "technical",
+              Extensions: { "ext:Team": { "@xmlns:ext": "urn:example:ext", "#text": "identity" } },
+              EmailAddress: ["mailto:ada@example.com", "mailto:grace@example.com"],
+              TelephoneNumber: ["+1 555 0100", "+1 555 0101"],
+            },
+          ],
+        };
+
+        const dom = await parseDomFromString(
+          new SAML(samlConfig).generateServiceProviderMetadata(null),
+        );
+        const textOf = (name: string) =>
+          Array.from(dom.getElementsByTagName(name)).map((element) => element.textContent);
+
+        // SAML 2.0 Metadata, section 2.3.2.2
+        expect(textOf("EmailAddress")).to.deep.equal([
+          "mailto:ada@example.com",
+          "mailto:grace@example.com",
+        ]);
+        expect(textOf("TelephoneNumber")).to.deep.equal(["+1 555 0100", "+1 555 0101"]);
+        const [team] = Array.from(dom.getElementsByTagNameNS("urn:example:ext", "Team"));
+        expect(team.parentNode?.nodeName).to.equal("Extensions");
+        expect(team.textContent).to.equal("identity");
+      });
+
       it("signMetadata creates a valid signature", async function () {
         const samlConfig: SamlConfig = {
           idpCert: TEST_CERT,

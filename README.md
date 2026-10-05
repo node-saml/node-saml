@@ -473,7 +473,7 @@ metadataContactPerson: [
   {
     "@contactType": "support", // "technical" | "support" | "administrative" | "billing" | "other"
     GivenName: "test",
-    EmailAddress: ["test@node-saml"], // note: an array
+    EmailAddress: ["mailto:test@node-saml"], // an array of `mailto:` URIs
   },
 ],
 metadataOrganization: {
@@ -482,6 +482,9 @@ metadataOrganization: {
   OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml/node-saml" }],
 },
 ```
+
+A contact's `Extensions` takes namespace-qualified elements as an xmlbuilder object, like the
+options under [Extensions](#extensions) below. A string there cannot produce valid metadata.
 
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
 

@@ -104,8 +104,14 @@ export const buildServiceProviderMetadata = (
       ...(metadataOrganization
         ? { Organization: inSchemaOrder(metadataOrganization, ORGANIZATION_CHILDREN) }
         : {}),
+      // `Extensions` is xmlbuilder content the caller built, which its type does not describe.
       ...(metadataContactPerson
-        ? { ContactPerson: inSchemaOrder(metadataContactPerson, CONTACT_PERSON_CHILDREN) }
+        ? {
+            ContactPerson: inSchemaOrder(
+              metadataContactPerson as XMLValue,
+              CONTACT_PERSON_CHILDREN,
+            ),
+          }
         : {}),
     },
   };
