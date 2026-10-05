@@ -1,5 +1,6 @@
 import { SAML } from "./saml";
 import { generateServiceProviderMetadata } from "./metadata";
+import { InMemoryCacheProvider } from "./in-memory-cache-provider";
 import {
   CacheItem,
   CacheProvider,
@@ -16,6 +17,7 @@ import {
   IdpCertCallback,
   AuthOptions,
   SamlStatusError,
+  AttributeConsumingService,
 } from "./types";
 
 export {
@@ -23,6 +25,7 @@ export {
   generateServiceProviderMetadata,
   CacheItem,
   CacheProvider,
+  InMemoryCacheProvider,
   SamlOptions,
   MandatorySamlOptions,
   Profile,
@@ -36,4 +39,5 @@ export {
   IdpCertCallback,
   AuthOptions,
   SamlStatusError,
+  AttributeConsumingService,
 };

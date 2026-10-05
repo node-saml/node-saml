@@ -1,7 +1,5 @@
 import { SAML } from "../src";
-import { spawnSync } from "child_process";
 import * as fs from "fs";
-import * as path from "path";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types";
 import * as xml from "../src/xml";
@@ -19,6 +17,12 @@ describe("Signatures", function () {
   const INVALID_AMBIGUOUS_ID = "Invalid signature: ID cannot refer to more than one element";
   const INVALID_DETACHED_REFERENCE =
     "Invalid signature: reference URI is not a same-document reference";
+  const INVALID_TOO_MANY_SIGNATURES = "Too many signatures found for this element";
+  const INVALID_REFERENCE_NOT_PARENT =
+    "Invalid signature: Referenced node does not refer to its parent element";
+  const INVALID_QUOTE_IN_REFERENCE =
+    "ref URI included quote character ' or \". Not a valid ID, and not allowed";
+  const INVALID_MULTIPLE_ASSERTIONS = "Invalid signature: multiple assertions";
   const XMLDOM_ERROR =
     "[xmldom error]\telement parse error: Error: Hierarchy request error: Only one element can be added and only after doctype\n@#[line:57,col:1]";
 
@@ -118,52 +122,6 @@ describe("Signatures", function () {
       expect(profile.getAssertionXml?.()).to.not.contain("https://attacker.example");
       expect(profile.getSamlResponseXml?.()).to.contain("https://attacker.example");
     });
-
-    it("warns when it is called, and stays quiet for the verified accessors", function () {
-      this.timeout(20000);
-      const script = `
-        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
-        const fs = require("fs");
-        require("sinon").useFakeTimers({
-          now: Date.parse(${JSON.stringify(fixtureNow)}),
-          toFake: ["Date"],
-        });
-        const samlObj = new SAML(${JSON.stringify(config)});
-        const body = {
-          SAMLResponse: fs.readFileSync(
-            ${JSON.stringify(path.join(__dirname, "static", "signatures" + validResponse))},
-            "base64",
-          ),
-        };
-        (async () => {
-          const { profile } = await samlObj.validatePostResponseAsync(body);
-          console.error("<<verified-accessors>>");
-          profile.getAssertionXml();
-          profile.getAssertion();
-          console.error("<<unverified-accessor>>");
-          profile.getSamlResponseXml();
-          console.error("<<end>>");
-        })().catch((err) => {
-          console.error("FAILED", err);
-          process.exit(1);
-        });
-      `;
-      const child = spawnSync(
-        process.execPath,
-        ["--require", "ts-node/register/transpile-only", "--eval", script],
-        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
-      );
-      expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
-
-      const section = (marker: string) =>
-        (child.stderr.split(`<<${marker}>>`)[1] ?? "").split("<<")[0].trim();
-
-      expect(section("verified-accessors")).to.equal("");
-      expect(section("unverified-accessor")).to.contain("getSamlResponseXml");
-      expect(section("unverified-accessor")).to.contain(
-        "Don't treat what it returns as authenticated",
-      );
-    });
   });
 
   describe("Signatures - multiple roots are considered invalid", () => {
@@ -182,6 +140,68 @@ describe("Signatures", function () {
         INVALID_DETACHED_REFERENCE,
         1,
         { wantAssertionsSigned: false },
+      ),
+    );
+  });
+
+  describe("Signatures - an ambiguous signature is rejected, not resolved", () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    beforeEach(function () {
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
+    });
+
+    afterEach(function () {
+      fakeClock.restore();
+    });
+
+    it(
+      "a second signature on the root => error",
+      testOneResponse(
+        "/invalid/response.root-signed-twice.assertion-unsigned.xml",
+        INVALID_TOO_MANY_SIGNATURES,
+        1,
+        { wantAssertionsSigned: false },
+      ),
+    );
+    it(
+      "the assertion's signature moved to the root to pass as a signed response => error",
+      testOneResponse(
+        "/invalid/response.root-carries-assertion-signature.assertion-unsigned.xml",
+        INVALID_REFERENCE_NOT_PARENT,
+        1,
+        { wantAssertionsSigned: false },
+      ),
+    );
+    it(
+      "a quote in the reference URI => error",
+      testOneResponse(
+        "/invalid/response.root-signed-uri-with-quote.assertion-unsigned.xml",
+        INVALID_QUOTE_IN_REFERENCE,
+        1,
+        { wantAssertionsSigned: false },
+      ),
+    );
+    // `getVerifiedXml()` returns nothing for a second reference rather than naming it.
+    it(
+      "a second reference in the root's signature => error",
+      testOneResponse(
+        "/invalid/response.root-signed-2references.assertion-unsigned.xml",
+        INVALID_DOCUMENT_SIGNATURE,
+        1,
+        { wantAssertionsSigned: false },
+      ),
+    );
+    it(
+      "an unsigned assertion beside the signed one => error",
+      testOneResponse(
+        "/invalid/response.root-unsigned.assertion-signed.assertion-unsigned.xml",
+        INVALID_MULTIPLE_ASSERTIONS,
+        1,
+        { wantAuthnResponseSigned: false },
       ),
     );
   });

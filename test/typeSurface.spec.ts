@@ -92,6 +92,13 @@ describe("published type surface", function () {
         ): Promise<{ profile: Profile; loggedOut: boolean }> {
           return super.processValidlySignedAssertionAsync(xml, samlResponseXml, inResponseTo);
         }
+
+        protected async processValidlySignedSamlLogoutAsync(
+          doc: Record<string, any>,
+          dom: Document,
+        ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
+          return super.processValidlySignedSamlLogoutAsync(doc, dom);
+        }
       }
 
       export { LegacySubclass };
@@ -174,6 +181,21 @@ describe("published type surface", function () {
           removeAsync: async () => null,
           consumeAsync: async () => null,
         },
+      });
+    `);
+
+    expect(errors).to.equal("");
+  });
+
+  it("exports InMemoryCacheProvider for a SamlConfig, with or without options", function () {
+    const errors = typeCheck(`
+      import { InMemoryCacheProvider, SAML } from ${packageEntry};
+
+      const config = { callbackUrl: "https://sp.example.com/callback", issuer: "sp", idpCert: "cert" };
+      void new SAML({ ...config, cacheProvider: new InMemoryCacheProvider() });
+      void new SAML({
+        ...config,
+        cacheProvider: new InMemoryCacheProvider({ keyExpirationPeriodMs: 3600000 }),
       });
     `);
 

@@ -105,9 +105,9 @@ than in the middle of someone's login.
 
 In TypeScript, the constructor takes a `SamlConfig` and `saml.options` is a `SamlOptions`; both are
 exported from the package root, along with `Profile`, `CacheProvider`, `CacheItem`,
-`ValidateInResponseTo`, `RacComparison`, `SignatureAlgorithm`, `SamlScopingConfig`,
-`SamlIDPListConfig`, `SamlIDPEntryConfig`, `IdpCertCallback`, `AuthOptions`, `MandatorySamlOptions`,
-and `SamlStatusError`.
+`InMemoryCacheProvider`, `ValidateInResponseTo`, `RacComparison`, `SignatureAlgorithm`,
+`SamlScopingConfig`, `SamlIDPListConfig`, `SamlIDPEntryConfig`, `IdpCertCallback`, `AuthOptions`,
+`MandatorySamlOptions`, and `SamlStatusError`.
 
 ### Start a login
 
@@ -167,7 +167,9 @@ app.post("/login/callback", express.urlencoded({ extended: false }), async (req,
 
 `validatePostResponseAsync` rejects with an `Error` on anything it cannot vouch for, and the message
 says what failed — an invalid signature, a mismatched audience, an expired assertion, and a missing
-decryption key are all distinguishable. Nothing is returned for a document that did not verify.
+decryption key are all distinguishable. Nothing is returned for a document that did not verify. If
+something between Node-SAML and you hides that message, run with `NODE_DEBUG=node-saml` to have it
+logged; see [Troubleshooting](#troubleshooting).
 
 Two cases resolve without a `profile`:
 
@@ -337,7 +339,14 @@ const metadata = generateServiceProviderMetadata({
 It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from the configuration tables below:
 `logoutCallbackUrl`, `identifierFormat`, `wantAssertionsSigned`, `decryptionPvk`, `decryptionCert`,
 `privateKey`, `publicCerts`, `signatureAlgorithm`, `digestAlgorithm`, `xmlSignatureTransforms`,
-`signMetadata`, `metadataContactPerson`, `metadataOrganization`, and `generateUniqueId`.
+`signMetadata`, `metadataContactPerson`, `metadataOrganization`,
+`metadataAttributeConsumingServices`, and `generateUniqueId`.
+
+Called directly, it signs the metadata when `signMetadata` is `true` and `privateKey` is set. Choose
+both algorithms when it does: `signatureAlgorithm` has no default here, so omitting it is an error,
+while an omitted `digestAlgorithm` selects `sha1`. The note under
+[`signatureAlgorithm`](#configuration-option-signaturealgorithm) applies to this function too, and
+it logs the same warnings under `NODE_DEBUG=node-saml`.
 
 ## Config parameter details
 
@@ -454,11 +463,12 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 
 ### Metadata
 
-| Option                  | Default | Description                                                                                               |
-| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
-| `signMetadata`          | `false` | Sign the generated service provider metadata. Requires `privateKey`.                                      |
-| `metadataContactPerson` | —       | `ContactPerson` entries to include in the generated metadata. An array, since metadata may carry several. |
-| `metadataOrganization`  | —       | `Organization` details to include in the generated metadata.                                              |
+| Option                               | Default | Description                                                                                                                                   |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `signMetadata`                       | `false` | Sign the generated service provider metadata. Requires `privateKey`.                                                                          |
+| `metadataContactPerson`              | —       | `ContactPerson` entries to include in the generated metadata. An array, since metadata may carry several.                                     |
+| `metadataOrganization`               | —       | `Organization` details to include in the generated metadata.                                                                                  |
+| `metadataAttributeConsumingServices` | —       | `AttributeConsumingService` entries to include in the generated metadata, each listing the attributes this service provider asks the IdP for. |
 
 ```javascript
 metadataContactPerson: [
@@ -473,7 +483,36 @@ metadataOrganization: {
   OrganizationDisplayName: [{ "@xml:lang": "en", "#text": "node-saml" }],
   OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml/node-saml" }],
 },
+metadataAttributeConsumingServices: [
+  {
+    "@index": "0",
+    "@isDefault": true,
+    ServiceName: [{ "@xml:lang": "en", "#text": "My Service" }],
+    ServiceDescription: [{ "@xml:lang": "en", "#text": "Needs the user's name and email" }],
+    RequestedAttribute: [
+      {
+        "@Name": "urn:oid:2.5.4.42",
+        "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+        "@FriendlyName": "givenName",
+        "@isRequired": true,
+      },
+      {
+        "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
+        "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+        "@FriendlyName": "mail",
+        "@isRequired": false,
+      },
+    ],
+  },
+],
 ```
+
+Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
+other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
+entry may set `@isDefault` to `true`. An entry that breaks these rules, carries a key not shown
+above, or holds a malformed value such as an `@xml:lang` that is not a language tag, is rejected
+with a `TypeError` when the `SAML` is constructed or the metadata is generated.
+Set `attributeConsumingServiceIndex` to have an `AuthnRequest` select one of them by its `@index`.
 
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
 
@@ -522,6 +561,10 @@ explain rejections that might otherwise look overly strict:
   signature on an element, an `ID` resolving to more than one element, a reference pointing anywhere
   other than its own parent, or more than two transforms is refused. The library does not pick a
   reading, and it does not pick the reading that happens to verify.
+  One case is not refused yet: a signature with more than one reference is ignored, so its element
+  counts as unsigned. That matters only for a `Response` under `wantAuthnResponseSigned: false`,
+  which is then accepted on the strength of its separately signed assertion. The next major version
+  rejects such a message; until then it logs a warning under `NODE_DEBUG=node-saml`.
 - **Validation fails closed.** Decrypted content is not trusted content: an `EncryptedAssertion` is
   decrypted and then still has to have its signature verified. Timestamps, audience, issuer, and
   `InResponseTo` are security controls rather than conveniences — an option that switches one off
@@ -581,7 +624,7 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 > today either: it falls through to SHA-1, so a typo silently downgrades the signature you asked
 > for. The next major version rejects it instead. `digestAlgorithm` is typed as a plain string, so
 > TypeScript does not catch a typo in it. Run with `NODE_DEBUG=node-saml` to be told when any of
-> this happens.
+> this happens, whether the options go to `SAML` or straight to `generateServiceProviderMetadata`.
 
 ### Configuration option `privateKey`
 
@@ -774,15 +817,35 @@ request ID, so presenting the same response again later fails. Two copies arrivi
 moment can both be accepted unless the cache provider removes the ID atomically, which the built-in
 one does and a custom one does if it implements `consumeAsync`, described below.
 
+While `InResponseTo` is validated — always under `"always"`, and under `"ifPresent"` when the
+`Response` or `LogoutResponse` element carries one — a request ID is removed when a verified
+signature covers an `InResponseTo` naming it, on that element or on a `SubjectConfirmationData` in
+the assertion, whether the response is then accepted or rejected. Nothing else removes one. Anyone
+who learns a pending request ID can put it in a response, so an unsigned `InResponseTo` is still
+checked against the recorded IDs but cannot by itself retire one, and the IdP's genuine response
+validates after it. That covers a rejected response in which nothing signed names the request, an
+unsigned `Response` accepted under `"ifPresent"` on the strength of its assertion alone, and an
+unsigned Redirect-binding `LogoutResponse`. None of these can be presented again with more effect
+than before: an unsigned `InResponseTo` can be deleted, making the response unsolicited, and an
+unsigned logout message can be forged outright.
+
+A signature shows that the IdP answered a request, not that whoever presents the response started
+it. Someone with an account at your IdP who gets it to answer a request carrying another user's
+pending ID receives a genuinely signed response, and presenting it retires that user's request. When
+`AuthnRequest`s are unsigned, knowing the ID is enough to build such a request. Signing them (set
+`privateKey`, and have the IdP require signed requests) leaves only a replay of that user's own
+`AuthnRequest`, which some IdPs reject.
+
 ## Cache provider
 
 With `InResponseTo` validation on, the generated request IDs have to be stored somewhere. That is
 the `cacheProvider`'s job.
 
-The default is a simple in-memory provider. It is not sufficient across multiple servers or
-processes: the instance that generated the request ID may not be the one that handles the response,
-and validation then fails for legitimate logins. For those deployments, back the cache with
-something shared — Redis, a database, your session store — by implementing:
+The default is an `InMemoryCacheProvider`, which keeps request IDs in one process's memory. It is
+not sufficient across multiple servers or processes: the instance that generated the request ID may
+not be the one that handles the response, and validation then fails for legitimate logins. For
+those deployments, back the cache with something shared — Redis, a database, your session store —
+by implementing:
 
 ```typescript
 interface CacheProvider {
@@ -804,7 +867,61 @@ it in separate calls, both copies can be accepted, and a warning is logged under
 `NODE_DEBUG=node-saml` whenever `InResponseTo` is validated. The next major version requires it. The
 built-in provider implements it.
 
-`CacheProvider` and `CacheItem` are exported from the package root.
+Give each identity provider its own cache. In a shared store, that means a provider for each
+identity provider that prefixes every key with its name. Request IDs are looked up by ID alone, so
+when several identity providers share one cache, a response signed by one of them can answer, and
+retire, a request sent to another.
+
+Within one process `InMemoryCacheProvider` is enough, but each `SAML` instance given no
+`cacheProvider` creates its own, which lasts only as long as that instance. Code that constructs a
+`SAML` for each request, as passport-saml's `MultiSamlStrategy` does, would record a login's request
+ID in one cache and look for it in another, rejecting the response with `InResponseTo is not valid`.
+Create one `InMemoryCacheProvider` for each identity provider, once, and pass it every time:
+
+```javascript
+const { InMemoryCacheProvider, SAML } = require("@node-saml/node-saml");
+
+// Once, at startup, for each identity provider:
+const cacheProvider = new InMemoryCacheProvider();
+
+// On each request to that identity provider:
+const saml = new SAML({ ...idpOptions, cacheProvider });
+```
+
+It keeps a request ID for `keyExpirationPeriodMs`, 8 hours by default. If you change
+`requestIdExpirationPeriodMs`, pass the same value as
+`new InMemoryCacheProvider({ keyExpirationPeriodMs })`. The `SAML` constructor does that for the
+provider it creates, but a cache you supply expires IDs on its own schedule.
+
+`CacheProvider`, `CacheItem`, and `InMemoryCacheProvider` are exported from the package root.
+
+## Troubleshooting
+
+Node-SAML writes debug output through Node's
+[`util.debuglog`](https://nodejs.org/api/util.html#utildebuglogsection-callback), and is silent
+until you turn it on. Set `NODE_DEBUG=node-saml` in the environment the process starts with:
+
+```shell
+NODE_DEBUG=node-saml node server.js
+```
+
+Node reads `NODE_DEBUG` once, at startup, so assigning `process.env.NODE_DEBUG` inside your
+application has no effect. If you already set other sections, add `node-saml` to the
+comma-separated list. Each line goes to stderr, prefixed with `NODE-SAML` and the process ID.
+
+The output covers two things:
+
+- **Why a response was rejected.** When `validatePostResponseAsync` rejects, it logs the error too.
+  That helps when the code between Node-SAML and you, such as a Passport `failureRedirect`, reports
+  only that the login failed.
+- **What the next major version changes.** Configuration or input that works today, but that the
+  next major version rejects or handles differently, logs a warning when it is used. Examples are a
+  security-relevant option left at its default, a deprecated argument or accessor, an unsigned logout
+  message on the Redirect binding, and an attribute with no usable value. Each warning says what to
+  change, and the sections above describe each one next to the option it concerns.
+
+Version 5.1.0 and earlier used the `debug` package, turned on with `DEBUG=node-saml`. That variable
+no longer does anything; use `NODE_DEBUG=node-saml` instead.
 
 ## Node support policy
 

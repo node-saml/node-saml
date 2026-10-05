@@ -9,7 +9,7 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 import { generateUniqueId, keyInfoToPem, privateKeyToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
-import { generateServiceProviderMetadata } from "./metadata";
+import { assertValidAttributeConsumingServices, buildServiceProviderMetadata } from "./metadata";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import {
   AudienceRestrictionXML,
@@ -118,19 +118,16 @@ async function consumeInResponseToAsync(
   }
 }
 
-// An unsigned Response's InResponseTo can name a request the sender started themselves, so under
-// "always" it cannot be what ties an assertion to a request. "ifPresent" accepts unsolicited
-// responses anyway, so there it is only consumed, which still stops a replay.
-async function consumeResponseInResponseToAsync(
-  cacheProvider: CacheProvider,
+// An unsigned Response's InResponseTo can name any request, the sender's own or someone else's
+// pending one, so under "always" it cannot tie an assertion to a request. "ifPresent" accepts the
+// response as unsolicited instead.
+function assertResponseInResponseToCanAnswer(
   validateInResponseTo: ValidateInResponseTo,
-  inResponseTo: string | null,
   inResponseToIsVerified: boolean,
-): Promise<void> {
+): void {
   if (!inResponseToIsVerified && validateInResponseTo === ValidateInResponseTo.always) {
     throw new Error("SubjectInResponseTo is missing and the Response's InResponseTo is not signed");
   }
-  await consumeInResponseToAsync(cacheProvider, inResponseTo);
 }
 
 async function getInResponseToAsync(xml: string): Promise<string | null> {
@@ -139,6 +136,16 @@ async function getInResponseToAsync(xml: string): Promise<string | null> {
     "/*/@InResponseTo",
   );
   return inResponseToNodes.length ? inResponseToNodes[0].nodeValue : null;
+}
+
+async function getSubjectInResponseTosAsync(assertionXml: string): Promise<string[]> {
+  return xpath
+    .selectAttributes(
+      await parseDomFromString(assertionXml),
+      "/*[local-name()='Assertion']/*[local-name()='Subject']/*[local-name()='SubjectConfirmation']/*[local-name()='SubjectConfirmationData']/@InResponseTo",
+    )
+    .map((attribute) => attribute.nodeValue)
+    .filter((value): value is string => value != null);
 }
 
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
@@ -201,6 +208,7 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAssertionsSigned);
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
+    assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
 
     const options: SamlOptions = {
       ...ctorOptions,
@@ -268,26 +276,13 @@ class SAML {
     if (isValidSamlSigningOptions(ctorOptions)) {
       for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
         if (ctorOptions[option] === undefined) {
-          debugLog(
-            "`%s` is not set, so it defaults to `sha1`, which is no longer considered safe for signatures. The next major version requires it whenever `privateKey` is set; set it now.",
-            option,
-          );
+          algorithms.warnAlgorithmNotSet(option);
         }
       }
     }
 
-    // An unrecognized value is not an error today: it falls through to SHA-1, so a casing slip
-    // like "SHA256" silently downgrades the signature the caller asked for.
     for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
-      const value = ctorOptions[option];
-      if (value !== undefined && !algorithms.isSupportedAlgorithm(value)) {
-        debugLog(
-          '`%s` is set to "%s", which is not recognized, so SHA-1 is used instead. Use one of %s. The next major version rejects an unrecognized value rather than downgrading.',
-          option,
-          value,
-          algorithms.SUPPORTED_ALGORITHMS.join(", "),
-        );
-      }
+      algorithms.warnIfAlgorithmNotRecognized(option, ctorOptions[option]);
     }
 
     /**
@@ -878,6 +873,8 @@ class SAML {
     let xml: string;
     let doc: Document;
     let inResponseTo: string | null = null;
+    let verifiedInResponseTo: string | null = null;
+    let verifiedAssertionXml: string | null = null;
 
     try {
       xml = Buffer.from(container.SAMLResponse, "base64").toString("utf8");
@@ -903,6 +900,7 @@ class SAML {
 
       if (responseVerifiedXml) {
         validSignature = true;
+        verifiedInResponseTo = await getInResponseToAsync(responseVerifiedXml);
       }
 
       if (this.options.wantAuthnResponseSigned === true && validSignature === false) {
@@ -971,12 +969,25 @@ class SAML {
         if (signedAssertion == null) {
           throw new Error("Cannot obtain assertion from signed data");
         }
-        return await this.processValidlySignedAssertionAsync(
+        verifiedAssertionXml = signedAssertion;
+        const result = await this.processValidlySignedAssertionAsync(
           signedAssertion,
           xml,
-          responseVerifiedXml ? await getInResponseToAsync(responseVerifiedXml) : inResponseTo,
+          responseVerifiedXml ? verifiedInResponseTo : inResponseTo,
           responseVerifiedXml != null,
         );
+        // Consumed here, not in the overridable method, whose inResponseToIsVerified an override
+        // written before that parameter drops. Unless the Response is signed, only the assertion
+        // can name the request it answers.
+        if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+          const answeredRequestId = responseVerifiedXml
+            ? verifiedInResponseTo
+            : (await getSubjectInResponseTosAsync(signedAssertion)).find(
+                (subjectInResponseTo) => subjectInResponseTo === inResponseTo,
+              );
+          await consumeInResponseToAsync(this.cacheProvider, answeredRequestId ?? null);
+        }
+        return result;
       }
 
       const xmljsDoc = (await parseXml2JsFromString(xml)) as SamlResponseXmlJs;
@@ -1002,9 +1013,8 @@ class SAML {
               }
             }
 
-            // Note that we're not requiring a valid signature before this logic -- since we are
-            //   throwing an error in any case, and some providers don't sign error results,
-            //   let's go ahead and give the potentially more helpful error.
+            // No signature is required to report a failure, since the response is rejected either
+            // way. An unsigned one only gets this far under `wantAuthnResponseSigned: false`.
             if (statusCode && statusCode[0].$?.Value) {
               const msgType = statusCode[0].$.Value.match(/[^:]*$/);
               if (msgType && msgType[0] != "Success") {
@@ -1031,8 +1041,8 @@ class SAML {
         }
         const logoutResponse = xmljsDoc.LogoutResponse;
         if (logoutResponse) {
-          if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
-            await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
+          if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
+            await consumeInResponseToAsync(this.cacheProvider, verifiedInResponseTo);
           }
           return { profile: null, loggedOut: true };
         } else {
@@ -1041,8 +1051,21 @@ class SAML {
       }
     } catch (err) {
       debugLog.enabled && debugLog("validatePostResponse resulted in an error: %s", err);
+      // A failure the IdP signed means it answered the request, so no other response is coming.
+      // An unsigned one proves nothing about the request it names, so that request stays pending.
+      // Gated as success is, so under "ifPresent" a failure retires nothing a success would keep.
       if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
-        await this.cacheProvider.removeAsync(inResponseTo);
+        const answeredRequestIds = new Set(
+          verifiedAssertionXml == null
+            ? []
+            : await getSubjectInResponseTosAsync(verifiedAssertionXml),
+        );
+        if (verifiedInResponseTo != null) {
+          answeredRequestIds.add(verifiedInResponseTo);
+        }
+        for (const requestId of answeredRequestIds) {
+          await this.cacheProvider.removeAsync(requestId);
+        }
       }
       throw err;
     }
@@ -1071,10 +1094,27 @@ class SAML {
 
     const dom = await parseDomFromString(inflated.toString());
     const doc: XMLOutput = await parseXml2JsFromString(inflated);
-    samlMessageType === "SAMLResponse"
-      ? await this.verifyLogoutResponse(doc)
-      : this.verifyLogoutRequest(doc);
+    // Before the checks below, so a signed response that fails them still retires its request.
     await this.hasValidSignatureForRedirect(container, originalQuery);
+    if (samlMessageType === "SAMLRequest") {
+      this.verifyLogoutRequest(doc);
+    } else {
+      // Retired here, not in the overridable processing method, so an override can't lose track of
+      // whether the message was signed. An unsigned one can name anyone's pending request.
+      const signedInResponseTo = container.Signature ? doc.LogoutResponse.$.InResponseTo : null;
+      const retire = signedInResponseTo != null && this.mustValidateInResponseTo(true);
+      try {
+        await this.verifyLogoutResponse(doc);
+      } catch (err) {
+        if (retire) {
+          await this.cacheProvider.removeAsync(signedInResponseTo);
+        }
+        throw err;
+      }
+      if (retire) {
+        await consumeInResponseToAsync(this.cacheProvider, signedInResponseTo);
+      }
+    }
     return await this.processValidlySignedSamlLogoutAsync(doc, dom);
   }
 
@@ -1292,11 +1332,10 @@ class SAML {
             const subjectInResponseTo = confirmData.$.InResponseTo;
 
             if (inResponseTo && subjectInResponseTo && subjectInResponseTo != inResponseTo) {
-              await this.cacheProvider.removeAsync(inResponseTo);
               throw new Error("InResponseTo does not match subjectInResponseTo");
             } else if (subjectInResponseTo) {
               let foundValidInResponseTo = false;
-              const result = await consumeRequestIdAsync(this.cacheProvider, subjectInResponseTo);
+              const result = await this.cacheProvider.getAsync(subjectInResponseTo);
               if (result) {
                 const createdAt = new Date(result);
                 if (nowMs < createdAt.getTime() + this.options.requestIdExpirationPeriodMs)
@@ -1308,18 +1347,14 @@ class SAML {
               break getInResponseTo;
             }
           }
-          await consumeResponseInResponseToAsync(
-            this.cacheProvider,
+          assertResponseInResponseToCanAnswer(
             this.options.validateInResponseTo,
-            inResponseTo,
             inResponseToIsVerified,
           );
           break getInResponseTo;
         } else {
-          await consumeResponseInResponseToAsync(
-            this.cacheProvider,
+          assertResponseInResponseToCanAnswer(
             this.options.validateInResponseTo,
-            inResponseTo,
             inResponseToIsVerified,
           );
           break getInResponseTo;
@@ -1586,10 +1621,6 @@ class SAML {
     const request = doc.LogoutRequest;
 
     if (response) {
-      const inResponseTo = response.$.InResponseTo;
-      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
-        await consumeInResponseToAsync(this.cacheProvider, inResponseTo);
-      }
       return { profile: null, loggedOut: true };
     } else if (request) {
       return await this.processValidlySignedPostRequestAsync(doc, dom);
@@ -1603,7 +1634,7 @@ class SAML {
     decryptionCert: string | null,
     publicCerts?: string | string[] | null,
   ): string {
-    return generateServiceProviderMetadata({ ...this.options, decryptionCert, publicCerts });
+    return buildServiceProviderMetadata({ ...this.options, decryptionCert, publicCerts });
   }
 
   /**
