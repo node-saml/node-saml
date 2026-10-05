@@ -189,10 +189,14 @@ Two cautions specific to this repository:
 
 ## Tests
 
-Tests protect observable behavior, not implementation details. Favor tests that establish
-what the library accepts, rejects, emits, or considers trustworthy. Security regressions
-matter most: a test should ensure that malformed or adversarial XML cannot cause the
-library to report untrusted data as valid.
+A test is a commitment that something stays true. So tests protect behavior the library
+means to keep and that a caller or the specification can rely on — not implementation
+details, and not everything that happens to be observable. Before adding one, ask whether
+the project intends to keep the behavior and whether anyone could depend on it; a new test
+for something that fails either question protects nothing and makes a planned change look
+like a regression. Favor tests that establish what the library accepts, rejects, emits, or
+considers trustworthy. Security regressions matter most: a test should ensure that malformed
+or adversarial XML cannot cause the library to report untrusted data as valid.
 
 - Test at a public boundary for the behavior being changed. For response handling, that
   means constructing a `SAML` with a config a real caller could write, feeding it a base64
@@ -214,11 +218,8 @@ library to report untrusted data as valid.
   Uncovered code indicates either inadequately tested public behavior or code that may be
   unnecessary; determine which rather than adding protected-method tests merely to
   increase coverage.
-- Do not test deprecation warnings, or anything else that exists only until the next major
-  removes it. A warning is deleted along with the thing it announces, so a test of it protects
-  nothing durable. Test durable features and specification compliance.
 - Add a test when a change alters what the library accepts, rejects, emits, or considers
-  trustworthy.
+  trustworthy. When it alters none of those, don't invent a test for it.
 - For a bug fix, observe the regression test failing for the reported reason before
   applying the fix. "For the reported reason" is the operative part — a test that fails for
   the wrong reason proves nothing and will keep passing after the bug returns.
