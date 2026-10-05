@@ -1,5 +1,7 @@
+import { spawnSync } from "child_process";
 import * as crypto from "crypto";
 import * as fs from "fs";
+import * as path from "path";
 import { URL } from "url";
 import { expect } from "chai";
 import { generateServiceProviderMetadata, SAML, SignatureAlgorithm } from "../src";
@@ -167,5 +169,98 @@ describe("Signing algorithms /", function () {
         );
       });
     }
+  });
+
+  // `util.debuglog` reads NODE_DEBUG once per process and the suite order is randomized, so
+  // these run in one child rather than mutating the shared environment.
+  describe("signed SP metadata: warnings from the root generateServiceProviderMetadata", function () {
+    let stderr: string;
+
+    before(function () {
+      this.timeout(20000);
+      const script = `
+        const { generateServiceProviderMetadata, SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        const base = {
+          issuer: "onesaml_login",
+          callbackUrl: "http://localhost/saml/consume",
+          privateKey: ${JSON.stringify(privateKey)},
+          publicCerts: ${JSON.stringify(publicCert)},
+        };
+        const signed = { ...base, signMetadata: true };
+        console.error("<<digest-omitted>>");
+        generateServiceProviderMetadata({ ...signed, signatureAlgorithm: "sha256" });
+        console.error("<<casing-slip>>");
+        generateServiceProviderMetadata({ ...signed, signatureAlgorithm: "SHA256", digestAlgorithm: "sha256" });
+        console.error("<<digest-typo>>");
+        generateServiceProviderMetadata({ ...signed, signatureAlgorithm: "sha256", digestAlgorithm: "sha-256" });
+        console.error("<<everything-chosen>>");
+        generateServiceProviderMetadata({ ...signed, signatureAlgorithm: "sha256", digestAlgorithm: "sha256" });
+        console.error("<<not-signing>>");
+        generateServiceProviderMetadata({ ...base, signatureAlgorithm: "SHA256" });
+        console.error("<<no-private-key>>");
+        generateServiceProviderMetadata({ ...signed, privateKey: undefined, publicCerts: undefined });
+        console.error("<<saml-constructor>>");
+        const samlObj = new SAML({
+          ...signed,
+          publicCerts: undefined,
+          idpCert: ${JSON.stringify(TEST_CERT)},
+          validateInResponseTo: "always",
+          signatureAlgorithm: "SHA256",
+        });
+        console.error("<<saml-method>>");
+        samlObj.generateServiceProviderMetadata(null, base.publicCerts);
+        console.error("<<end>>");
+      `;
+      const child = spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+      expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+      stderr = child.stderr;
+    });
+
+    // Returns only what was logged for the case named by `marker`, so one case staying silent
+    // cannot be masked by another case warning.
+    function warningsFor(marker: string): string {
+      const section = stderr.split(`<<${marker}>>`)[1] ?? "";
+      return section.split("<<")[0].trim();
+    }
+
+    it("warns that an omitted `digestAlgorithm` defaults to sha1", function () {
+      const warnings = warningsFor("digest-omitted");
+      expect(warnings).to.contain("`digestAlgorithm` is not set, so it defaults to `sha1`");
+      expect(warnings).to.contain("requires it whenever `privateKey` is set");
+      expect(warnings).not.to.contain("`signatureAlgorithm`");
+    });
+
+    it("warns that an unrecognized `signatureAlgorithm` downgrades to SHA-1", function () {
+      const warnings = warningsFor("casing-slip");
+      expect(warnings).to.contain('`signatureAlgorithm` is set to "SHA256"');
+      expect(warnings).to.contain("SHA-1 is used instead");
+      expect(warnings).not.to.contain("`digestAlgorithm`");
+    });
+
+    it("warns that an unrecognized `digestAlgorithm` downgrades to SHA-1", function () {
+      const warnings = warningsFor("digest-typo");
+      expect(warnings).to.contain('`digestAlgorithm` is set to "sha-256"');
+      expect(warnings).not.to.contain("`signatureAlgorithm`");
+    });
+
+    it("says nothing when both are chosen explicitly", function () {
+      expect(warningsFor("everything-chosen")).to.equal("");
+    });
+
+    it("says nothing when the metadata is not signed", function () {
+      expect(warningsFor("not-signing")).to.equal("");
+      expect(warningsFor("no-private-key")).to.equal("");
+    });
+
+    it("adds nothing through `SAML`'s method to what its constructor logged", function () {
+      const fromConstructor = warningsFor("saml-constructor");
+      expect(fromConstructor).to.contain('`signatureAlgorithm` is set to "SHA256"');
+      expect(fromConstructor).to.contain("`digestAlgorithm` is not set");
+      expect(warningsFor("saml-method")).to.equal("");
+    });
   });
 });

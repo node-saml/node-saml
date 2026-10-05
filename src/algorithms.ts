@@ -1,11 +1,39 @@
 import * as crypto from "crypto";
+import * as util from "util";
+
+const debugLog = util.debuglog("node-saml");
+
+type AlgorithmOption = "signatureAlgorithm" | "digestAlgorithm";
 
 // The short names the switches below recognize. Anything else falls through to SHA-1, so
-// `initialize()` warns against this list rather than let a typo downgrade signing silently.
+// every caller that signs warns against this list rather than let a typo downgrade signing silently.
 export const SUPPORTED_ALGORITHMS = ["sha1", "sha256", "sha512"];
 
 export function isSupportedAlgorithm(shortName: string): boolean {
   return SUPPORTED_ALGORITHMS.includes(shortName);
+}
+
+export function warnAlgorithmNotSet(option: AlgorithmOption): void {
+  debugLog(
+    "`%s` is not set, so it defaults to `sha1`, which is no longer considered safe for signatures. The next major version requires it whenever `privateKey` is set; set it now.",
+    option,
+  );
+}
+
+// An unrecognized value is not an error today: it falls through to SHA-1, so a casing slip
+// like "SHA256" silently downgrades the signature the caller asked for.
+export function warnIfAlgorithmNotRecognized(
+  option: AlgorithmOption,
+  value: string | undefined,
+): void {
+  if (value !== undefined && !isSupportedAlgorithm(value)) {
+    debugLog(
+      '`%s` is set to "%s", which is not recognized, so SHA-1 is used instead. Use one of %s. The next major version rejects an unrecognized value rather than downgrading.',
+      option,
+      value,
+      SUPPORTED_ALGORITHMS.join(", "),
+    );
+  }
 }
 
 export function getSigningAlgorithm(shortName?: string): string {
