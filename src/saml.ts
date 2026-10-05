@@ -1413,53 +1413,48 @@ class SAML {
           ),
       );
 
-      const attrValueMapper = (value: XMLObject) => {
-        const hasChildren = Object.keys(value).some((cur) => {
-          return cur !== "_" && cur !== "$";
-        });
-        return hasChildren ? value : value._;
-      };
+      // An empty AttributeValue is the empty string, or null when it carries xsi:nil: SAML
+      // Core 2.7.3.1.1, https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
+      const attrValueMapper =
+        (ancestors: XMLOutput[]) =>
+        (value: XMLObject): XMLValue => {
+          const hasChildren = Object.keys(value).some((cur) => {
+            return cur !== "_" && cur !== "$";
+          });
+          if (hasChildren) {
+            return value;
+          }
+          if (value._ !== undefined) {
+            return value._;
+          }
+          return isXsiNil(value, ancestors) ? null : "";
+        };
 
       if (attributes.length > 0) {
         const profileAttributes: Record<string, XMLValue | XMLValue[]> = {};
 
         attributes.forEach(({ statement, attribute }) => {
-          if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
-            if (attribute.$?.Name != null) {
-              debugLog(
-                'The SAML attribute "%s" has no AttributeValue, so it is left out of the profile and cannot be told apart from an attribute the identity provider did not send. The next major version keeps it with a null value.',
-                attribute.$.Name,
-              );
-            }
+          // `Name` is required by the schema, and an `<Attribute/>` with no XML attributes at
+          // all parses to the string "", so there is nothing to key the profile on. Leave it
+          // out rather than throwing on `attribute.$`.
+          const name: string | undefined = attribute.$?.Name;
+          if (name == null) {
             return;
           }
 
-          const name: string = attribute.$.Name;
-          const value: XMLValue | XMLValue[] =
-            attribute.AttributeValue.length === 1
-              ? attrValueMapper(attribute.AttributeValue[0])
-              : attribute.AttributeValue.map(attrValueMapper);
+          const mapAttributeValue = attrValueMapper([assertion, statement, attribute]);
 
-          // An empty AttributeValue is the empty string, or null when it carries xsi:nil: SAML
-          // Core 2.7.3.1.1, https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
-          const unset = attribute.AttributeValue.filter(
-            (one: XMLOutput) => attrValueMapper(one) === undefined,
-          );
-          const nulls = unset.filter((one: XMLOutput) =>
-            isXsiNil(one, [assertion, statement, attribute]),
-          );
-          if (nulls.length > 0) {
-            debugLog(
-              'The SAML attribute "%s" has an AttributeValue marked xsi:nil, which reaches the profile as `undefined`. The next major version represents it as null.',
-              name,
-            );
-          }
-          if (unset.length > nulls.length) {
-            debugLog(
-              'The SAML attribute "%s" has an empty AttributeValue, which reaches the profile as `undefined`. The next major version represents it as an empty string.',
-              name,
-            );
-          }
+          // An attribute with no AttributeValue child exists but has no values: SAML Core
+          // 2.7.3.1. Keep it as null so a consumer can tell it apart from an attribute the
+          // identity provider never sent.
+          const value: XMLValue | XMLValue[] = !Object.prototype.hasOwnProperty.call(
+            attribute,
+            "AttributeValue",
+          )
+            ? null
+            : attribute.AttributeValue.length === 1
+              ? mapAttributeValue(attribute.AttributeValue[0])
+              : attribute.AttributeValue.map(mapAttributeValue);
 
           profileAttributes[name] = value;
 
