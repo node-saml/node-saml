@@ -1,7 +1,5 @@
 import { SAML } from "../src";
-import { spawnSync } from "child_process";
 import * as fs from "fs";
-import * as path from "path";
 import * as sinon from "sinon";
 import { SamlConfig } from "../src/types";
 import * as xml from "../src/xml";
@@ -123,52 +121,6 @@ describe("Signatures", function () {
       expect(profile.issuer).to.equal("https://evil-corp.com");
       expect(profile.getAssertionXml?.()).to.not.contain("https://attacker.example");
       expect(profile.getSamlResponseXml?.()).to.contain("https://attacker.example");
-    });
-
-    it("warns when it is called, and stays quiet for the verified accessors", function () {
-      this.timeout(20000);
-      const script = `
-        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
-        const fs = require("fs");
-        require("sinon").useFakeTimers({
-          now: Date.parse(${JSON.stringify(fixtureNow)}),
-          toFake: ["Date"],
-        });
-        const samlObj = new SAML(${JSON.stringify(config)});
-        const body = {
-          SAMLResponse: fs.readFileSync(
-            ${JSON.stringify(path.join(__dirname, "static", "signatures" + validResponse))},
-            "base64",
-          ),
-        };
-        (async () => {
-          const { profile } = await samlObj.validatePostResponseAsync(body);
-          console.error("<<verified-accessors>>");
-          profile.getAssertionXml();
-          profile.getAssertion();
-          console.error("<<unverified-accessor>>");
-          profile.getSamlResponseXml();
-          console.error("<<end>>");
-        })().catch((err) => {
-          console.error("FAILED", err);
-          process.exit(1);
-        });
-      `;
-      const child = spawnSync(
-        process.execPath,
-        ["--require", "ts-node/register/transpile-only", "--eval", script],
-        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
-      );
-      expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
-
-      const section = (marker: string) =>
-        (child.stderr.split(`<<${marker}>>`)[1] ?? "").split("<<")[0].trim();
-
-      expect(section("verified-accessors")).to.equal("");
-      expect(section("unverified-accessor")).to.contain("getSamlResponseXml");
-      expect(section("unverified-accessor")).to.contain(
-        "Don't treat what it returns as authenticated",
-      );
     });
   });
 

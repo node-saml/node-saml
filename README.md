@@ -342,6 +342,12 @@ It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from th
 `signMetadata`, `metadataContactPerson`, `metadataOrganization`,
 `metadataAttributeConsumingServices`, and `generateUniqueId`.
 
+Called directly, it signs the metadata when `signMetadata` is `true` and `privateKey` is set. Choose
+both algorithms when it does: `signatureAlgorithm` has no default here, so omitting it is an error,
+while an omitted `digestAlgorithm` selects `sha1`. The note under
+[`signatureAlgorithm`](#configuration-option-signaturealgorithm) applies to this function too, and
+it logs the same warnings under `NODE_DEBUG=node-saml`.
+
 ## Config parameter details
 
 ### Required
@@ -554,6 +560,10 @@ explain rejections that might otherwise look overly strict:
   signature on an element, an `ID` resolving to more than one element, a reference pointing anywhere
   other than its own parent, or more than two transforms is refused. The library does not pick a
   reading, and it does not pick the reading that happens to verify.
+  One case is not refused yet: a signature with more than one reference is ignored, so its element
+  counts as unsigned. That matters only for a `Response` under `wantAuthnResponseSigned: false`,
+  which is then accepted on the strength of its separately signed assertion. The next major version
+  rejects such a message; until then it logs a warning under `NODE_DEBUG=node-saml`.
 - **Validation fails closed.** Decrypted content is not trusted content: an `EncryptedAssertion` is
   decrypted and then still has to have its signature verified. Timestamps, audience, issuer, and
   `InResponseTo` are security controls rather than conveniences — an option that switches one off
@@ -613,7 +623,7 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 > today either: it falls through to SHA-1, so a typo silently downgrades the signature you asked
 > for. The next major version rejects it instead. `digestAlgorithm` is typed as a plain string, so
 > TypeScript does not catch a typo in it. Run with `NODE_DEBUG=node-saml` to be told when any of
-> this happens.
+> this happens, whether the options go to `SAML` or straight to `generateServiceProviderMetadata`.
 
 ### Configuration option `privateKey`
 

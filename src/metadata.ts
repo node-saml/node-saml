@@ -1,3 +1,4 @@
+import * as algorithms from "./algorithms";
 import {
   isValidSamlSigningOptions,
   ServiceMetadataXML,
@@ -131,7 +132,9 @@ export const assertValidAttributeConsumingServices = (services: unknown): void =
   });
 };
 
-export const generateServiceProviderMetadata = (
+// `SAML`'s constructor has already reported its options, so its method builds the metadata
+// without warning again.
+export const buildServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,
 ): string => {
   const {
@@ -289,4 +292,20 @@ export const generateServiceProviderMetadata = (
     });
   }
   return metadataXml;
+};
+
+export const generateServiceProviderMetadata = (
+  params: GenerateServiceProviderMetadataParams,
+): string => {
+  if (params.signMetadata === true && isValidSamlSigningOptions(params)) {
+    // An omitted `signatureAlgorithm` needs no notice here: signing fails without one.
+    if (params.digestAlgorithm === undefined) {
+      algorithms.warnAlgorithmNotSet("digestAlgorithm");
+    }
+    for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
+      algorithms.warnIfAlgorithmNotRecognized(option, params[option]);
+    }
+  }
+
+  return buildServiceProviderMetadata(params);
 };

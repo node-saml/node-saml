@@ -9,7 +9,7 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 import { generateUniqueId, keyInfoToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
-import { assertValidAttributeConsumingServices, generateServiceProviderMetadata } from "./metadata";
+import { assertValidAttributeConsumingServices, buildServiceProviderMetadata } from "./metadata";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import {
   AudienceRestrictionXML,
@@ -276,26 +276,13 @@ class SAML {
     if (isValidSamlSigningOptions(ctorOptions)) {
       for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
         if (ctorOptions[option] === undefined) {
-          debugLog(
-            "`%s` is not set, so it defaults to `sha1`, which is no longer considered safe for signatures. The next major version requires it whenever `privateKey` is set; set it now.",
-            option,
-          );
+          algorithms.warnAlgorithmNotSet(option);
         }
       }
     }
 
-    // An unrecognized value is not an error today: it falls through to SHA-1, so a casing slip
-    // like "SHA256" silently downgrades the signature the caller asked for.
     for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
-      const value = ctorOptions[option];
-      if (value !== undefined && !algorithms.isSupportedAlgorithm(value)) {
-        debugLog(
-          '`%s` is set to "%s", which is not recognized, so SHA-1 is used instead. Use one of %s. The next major version rejects an unrecognized value rather than downgrading.',
-          option,
-          value,
-          algorithms.SUPPORTED_ALGORITHMS.join(", "),
-        );
-      }
+      algorithms.warnIfAlgorithmNotRecognized(option, ctorOptions[option]);
     }
 
     /**
@@ -1647,7 +1634,7 @@ class SAML {
     decryptionCert: string | null,
     publicCerts?: string | string[] | null,
   ): string {
-    return generateServiceProviderMetadata({ ...this.options, decryptionCert, publicCerts });
+    return buildServiceProviderMetadata({ ...this.options, decryptionCert, publicCerts });
   }
 
   /**
