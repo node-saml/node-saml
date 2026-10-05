@@ -9,7 +9,7 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 import { generateUniqueId, keyInfoToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
-import { buildServiceProviderMetadata } from "./metadata";
+import { buildServiceProviderMetadata, warnIfContactOrOrganizationInvalid } from "./metadata";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import {
   AudienceRestrictionXML,
@@ -283,6 +283,8 @@ class SAML {
     for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
       algorithms.warnIfAlgorithmNotRecognized(option, ctorOptions[option]);
     }
+
+    warnIfContactOrOrganizationInvalid(ctorOptions);
 
     /**
      * List of possible values:

@@ -484,6 +484,9 @@ metadataOrganization: {
 ```
 
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
+Neither option is checked at run time: one in any other shape is still written into the metadata as
+given, which can leave the metadata invalid. Run with `NODE_DEBUG=node-saml` to be told when that
+happens. The next major version rejects it.
 
 ### Extensions
 

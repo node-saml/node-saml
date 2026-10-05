@@ -1,3 +1,4 @@
+import * as util from "util";
 import * as algorithms from "./algorithms";
 import {
   isValidSamlSigningOptions,
@@ -9,6 +10,125 @@ import { assertRequired, signXmlMetadata } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
 import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+
+const debugLog = util.debuglog("node-saml");
+
+const CONTACT_TYPES = ["technical", "support", "administrative", "billing", "other"];
+
+function assertObject(
+  value: unknown,
+  path: string,
+  supportedKeys: string[],
+): asserts value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(`${path} must be an object`);
+  }
+  const unsupportedKey = Object.keys(value).find((key) => !supportedKeys.includes(key));
+  if (unsupportedKey !== undefined) {
+    throw new TypeError(`${path} has an unsupported key "${unsupportedKey}"`);
+  }
+}
+
+function assertNonEmptyString(value: unknown, path: string): asserts value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new TypeError(`${path} must be a non-empty string`);
+  }
+}
+
+function assertLocalizedNames(value: unknown, path: string): void {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${path} must be an array`);
+  }
+  value.forEach((name: unknown, i) => {
+    assertObject(name, `${path}[${i}]`, ["@xml:lang", "#text"]);
+    assertNonEmptyString(name["@xml:lang"], `${path}[${i}]["@xml:lang"]`);
+    assertNonEmptyString(name["#text"], `${path}[${i}]["#text"]`);
+  });
+}
+
+function assertNonEmptyArray(value: unknown, path: string): asserts value is unknown[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new TypeError(`${path} must be a non-empty array`);
+  }
+}
+
+function assertValidContactPersons(contacts: unknown): void {
+  if (contacts == null) {
+    return;
+  }
+  if (!Array.isArray(contacts)) {
+    throw new TypeError("metadataContactPerson must be an array");
+  }
+
+  contacts.forEach((contact: unknown, i) => {
+    const path = `metadataContactPerson[${i}]`;
+    assertObject(contact, path, [
+      "@contactType",
+      "Extensions",
+      "Company",
+      "GivenName",
+      "SurName",
+      "EmailAddress",
+      "TelephoneNumber",
+    ]);
+
+    const contactType = contact["@contactType"];
+    if (typeof contactType !== "string" || !CONTACT_TYPES.includes(contactType)) {
+      throw new TypeError(`${path}["@contactType"] must be one of ${CONTACT_TYPES.join(", ")}`);
+    }
+    for (const key of ["Company", "GivenName", "SurName"]) {
+      if (contact[key] != null) {
+        assertNonEmptyString(contact[key], `${path}.${key}`);
+      }
+    }
+    for (const key of ["EmailAddress", "TelephoneNumber"]) {
+      const values = contact[key];
+      if (values == null) {
+        continue;
+      }
+      if (!Array.isArray(values)) {
+        throw new TypeError(`${path}.${key} must be an array`);
+      }
+      values.forEach((value: unknown, j) => assertNonEmptyString(value, `${path}.${key}[${j}]`));
+    }
+  });
+}
+
+function assertValidOrganization(organization: unknown): void {
+  if (organization == null) {
+    return;
+  }
+  const names = ["OrganizationName", "OrganizationDisplayName", "OrganizationURL"];
+  assertObject(organization, "metadataOrganization", names);
+  for (const name of names) {
+    assertNonEmptyArray(organization[name], `metadataOrganization.${name}`);
+    assertLocalizedNames(organization[name], `metadataOrganization.${name}`);
+  }
+}
+
+// Both options are still written into the metadata as given, so what the checks find is logged and
+// not thrown. The next major version throws it.
+export const warnIfContactOrOrganizationInvalid = (
+  params: Pick<
+    GenerateServiceProviderMetadataParams,
+    "metadataContactPerson" | "metadataOrganization"
+  >,
+): void => {
+  const checks = [
+    () => assertValidContactPersons(params.metadataContactPerson),
+    () => assertValidOrganization(params.metadataOrganization),
+  ];
+  for (const check of checks) {
+    try {
+      check();
+    } catch (error) {
+      debugLog(
+        "%s. The metadata is still generated from the option as given, and may not follow the SAML metadata schema. The next major version rejects this instead.",
+        (error as Error).message,
+      );
+    }
+  }
+};
 
 // `SAML`'s constructor has already reported its options, so its method builds the metadata
 // without warning again.
@@ -165,6 +285,7 @@ export const generateServiceProviderMetadata = (
       algorithms.warnIfAlgorithmNotRecognized(option, params[option]);
     }
   }
+  warnIfContactOrOrganizationInvalid(params);
 
   return buildServiceProviderMetadata(params);
 };
