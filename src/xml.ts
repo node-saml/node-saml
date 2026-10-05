@@ -91,13 +91,14 @@ export const getVerifiedXml = (
     sig.publicCert = pemFile; // public certificate to verify
     sig.loadSignature(signature);
 
-    // here are the sanity checks
-    // They do not affect the actual security of the program
-    // more so to check conformance with the SAML spec
     const refs = sig.getReferences();
 
-    if (refs.length !== 1) return null;
-    if (!signature.parentNode) {
+    if (refs.length !== 1) {
+      debugLog(
+        "The signature on the %s element has %d references, so it is ignored and the element is treated as unsigned. A signature must have exactly one reference. The next major version rejects the message.",
+        currentNode.localName,
+        refs.length,
+      );
       return null;
     }
 
@@ -142,10 +143,6 @@ export const getVerifiedXml = (
     try {
       if (!sig.checkSignature(fullXml)) {
         continue; // no signatures verified
-      }
-
-      if (sig.getSignedReferences().length !== 1) {
-        throw new Error("Only 1 signed references should be present in signature");
       }
 
       return sig.getSignedReferences()[0];

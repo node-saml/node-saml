@@ -188,7 +188,9 @@ app.post("/login/callback", express.urlencoded({ extended: false }), async (req,
 
 `validatePostResponseAsync` rejects with an `Error` on anything it cannot vouch for, and the message
 says what failed — an invalid signature, a mismatched audience, an expired assertion, and a missing
-decryption key are all distinguishable. Nothing is returned for a document that did not verify.
+decryption key are all distinguishable. Nothing is returned for a document that did not verify. If
+something between Node-SAML and you hides that message, run with `NODE_DEBUG=node-saml` to have it
+logged; see [Troubleshooting](#troubleshooting).
 
 Two cases resolve without a `profile`:
 
@@ -358,7 +360,14 @@ const metadata = generateServiceProviderMetadata({
 It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from the configuration tables below:
 `logoutCallbackUrl`, `identifierFormat`, `wantAssertionsSigned`, `decryptionPvk`, `decryptionCert`,
 `privateKey`, `publicCerts`, `signatureAlgorithm`, `digestAlgorithm`, `xmlSignatureTransforms`,
-`signMetadata`, `metadataContactPerson`, `metadataOrganization`, and `generateUniqueId`.
+`signMetadata`, `metadataContactPerson`, `metadataOrganization`,
+`metadataAttributeConsumingServices`, and `generateUniqueId`.
+
+Called directly, it signs the metadata when `signMetadata` is `true` and `privateKey` is set. Choose
+both algorithms when it does: `signatureAlgorithm` has no default here, so omitting it is an error,
+while an omitted `digestAlgorithm` selects `sha1`. The note under
+[`signatureAlgorithm`](#configuration-option-signaturealgorithm) applies to this function too, and
+it logs the same warnings under `NODE_DEBUG=node-saml`.
 
 ## Config parameter details
 
@@ -475,11 +484,12 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 
 ### Metadata
 
-| Option                  | Default | Description                                                                                               |
-| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
-| `signMetadata`          | `false` | Sign the generated service provider metadata. Requires `privateKey`.                                      |
-| `metadataContactPerson` | —       | `ContactPerson` entries to include in the generated metadata. An array, since metadata may carry several. |
-| `metadataOrganization`  | —       | `Organization` details to include in the generated metadata.                                              |
+| Option                               | Default | Description                                                                                                                                   |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `signMetadata`                       | `false` | Sign the generated service provider metadata. Requires `privateKey`.                                                                          |
+| `metadataContactPerson`              | —       | `ContactPerson` entries to include in the generated metadata. An array, since metadata may carry several.                                     |
+| `metadataOrganization`               | —       | `Organization` details to include in the generated metadata.                                                                                  |
+| `metadataAttributeConsumingServices` | —       | `AttributeConsumingService` entries to include in the generated metadata, each listing the attributes this service provider asks the IdP for. |
 
 ```javascript
 metadataContactPerson: [
@@ -494,7 +504,36 @@ metadataOrganization: {
   OrganizationDisplayName: [{ "@xml:lang": "en", "#text": "node-saml" }],
   OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml/node-saml" }],
 },
+metadataAttributeConsumingServices: [
+  {
+    "@index": "0",
+    "@isDefault": true,
+    ServiceName: [{ "@xml:lang": "en", "#text": "My Service" }],
+    ServiceDescription: [{ "@xml:lang": "en", "#text": "Needs the user's name and email" }],
+    RequestedAttribute: [
+      {
+        "@Name": "urn:oid:2.5.4.42",
+        "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+        "@FriendlyName": "givenName",
+        "@isRequired": true,
+      },
+      {
+        "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
+        "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+        "@FriendlyName": "mail",
+        "@isRequired": false,
+      },
+    ],
+  },
+],
 ```
+
+Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
+other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
+entry may set `@isDefault` to `true`. An entry that breaks these rules, carries a key not shown
+above, or holds a malformed value such as an `@xml:lang` that is not a language tag, is rejected
+with a `TypeError` when the `SAML` is constructed or the metadata is generated.
+Set `attributeConsumingServiceIndex` to have an `AuthnRequest` select one of them by its `@index`.
 
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
 
@@ -543,6 +582,10 @@ explain rejections that might otherwise look overly strict:
   signature on an element, an `ID` resolving to more than one element, a reference pointing anywhere
   other than its own parent, or more than two transforms is refused. The library does not pick a
   reading, and it does not pick the reading that happens to verify.
+  One case is not refused yet: a signature with more than one reference is ignored, so its element
+  counts as unsigned. That matters only for a `Response` under `wantAuthnResponseSigned: false`,
+  which is then accepted on the strength of its separately signed assertion. The next major version
+  rejects such a message; until then it logs a warning under `NODE_DEBUG=node-saml`.
 - **Validation fails closed.** Decrypted content is not trusted content: an `EncryptedAssertion` is
   decrypted and then still has to have its signature verified. Timestamps, audience, issuer, and
   `InResponseTo` are security controls rather than conveniences — an option that switches one off
@@ -600,7 +643,7 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 > today either: it falls through to SHA-1, so a typo silently downgrades the signature you asked
 > for. The next major version rejects it instead. `digestAlgorithm` is typed as a plain string, so
 > TypeScript does not catch a typo in it. Run with `NODE_DEBUG=node-saml` to be told when any of
-> this happens.
+> this happens, whether the options go to `SAML` or straight to `generateServiceProviderMetadata`.
 
 ### Configuration option `privateKey`
 
@@ -844,6 +887,34 @@ provider it creates, but a cache you supply expires IDs on its own schedule.
 
 `CacheProvider`, `CacheItem`, `InMemoryCacheProvider`, and its constructor's `CacheProviderOptions` are
 all exported from the package root.
+
+## Troubleshooting
+
+Node-SAML writes debug output through Node's
+[`util.debuglog`](https://nodejs.org/api/util.html#utildebuglogsection-callback), and is silent
+until you turn it on. Set `NODE_DEBUG=node-saml` in the environment the process starts with:
+
+```shell
+NODE_DEBUG=node-saml node server.js
+```
+
+Node reads `NODE_DEBUG` once, at startup, so assigning `process.env.NODE_DEBUG` inside your
+application has no effect. If you already set other sections, add `node-saml` to the
+comma-separated list. Each line goes to stderr, prefixed with `NODE-SAML` and the process ID.
+
+The output covers two things:
+
+- **Why a response was rejected.** When `validatePostResponseAsync` rejects, it logs the error too.
+  That helps when the code between Node-SAML and you, such as a Passport `failureRedirect`, reports
+  only that the login failed.
+- **What the next major version changes.** Configuration or input that works today, but that the
+  next major version rejects or handles differently, logs a warning when it is used. Examples are a
+  security-relevant option left at its default, a deprecated argument or accessor, an unsigned logout
+  message on the Redirect binding, and an attribute with no usable value. Each warning says what to
+  change, and the sections above describe each one next to the option it concerns.
+
+Version 5.1.0 and earlier used the `debug` package, turned on with `DEBUG=node-saml`. That variable
+no longer does anything; use `NODE_DEBUG=node-saml` instead.
 
 ## Node support policy
 
