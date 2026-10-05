@@ -177,7 +177,7 @@ Removing a deprecated API is part of the work, not a someday. The process:
    is a message to consumers, not permission to let the code rot.
 4. **Remove it in a major.** Not before. `CHANGELOG.md` and the release notes carry it.
 
-Don't test deprecation warnings; they are removed with what they announce.
+Don't test deprecation warnings.
 
 Two cautions specific to this repository:
 
