@@ -5,8 +5,8 @@ const debugLog = util.debuglog("node-saml");
 
 type AlgorithmOption = "signatureAlgorithm" | "digestAlgorithm";
 
-// The short names the switches below recognize. Anything else falls through to SHA-1, so
-// every caller that signs warns against this list rather than let a typo downgrade signing silently.
+// The short names the switches below recognize. Anything else falls through to SHA-1, so every
+// caller that signs warns against this list rather than let a typo downgrade signing silently.
 export const SUPPORTED_ALGORITHMS = ["sha1", "sha256", "sha512"];
 
 export function isSupportedAlgorithm(shortName: string): boolean {

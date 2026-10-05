@@ -10,7 +10,8 @@ import { buildXmlBuilderObject } from "./xml";
 import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
-// `SAML`'s constructor has already reported its options, so its method builds without warning again.
+// `SAML`'s constructor has already reported its options, so its method builds the metadata
+// without warning again.
 export const buildServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,
 ): string => {
