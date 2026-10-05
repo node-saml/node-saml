@@ -93,7 +93,14 @@ export const getVerifiedXml = (
 
     const refs = sig.getReferences();
 
-    if (refs.length !== 1) return null;
+    if (refs.length !== 1) {
+      debugLog(
+        "The signature on the %s element has %d references, so it is ignored and the element is treated as unsigned. A signature must have exactly one reference. The next major version rejects the message.",
+        currentNode.localName,
+        refs.length,
+      );
+      return null;
+    }
 
     const ref = refs[0];
 
