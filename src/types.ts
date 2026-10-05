@@ -212,9 +212,10 @@ export interface AttributeConsumingService {
   "@index": string;
 
   /**
-   * Indicates if this service is the default for the SP. At most one service
-   * may set this to `true`.
-   * @default false
+   * Marks this service as the default for the SP. At most one service may set
+   * this to `true`. Leaving it out is not the same as `false`: when no service
+   * is `true`, the default is the first one that is not `false`.
+   * @see {@link https://docs.oasis-open.org/security/saml/v2.0/errata05/os/saml-v2.0-errata05-os.html SAML 2.0 Approved Errata, E87}
    */
   "@isDefault"?: boolean;
 
@@ -225,6 +226,8 @@ export interface AttributeConsumingService {
   ServiceName: {
     /**
      * Language tag identifying the language of the text, as defined by BCP 47.
+     * Rejected unless it has the form `xs:language` allows, which every BCP 47
+     * tag does.
      * @see {@link https://www.rfc-editor.org/info/bcp47 BCP 47}
      * @example "en", "en-GB", "es", "de", "zh-Hant"
      */
@@ -244,6 +247,8 @@ export interface AttributeConsumingService {
   ServiceDescription?: {
     /**
      * Language tag identifying the language of the text, as defined by BCP 47.
+     * Rejected unless it has the form `xs:language` allows, which every BCP 47
+     * tag does.
      * @see {@link https://www.rfc-editor.org/info/bcp47 BCP 47}
      * @example "en", "en-GB", "es", "de", "zh-Hant"
      */
