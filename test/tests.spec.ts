@@ -813,6 +813,267 @@ describe("node-saml /", function () {
         testMetadata(samlConfig, expectedMetadata);
       });
 
+      it("generateServiceProviderMetadata contains metadataAttributeConsumingServices", function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+          decryptionPvk: fs.readFileSync(__dirname + "/static/testshib encryption pvk.pem"),
+          idpCert: FAKE_CERT,
+          attributeConsumingServiceIndex: "0",
+          metadataAttributeConsumingServices: [
+            {
+              "@index": "0",
+              "@isDefault": true,
+              ServiceName: [
+                { "@xml:lang": "en", "#text": "Employee Portal" },
+                { "@xml:lang": "es", "#text": "Portal del Empleado" },
+              ],
+              ServiceDescription: [
+                { "@xml:lang": "en", "#text": "Authentication for the employee portal" },
+              ],
+              RequestedAttribute: [
+                {
+                  "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
+                  "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+                  "@FriendlyName": "mail",
+                  "@isRequired": true,
+                },
+                // No `@NameFormat`, so none is emitted. SAML 2.0 Core, section
+                // 2.7.3.1 reads an absent NameFormat as `unspecified`; nothing
+                // is substituted here.
+                { "@Name": "urn:oid:2.5.4.42" },
+              ],
+            },
+            {
+              // Deliberately declared out of order, to prove that the children are
+              // emitted in the order the metadata schema sequences them rather than
+              // the order they are written in here.
+              RequestedAttribute: [
+                {
+                  "@Name": "urn:oid:2.5.4.4",
+                  "@isRequired": false,
+                },
+              ],
+              ServiceName: [{ "@xml:lang": "en", "#text": "Reporting" }],
+              "@isDefault": false,
+              "@index": "1",
+            },
+          ],
+          generateUniqueId: () => "d700077e-60ad-49c1-b93a-dd1753528708",
+          wantAssertionsSigned: false,
+        };
+
+        const expectedMetadata = fs.readFileSync(
+          __dirname + "/static/expected_metadata_attributeConsumingServices.xml",
+          "utf-8",
+        );
+
+        testMetadata(samlConfig, expectedMetadata);
+      });
+
+      describe("metadataAttributeConsumingServices", function () {
+        const option = "metadataAttributeConsumingServices";
+        const params = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+        };
+        const service = {
+          "@index": "0",
+          ServiceName: [{ "@xml:lang": "en", "#text": "Employee Portal" }],
+          RequestedAttribute: [{ "@Name": "urn:oid:0.9.2342.19200300.100.1.3" }],
+        };
+
+        const rejections: [string, unknown, string][] = [
+          ["a value that is not an array", service, `${option} must be an array`],
+          ["an entry that is not an object", ["0"], `${option}[0] must be an object`],
+          [
+            "an entry with a key it does not support",
+            [{ ...service, "@IsDefault": true }],
+            `${option}[0] has an unsupported key "@IsDefault"`,
+          ],
+          [
+            "an entry with no @index",
+            [{ ...service, "@index": undefined }],
+            `${option}[0]["@index"] must be a string of digits from "0" to "65535"`,
+          ],
+          [
+            "an @index that is a number",
+            [{ ...service, "@index": 0 }],
+            `${option}[0]["@index"] must be a string of digits from "0" to "65535"`,
+          ],
+          [
+            "an @index that is not an unsigned integer",
+            [{ ...service, "@index": "-1" }],
+            `${option}[0]["@index"] must be a string of digits from "0" to "65535"`,
+          ],
+          [
+            "an @index above the unsignedShort range",
+            [{ ...service, "@index": "65536" }],
+            `${option}[0]["@index"] must be a string of digits from "0" to "65535"`,
+          ],
+          [
+            "two entries with the same @index",
+            [
+              { ...service, "@index": "1" },
+              { ...service, "@index": "01" },
+            ],
+            `${option}[1]["@index"] is "01", but ${option}[0] already uses that index`,
+          ],
+          [
+            "an @isDefault that is not a boolean",
+            [{ ...service, "@isDefault": "false" }],
+            `${option}[0]["@isDefault"] must be a boolean`,
+          ],
+          [
+            "two default entries",
+            [
+              { ...service, "@isDefault": true },
+              { ...service, "@index": "1", "@isDefault": true },
+            ],
+            `${option}[1]["@isDefault"] is true, but ${option}[0] is already the default`,
+          ],
+          [
+            "an entry with no ServiceName",
+            [{ ...service, ServiceName: [] }],
+            `${option}[0].ServiceName must be a non-empty array`,
+          ],
+          [
+            "a ServiceName with no language",
+            [{ ...service, ServiceName: [{ "#text": "Employee Portal" }] }],
+            `${option}[0].ServiceName[0]["@xml:lang"] must be a language tag, such as "en" or "en-GB"`,
+          ],
+          [
+            "a ServiceName whose language is not a language tag",
+            [{ ...service, ServiceName: [{ "@xml:lang": "en_GB", "#text": "Employee Portal" }] }],
+            `${option}[0].ServiceName[0]["@xml:lang"] must be a language tag, such as "en" or "en-GB"`,
+          ],
+          [
+            "a ServiceDescription that is not an array",
+            [{ ...service, ServiceDescription: "Authentication for the employee portal" }],
+            `${option}[0].ServiceDescription must be an array`,
+          ],
+          [
+            "a ServiceDescription with no text",
+            [{ ...service, ServiceDescription: [{ "@xml:lang": "en" }] }],
+            `${option}[0].ServiceDescription[0]["#text"] must be a non-empty string`,
+          ],
+          [
+            "an entry with no RequestedAttribute",
+            [{ ...service, RequestedAttribute: [] }],
+            `${option}[0].RequestedAttribute must be a non-empty array`,
+          ],
+          [
+            "a RequestedAttribute with no @Name",
+            [{ ...service, RequestedAttribute: [{ "@FriendlyName": "mail" }] }],
+            `${option}[0].RequestedAttribute[0]["@Name"] must be a non-empty string`,
+          ],
+          [
+            "a @NameFormat that is a short name where SAML requires an absolute URI",
+            [
+              {
+                ...service,
+                RequestedAttribute: [{ "@Name": "urn:oid:2.5.4.42", "@NameFormat": "uri" }],
+              },
+            ],
+            `${option}[0].RequestedAttribute[0]["@NameFormat"] must be an absolute URI, such as "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"`,
+          ],
+          [
+            "a @NameFormat that is not a URI",
+            [
+              {
+                ...service,
+                RequestedAttribute: [{ "@Name": "urn:oid:2.5.4.42", "@NameFormat": ":bad" }],
+              },
+            ],
+            `${option}[0].RequestedAttribute[0]["@NameFormat"] must be an absolute URI, such as "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"`,
+          ],
+          [
+            "a RequestedAttribute with an AttributeValue",
+            [
+              {
+                ...service,
+                RequestedAttribute: [
+                  { "@Name": "urn:oid:2.5.4.42", AttributeValue: [{ "#text": "Ada" }] },
+                ],
+              },
+            ],
+            `${option}[0].RequestedAttribute[0] has an unsupported key "AttributeValue"`,
+          ],
+          [
+            "an @isRequired that is not a boolean",
+            [
+              {
+                ...service,
+                RequestedAttribute: [{ "@Name": "urn:oid:2.5.4.42", "@isRequired": "yes" }],
+              },
+            ],
+            `${option}[0].RequestedAttribute[0]["@isRequired"] must be a boolean`,
+          ],
+        ];
+
+        for (const [description, services, message] of rejections) {
+          const metadataAttributeConsumingServices = services as SamlConfig[typeof option];
+
+          it(`rejects ${description} when the SAML is constructed`, function () {
+            expect(
+              () => new SAML({ ...params, idpCert: FAKE_CERT, metadataAttributeConsumingServices }),
+            )
+              .to.throw(TypeError)
+              .with.property("message", message);
+          });
+
+          it(`rejects ${description} when the metadata is generated`, function () {
+            expect(() =>
+              generateServiceProviderMetadata({ ...params, metadataAttributeConsumingServices }),
+            )
+              .to.throw(TypeError)
+              .with.property("message", message);
+          });
+        }
+
+        it("emits no AttributeConsumingService for an empty array", function () {
+          expect(
+            generateServiceProviderMetadata({ ...params, metadataAttributeConsumingServices: [] }),
+          ).to.not.contain("AttributeConsumingService");
+        });
+
+        it("accepts a @NameFormat that SAML does not define, and emits it", function () {
+          const metadata = new SAML({
+            ...params,
+            idpCert: FAKE_CERT,
+            metadataAttributeConsumingServices: [
+              {
+                ...service,
+                RequestedAttribute: [
+                  {
+                    "@Name": "employeeNumber",
+                    "@NameFormat": "https://example.com/custom-attribute-format",
+                  },
+                ],
+              },
+            ],
+          }).generateServiceProviderMetadata(null);
+
+          expect(metadata).to.contain('NameFormat="https://example.com/custom-attribute-format"');
+        });
+
+        it("treats null as absent, as it does for the other options", function () {
+          const metadataAttributeConsumingServices = null as unknown as SamlConfig[typeof option];
+
+          expect(
+            new SAML({
+              ...params,
+              idpCert: FAKE_CERT,
+              metadataAttributeConsumingServices,
+            }).generateServiceProviderMetadata(null),
+          ).to.not.contain("AttributeConsumingService");
+          expect(
+            generateServiceProviderMetadata({ ...params, metadataAttributeConsumingServices }),
+          ).to.not.contain("AttributeConsumingService");
+        });
+      });
+
       describe("certificates", function () {
         const readStatic = (name: string) =>
           fs.readFileSync(`${__dirname}/static/${name}`, "utf-8");

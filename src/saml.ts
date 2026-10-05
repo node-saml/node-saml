@@ -9,7 +9,7 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 import { generateUniqueId, keyInfoToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
-import { buildServiceProviderMetadata } from "./metadata";
+import { assertValidAttributeConsumingServices, buildServiceProviderMetadata } from "./metadata";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import {
   AudienceRestrictionXML,
@@ -208,6 +208,7 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAssertionsSigned);
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
+    assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
 
     const options: SamlOptions = {
       ...ctorOptions,
