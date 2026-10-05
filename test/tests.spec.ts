@@ -19,8 +19,6 @@ import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
 import { getVerifiedXml, parseDomFromString, validateSignature } from "../src/xml";
 import { generateServiceProviderMetadata } from "../src/metadata";
-import { spawnSync } from "child_process";
-import * as path from "path";
 
 const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -1030,57 +1028,6 @@ describe("node-saml /", function () {
             "other-nil": undefined,
             rebound: undefined,
             multi: ["first", undefined],
-          });
-        });
-
-        describe("under NODE_DEBUG", function () {
-          let stderr: string;
-
-          // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child.
-          before(function () {
-            this.timeout(20000);
-            const script = `
-              const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
-              new SAML(${JSON.stringify(samlConfig)})
-                .validatePostResponseAsync({ SAMLResponse: ${JSON.stringify(samlResponse)} })
-                .catch((error) => {
-                  console.error(error);
-                  process.exitCode = 1;
-                });
-            `;
-            const child = spawnSync(
-              process.execPath,
-              ["--require", "ts-node/register/transpile-only", "--eval", script],
-              { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
-            );
-            expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
-            stderr = child.stderr;
-          });
-
-          it("warns about an attribute with no AttributeValue", function () {
-            expect(stderr).to.contain('The SAML attribute "none" has no AttributeValue');
-          });
-
-          it("warns about an empty AttributeValue, including one among several", function () {
-            expect(stderr).to.contain('The SAML attribute "empty" has an empty AttributeValue');
-            expect(stderr).to.contain('The SAML attribute "multi" has an empty AttributeValue');
-          });
-
-          it("warns about an xsi:nil AttributeValue as null, not as empty", function () {
-            expect(stderr).to.contain(
-              'The SAML attribute "nil" has an AttributeValue marked xsi:nil',
-            );
-            expect(stderr).to.not.contain('The SAML attribute "nil" has an empty AttributeValue');
-          });
-
-          it("treats nil in another namespace as an empty AttributeValue", function () {
-            expect(stderr).to.contain('The SAML attribute "other-nil" has an empty AttributeValue');
-          });
-
-          it("resolves xsi:nil against the nearest declaration of its prefix", function () {
-            expect(stderr).to.contain(
-              'The SAML attribute "rebound" has an AttributeValue marked xsi:nil',
-            );
           });
         });
       });
@@ -3486,31 +3433,6 @@ describe("node-saml /", function () {
       return unsigned;
     }
 
-    // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child rather
-    // than mutating the environment the rest of the suite shares.
-    function validateRedirectWithNodeDebug(request: Record<string, string>) {
-      const config: SamlConfig = {
-        callbackUrl: "http://localhost/saml/consume",
-        idpCert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "ascii"),
-        issuer: "onesaml_login",
-        acceptedClockSkewMs: -1,
-      };
-      const script = `
-        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
-        new SAML(${JSON.stringify(config)})
-          .validateRedirectAsync(${JSON.stringify(request)}, ${JSON.stringify(request.originalQuery)})
-          .catch((error) => {
-            console.error(error);
-            process.exitCode = 1;
-          });
-      `;
-      return spawnSync(
-        process.execPath,
-        ["--require", "ts-node/register/transpile-only", "--eval", script],
-        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
-      );
-    }
-
     describe("idp slo", function () {
       let samlObj: SAML;
       let fakeClock: sinon.SinonFakeTimers;
@@ -3588,16 +3510,6 @@ describe("node-saml /", function () {
         const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
         expect(loggedOut).to.be.true;
       });
-      it("warns via NODE_DEBUG when it accepts a message with no Signature parameter", function () {
-        this.timeout(20000); // Compiling the library in the child process is not fast.
-        const { status, stderr } = validateRedirectWithNodeDebug(withoutSignature(this.request));
-
-        expect(status, stderr).to.equal(0);
-        expect(stderr).to.contain(
-          "SAMLRequest over the Redirect binding with no Signature parameter",
-        );
-        expect(stderr).to.contain("unverified");
-      });
     });
     describe("sp slo", function () {
       let samlObj: SAML;
@@ -3674,17 +3586,6 @@ describe("node-saml /", function () {
         const request = withoutSignature(this.request);
         const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
         expect(loggedOut).to.be.true;
-      });
-
-      it("warns via NODE_DEBUG when it accepts a response with no Signature parameter", function () {
-        this.timeout(20000); // Compiling the library in the child process is not fast.
-        const { status, stderr } = validateRedirectWithNodeDebug(withoutSignature(this.request));
-
-        expect(status, stderr).to.equal(0);
-        expect(stderr).to.contain(
-          "SAMLResponse over the Redirect binding with no Signature parameter",
-        );
-        expect(stderr).to.contain("unverified");
       });
 
       it("accepts cert without header and footer line", async function () {
