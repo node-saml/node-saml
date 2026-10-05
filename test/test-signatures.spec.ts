@@ -746,6 +746,55 @@ describe("Signatures", function () {
       ),
     );
 
+    // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child.
+    it("warns that injected dependencies are ignored, and says nothing without them", function () {
+      this.timeout(20000);
+      const script = `
+        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        const fs = require("fs");
+        const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          idpCert: ${JSON.stringify(idpCert)},
+          issuer: "onesaml_login",
+        });
+        const body = {
+          SAMLRequest: fs.readFileSync(
+            ${JSON.stringify(path.join(__dirname, "static", "logout_request_with_good_signature.xml"))},
+            "base64",
+          ),
+        };
+        (async () => {
+          console.error("<<without>>");
+          await samlObj.validatePostRequestAsync(body);
+          console.error("<<with>>");
+          const { profile } = await samlObj.validatePostRequestAsync(body, {
+            _validateSignature: () => false,
+          });
+          console.error("<<end>>");
+          console.log(profile.nameID);
+        })().catch((err) => {
+          console.error("FAILED", err);
+          process.exit(1);
+        });
+      `;
+      const child = spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+      expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+
+      const section = (marker: string) =>
+        (child.stderr.split(`<<${marker}>>`)[1] ?? "").split("<<")[0].trim();
+
+      expect(section("without")).to.equal("");
+      expect(section("with")).to.contain(
+        "validatePostRequestAsync was called with injected dependencies. They are ignored",
+      );
+      expect(section("with")).to.contain("the argument is removed in the next major version");
+      expect(child.stdout.trim()).to.equal("ONELOGIN_f92cc1834efc0f73e9c09f482fce80037a6251e7");
+    });
+
     // `_validateSignature` is the seam v5.1 shipped; the `assert.fail` parsers catch a wider relapse.
     it("injected dependencies cannot substitute the verification => error", async () => {
       const substituted = {
