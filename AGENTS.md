@@ -177,6 +177,8 @@ Removing a deprecated API is part of the work, not a someday. The process:
    is a message to consumers, not permission to let the code rot.
 4. **Remove it in a major.** Not before. `CHANGELOG.md` and the release notes carry it.
 
+Don't test deprecation warnings; they are removed with what they announce.
+
 Two cautions specific to this repository:
 
 - A lint rule that errors on deprecated usage makes internal migration enforceable, and is
@@ -189,14 +191,10 @@ Two cautions specific to this repository:
 
 ## Tests
 
-A test is a commitment that something stays true. So tests protect behavior the library
-means to keep and that a caller or the specification can rely on — not implementation
-details, and not everything that happens to be observable. Before adding one, ask whether
-the project intends to keep the behavior and whether anyone could depend on it; a new test
-for something that fails either question protects nothing and makes a planned change look
-like a regression. Favor tests that establish what the library accepts, rejects, emits, or
-considers trustworthy. Security regressions matter most: a test should ensure that malformed
-or adversarial XML cannot cause the library to report untrusted data as valid.
+Tests protect durable, observable behavior, not implementation details. Favor tests that
+establish what the library accepts, rejects, emits, or considers trustworthy. Security
+regressions matter most: a test should ensure that malformed or adversarial XML cannot
+cause the library to report untrusted data as valid.
 
 - Test at a public boundary for the behavior being changed. For response handling, that
   means constructing a `SAML` with a config a real caller could write, feeding it a base64
@@ -219,7 +217,7 @@ or adversarial XML cannot cause the library to report untrusted data as valid.
   unnecessary; determine which rather than adding protected-method tests merely to
   increase coverage.
 - Add a test when a change alters what the library accepts, rejects, emits, or considers
-  trustworthy. When it alters none of those, don't invent a test for it.
+  trustworthy.
 - For a bug fix, observe the regression test failing for the reported reason before
   applying the fix. "For the reported reason" is the operative part — a test that fails for
   the wrong reason proves nothing and will keep passing after the bug returns.
