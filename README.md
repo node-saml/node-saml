@@ -341,6 +341,12 @@ It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from th
 `privateKey`, `publicCerts`, `signatureAlgorithm`, `digestAlgorithm`, `xmlSignatureTransforms`,
 `signMetadata`, `metadataContactPerson`, `metadataOrganization`, and `generateUniqueId`.
 
+Called directly, it signs the metadata when `signMetadata` is `true` and `privateKey` is set. Choose
+both algorithms when it does: `signatureAlgorithm` has no default here, so omitting it is an error,
+while an omitted `digestAlgorithm` selects `sha1`. The note under
+[`signatureAlgorithm`](#configuration-option-signaturealgorithm) applies to this function too, and
+it logs the same warnings under `NODE_DEBUG=node-saml`.
+
 ## Config parameter details
 
 ### Required
@@ -587,7 +593,7 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 > today either: it falls through to SHA-1, so a typo silently downgrades the signature you asked
 > for. The next major version rejects it instead. `digestAlgorithm` is typed as a plain string, so
 > TypeScript does not catch a typo in it. Run with `NODE_DEBUG=node-saml` to be told when any of
-> this happens.
+> this happens, whether the options go to `SAML` or straight to `generateServiceProviderMetadata`.
 
 ### Configuration option `privateKey`
 
