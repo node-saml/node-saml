@@ -131,24 +131,6 @@ export interface XmlSignatureLocation {
 
 export type RacComparison = "exact" | "minimum" | "maximum" | "better";
 
-/**
- * The attribute name formats that SAML 2.0 Core, section 8.2 defines
- */
-export const SAML_ATTRIBUTE_NAME_FORMATS = {
-  /** URI format; the usual choice for OID- and URI-named attributes */
-  URI: "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
-  /** Basic format */
-  BASIC: "urn:oasis:names:tc:SAML:2.0:attrname-format:basic",
-  /** Unspecified format */
-  UNSPECIFIED: "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified",
-} as const;
-
-/**
- * Union type for SAML attribute name formats
- */
-export type SamlAttributeNameFormat =
-  (typeof SAML_ATTRIBUTE_NAME_FORMATS)[keyof typeof SAML_ATTRIBUTE_NAME_FORMATS];
-
 export interface SamlScopingConfig {
   idpList?: SamlIDPListConfig[];
   proxyCount?: number;
@@ -273,10 +255,9 @@ export interface AttributeConsumingService {
     "@Name": string;
 
     /**
-     * Format of the attribute name. SAML 2.0 Core, section 8.2 defines three,
-     * which {@link SAML_ATTRIBUTE_NAME_FORMATS} lists; any other absolute URI
-     * is permitted. A value that is not an absolute URI, such as `"uri"`, is
-     * rejected.
+     * Format of the attribute name. SAML 2.0 Core, section 8.2 defines the
+     * three listed here; any other absolute URI is permitted. A value that is
+     * not an absolute URI, such as `"uri"`, is rejected.
      *
      * Omitting this emits no `NameFormat` attribute, which SAML 2.0 Core,
      * section 2.7.3.1 states is equivalent to
@@ -287,7 +268,11 @@ export interface AttributeConsumingService {
      * that distinguishes the formats will not match a URI-named attribute
      * against an unspecified request.
      */
-    "@NameFormat"?: SamlAttributeNameFormat | (string & {});
+    "@NameFormat"?:
+      | "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"
+      | "urn:oasis:names:tc:SAML:2.0:attrname-format:basic"
+      | "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"
+      | (string & {});
 
     /**
      * Human-readable name of the attribute

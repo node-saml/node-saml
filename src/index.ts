@@ -18,9 +18,6 @@ import {
   AuthOptions,
   SamlStatusError,
   AttributeConsumingService,
-  GenerateServiceProviderMetadataParams,
-  SAML_ATTRIBUTE_NAME_FORMATS,
-  SamlAttributeNameFormat,
 } from "./types";
 
 export {
@@ -43,7 +40,4 @@ export {
   AuthOptions,
   SamlStatusError,
   AttributeConsumingService,
-  GenerateServiceProviderMetadataParams,
-  SAML_ATTRIBUTE_NAME_FORMATS,
-  SamlAttributeNameFormat,
 };

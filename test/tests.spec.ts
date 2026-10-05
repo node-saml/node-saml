@@ -7,7 +7,6 @@ import * as fs from "fs";
 import * as sinon from "sinon";
 import {
   Profile,
-  SAML_ATTRIBUTE_NAME_FORMATS,
   SamlConfig,
   SamlStatusError,
   ValidateInResponseTo,
@@ -756,7 +755,7 @@ describe("node-saml /", function () {
               RequestedAttribute: [
                 {
                   "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
-                  "@NameFormat": SAML_ATTRIBUTE_NAME_FORMATS.URI,
+                  "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
                   "@FriendlyName": "mail",
                   "@isRequired": true,
                 },
