@@ -214,7 +214,8 @@ export interface AttributeConsumingService {
   /**
    * Marks this service as the default for the SP. At most one service may set
    * this to `true`. Leaving it out is not the same as `false`: when no service
-   * is `true`, the default is the first one that is not `false`.
+   * is `true`, the default is the first one that is not `false`; if all are
+   * `false`, the first service is the default.
    * @see {@link https://docs.oasis-open.org/security/saml/v2.0/errata05/os/saml-v2.0-errata05-os.html SAML 2.0 Approved Errata, E87}
    */
   "@isDefault"?: boolean;
