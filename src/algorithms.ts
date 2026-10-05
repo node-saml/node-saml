@@ -5,14 +5,8 @@ const debugLog = util.debuglog("node-saml");
 
 type AlgorithmOption = "signatureAlgorithm" | "digestAlgorithm";
 
-<<<<<<< HEAD
 // RSASSA-PSS, RFC 6931 2.3.10: https://www.rfc-editor.org/rfc/rfc6931#section-2.3.10
 export const RSA_SHA256_MGF1 = "http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1";
-=======
-// The short names the switches below recognize. Anything else falls through to SHA-1, so every
-// caller that signs warns against this list rather than let a typo downgrade signing silently.
-export const SUPPORTED_ALGORITHMS = ["sha1", "sha256", "sha512"];
->>>>>>> warn-metadata-signing-algorithms
 
 // That section fixes the salt at the length of the hash, which is also what xml-crypto signs and
 // verifies this algorithm with.
@@ -21,8 +15,8 @@ export const PSS_OPTIONS = {
   saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
 };
 
-// The short names the switches below recognize. Anything else falls through to SHA-1, so
-// every caller that signs warns against these lists rather than let a typo downgrade signing silently.
+// The short names the switches below recognize. Anything else falls through to SHA-1, so every
+// caller that signs warns against these lists rather than let a typo downgrade signing silently.
 const SUPPORTED_ALGORITHMS: Record<AlgorithmOption, string[]> = {
   signatureAlgorithm: ["sha1", "sha256", "sha256-mgf1", "sha512"],
   digestAlgorithm: ["sha1", "sha256", "sha512"],
