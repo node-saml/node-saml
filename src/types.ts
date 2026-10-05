@@ -132,31 +132,7 @@ export interface XmlSignatureLocation {
 export type RacComparison = "exact" | "minimum" | "maximum" | "better";
 
 /**
- * Common SAML attribute names (OIDs) for use in AttributeConsumingService
- */
-export const COMMON_SAML_ATTRIBUTES = {
-  /** Given name / first name */
-  GIVEN_NAME: "urn:oid:2.5.4.42",
-  /** Surname / last name */
-  SURNAME: "urn:oid:2.5.4.4",
-  /** Email address */
-  EMAIL_ADDRESS: "urn:oid:1.2.840.113549.1.9.1",
-  /** Common name */
-  COMMON_NAME: "urn:oid:2.5.4.3",
-  /** Mail (alternative email) */
-  MAIL: "urn:oid:0.9.2342.19200300.100.1.3",
-  /** Organization name */
-  ORGANIZATION_NAME: "urn:oid:2.5.4.10",
-  /** Organizational unit */
-  ORGANIZATIONAL_UNIT: "urn:oid:2.5.4.11",
-  /** User principal name */
-  USER_PRINCIPAL_NAME: "urn:oid:1.2.840.113556.1.4.656",
-  /** Distinguished name */
-  DISTINGUISHED_NAME: "urn:oid:2.5.4.49",
-} as const;
-
-/**
- * Common SAML attribute name formats
+ * The attribute name formats that SAML 2.0 Core, section 8.2 defines
  */
 export const SAML_ATTRIBUTE_NAME_FORMATS = {
   /** URI format; the usual choice for OID- and URI-named attributes */
@@ -166,12 +142,6 @@ export const SAML_ATTRIBUTE_NAME_FORMATS = {
   /** Unspecified format */
   UNSPECIFIED: "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified",
 } as const;
-
-/**
- * Union type for common SAML attribute names
- */
-export type CommonSamlAttributeName =
-  (typeof COMMON_SAML_ATTRIBUTES)[keyof typeof COMMON_SAML_ATTRIBUTES];
 
 /**
  * Union type for SAML attribute name formats
@@ -224,9 +194,9 @@ export enum ValidateInResponseTo {
  *       "@isRequired": true
  *     },
  *     {
- *       "@Name": "urn:oid:1.2.840.113549.1.9.1",
+ *       "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
  *       "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
- *       "@FriendlyName": "emailAddress",
+ *       "@FriendlyName": "mail",
  *       "@isRequired": false
  *     }
  *   ]
@@ -235,14 +205,15 @@ export enum ValidateInResponseTo {
  */
 export interface AttributeConsumingService {
   /**
-   * Unique index for the service within the SP metadata.
-   * Must be unique across all AttributeConsumingService elements.
+   * Index for the service within the SP metadata, as a string of digits from
+   * "0" to "65535". No two services may use the same index.
    * @example "0", "1", "2"
    */
   "@index": string;
 
   /**
-   * Indicates if this service is the default for the SP
+   * Indicates if this service is the default for the SP. At most one service
+   * may set this to `true`.
    * @default false
    */
   "@isDefault"?: boolean;
@@ -291,24 +262,14 @@ export interface AttributeConsumingService {
   RequestedAttribute: {
     /**
      * Name of the requested attribute, typically an OID or URI.
-     *
-     * Any value is permitted. The entries of {@link COMMON_SAML_ATTRIBUTES} are
-     * offered as suggestions:
-     * - `urn:oid:2.5.4.42` (givenName)
-     * - `urn:oid:2.5.4.4` (sn/surname)
-     * - `urn:oid:1.2.840.113549.1.9.1` (emailAddress)
-     * - `urn:oid:2.5.4.3` (cn/commonName)
-     * - `urn:oid:0.9.2342.19200300.100.1.3` (mail)
-     * - `urn:oid:2.5.4.10` (o/organizationName)
-     * - `urn:oid:2.5.4.11` (ou/organizationalUnitName)
-     * - `urn:oid:1.2.840.113556.1.4.656` (userPrincipalName)
-     * - `urn:oid:2.5.4.49` (dn/distinguishedName)
+     * @example "urn:oid:2.5.4.42", "urn:oid:0.9.2342.19200300.100.1.3"
      */
-    "@Name": CommonSamlAttributeName | (string & {});
+    "@Name": string;
 
     /**
-     * Format of the attribute name. SAML 2.0 Core, section 8.2 defines the
-     * permitted values, which {@link SAML_ATTRIBUTE_NAME_FORMATS} enumerates.
+     * Format of the attribute name. SAML 2.0 Core, section 8.2 defines three,
+     * which {@link SAML_ATTRIBUTE_NAME_FORMATS} lists; any other URI is
+     * permitted.
      *
      * Omitting this emits no `NameFormat` attribute, which SAML 2.0 Core,
      * section 2.7.3.1 states is equivalent to

@@ -6,7 +6,6 @@ import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
 import {
-  COMMON_SAML_ATTRIBUTES,
   Profile,
   SAML_ATTRIBUTE_NAME_FORMATS,
   SamlConfig,
@@ -758,7 +757,7 @@ describe("node-saml /", function () {
               ],
               RequestedAttribute: [
                 {
-                  "@Name": COMMON_SAML_ATTRIBUTES.MAIL,
+                  "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
                   "@NameFormat": SAML_ATTRIBUTE_NAME_FORMATS.URI,
                   "@FriendlyName": "mail",
                   "@isRequired": true,
@@ -766,7 +765,7 @@ describe("node-saml /", function () {
                 // No `@NameFormat`, so none is emitted. SAML 2.0 Core, section
                 // 2.7.3.1 reads an absent NameFormat as `unspecified`; nothing
                 // is substituted here.
-                { "@Name": COMMON_SAML_ATTRIBUTES.GIVEN_NAME },
+                { "@Name": "urn:oid:2.5.4.42" },
               ],
             },
             {
@@ -775,7 +774,7 @@ describe("node-saml /", function () {
               // the order they are written in here.
               RequestedAttribute: [
                 {
-                  "@Name": COMMON_SAML_ATTRIBUTES.SURNAME,
+                  "@Name": "urn:oid:2.5.4.4",
                   "@isRequired": false,
                 },
               ],
@@ -794,6 +793,148 @@ describe("node-saml /", function () {
         );
 
         testMetadata(samlConfig, expectedMetadata);
+      });
+
+      describe("metadataAttributeConsumingServices", function () {
+        const option = "metadataAttributeConsumingServices";
+        const params = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+        };
+        const service = {
+          "@index": "0",
+          ServiceName: [{ "@xml:lang": "en", "#text": "Employee Portal" }],
+          RequestedAttribute: [{ "@Name": "urn:oid:0.9.2342.19200300.100.1.3" }],
+        };
+
+        const rejections: [string, unknown, string][] = [
+          ["a value that is not an array", service, `${option} must be an array`],
+          ["an entry that is not an object", ["0"], `${option}[0] must be an object`],
+          [
+            "an entry with a key it does not support",
+            [{ ...service, "@IsDefault": true }],
+            `${option}[0] has an unsupported key "@IsDefault"`,
+          ],
+          [
+            "an entry with no @index",
+            [{ ...service, "@index": undefined }],
+            `${option}[0]["@index"] must be a string of digits from "0" to "65535"`,
+          ],
+          [
+            "an @index that is a number",
+            [{ ...service, "@index": 0 }],
+            `${option}[0]["@index"] must be a string of digits from "0" to "65535"`,
+          ],
+          [
+            "an @index that is not an unsigned integer",
+            [{ ...service, "@index": "-1" }],
+            `${option}[0]["@index"] must be a string of digits from "0" to "65535"`,
+          ],
+          [
+            "an @index above the unsignedShort range",
+            [{ ...service, "@index": "65536" }],
+            `${option}[0]["@index"] must be a string of digits from "0" to "65535"`,
+          ],
+          [
+            "two entries with the same @index",
+            [
+              { ...service, "@index": "1" },
+              { ...service, "@index": "01" },
+            ],
+            `${option}[1]["@index"] is "01", but ${option}[0] already uses that index`,
+          ],
+          [
+            "an @isDefault that is not a boolean",
+            [{ ...service, "@isDefault": "false" }],
+            `${option}[0]["@isDefault"] must be a boolean`,
+          ],
+          [
+            "two default entries",
+            [
+              { ...service, "@isDefault": true },
+              { ...service, "@index": "1", "@isDefault": true },
+            ],
+            `${option}[1]["@isDefault"] is true, but ${option}[0] is already the default`,
+          ],
+          [
+            "an entry with no ServiceName",
+            [{ ...service, ServiceName: [] }],
+            `${option}[0].ServiceName must be a non-empty array`,
+          ],
+          [
+            "a ServiceName with no language",
+            [{ ...service, ServiceName: [{ "#text": "Employee Portal" }] }],
+            `${option}[0].ServiceName[0]["@xml:lang"] must be a non-empty string`,
+          ],
+          [
+            "a ServiceDescription that is not an array",
+            [{ ...service, ServiceDescription: "Authentication for the employee portal" }],
+            `${option}[0].ServiceDescription must be an array`,
+          ],
+          [
+            "a ServiceDescription with no text",
+            [{ ...service, ServiceDescription: [{ "@xml:lang": "en" }] }],
+            `${option}[0].ServiceDescription[0]["#text"] must be a non-empty string`,
+          ],
+          [
+            "an entry with no RequestedAttribute",
+            [{ ...service, RequestedAttribute: [] }],
+            `${option}[0].RequestedAttribute must be a non-empty array`,
+          ],
+          [
+            "a RequestedAttribute with no @Name",
+            [{ ...service, RequestedAttribute: [{ "@FriendlyName": "mail" }] }],
+            `${option}[0].RequestedAttribute[0]["@Name"] must be a non-empty string`,
+          ],
+          [
+            "a RequestedAttribute with an AttributeValue",
+            [
+              {
+                ...service,
+                RequestedAttribute: [
+                  { "@Name": "urn:oid:2.5.4.42", AttributeValue: [{ "#text": "Ada" }] },
+                ],
+              },
+            ],
+            `${option}[0].RequestedAttribute[0] has an unsupported key "AttributeValue"`,
+          ],
+          [
+            "an @isRequired that is not a boolean",
+            [
+              {
+                ...service,
+                RequestedAttribute: [{ "@Name": "urn:oid:2.5.4.42", "@isRequired": "yes" }],
+              },
+            ],
+            `${option}[0].RequestedAttribute[0]["@isRequired"] must be a boolean`,
+          ],
+        ];
+
+        for (const [description, services, message] of rejections) {
+          const metadataAttributeConsumingServices = services as SamlConfig[typeof option];
+
+          it(`rejects ${description} when the SAML is constructed`, function () {
+            expect(
+              () => new SAML({ ...params, idpCert: FAKE_CERT, metadataAttributeConsumingServices }),
+            )
+              .to.throw(TypeError)
+              .with.property("message", message);
+          });
+
+          it(`rejects ${description} when the metadata is generated`, function () {
+            expect(() =>
+              generateServiceProviderMetadata({ ...params, metadataAttributeConsumingServices }),
+            )
+              .to.throw(TypeError)
+              .with.property("message", message);
+          });
+        }
+
+        it("emits no AttributeConsumingService for an empty array", function () {
+          expect(
+            generateServiceProviderMetadata({ ...params, metadataAttributeConsumingServices: [] }),
+          ).to.not.contain("AttributeConsumingService");
+        });
       });
 
       describe("certificates", function () {

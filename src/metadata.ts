@@ -4,10 +4,132 @@ import {
   XMLObject,
   GenerateServiceProviderMetadataParams,
 } from "./types";
-import { assertRequired, signXmlMetadata } from "./utility";
+import { assertBooleanIfPresent, assertRequired, signXmlMetadata } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
 import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+
+const SERVICES_OPTION = "metadataAttributeConsumingServices";
+const MAX_UNSIGNED_SHORT = 65535;
+
+function assertObject(
+  value: unknown,
+  path: string,
+  supportedKeys: string[],
+): asserts value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(`${path} must be an object`);
+  }
+  const unsupportedKey = Object.keys(value).find((key) => !supportedKeys.includes(key));
+  if (unsupportedKey !== undefined) {
+    throw new TypeError(`${path} has an unsupported key "${unsupportedKey}"`);
+  }
+}
+
+function assertNonEmptyString(value: unknown, path: string): asserts value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new TypeError(`${path} must be a non-empty string`);
+  }
+}
+
+function assertLocalizedNames(value: unknown, path: string): void {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${path} must be an array`);
+  }
+  value.forEach((name: unknown, i) => {
+    assertObject(name, `${path}[${i}]`, ["@xml:lang", "#text"]);
+    assertNonEmptyString(name["@xml:lang"], `${path}[${i}]["@xml:lang"]`);
+    assertNonEmptyString(name["#text"], `${path}[${i}]["#text"]`);
+  });
+}
+
+function assertNonEmptyArray(value: unknown, path: string): asserts value is unknown[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new TypeError(`${path} must be a non-empty array`);
+  }
+}
+
+// SAML 2.0 Metadata, sections 2.4.4 and 2.4.4.1, and its schema. The schema alone would not do: a
+// repeated `index` and a second default both validate against it.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
+export const assertValidAttributeConsumingServices = (services: unknown): void => {
+  if (services == null) {
+    return;
+  }
+  if (!Array.isArray(services)) {
+    throw new TypeError(`${SERVICES_OPTION} must be an array`);
+  }
+
+  const entryByIndex = new Map<number, number>();
+  let defaultEntry: number | undefined;
+
+  services.forEach((service: unknown, i) => {
+    const path = `${SERVICES_OPTION}[${i}]`;
+    assertObject(service, path, [
+      "@index",
+      "@isDefault",
+      "ServiceName",
+      "ServiceDescription",
+      "RequestedAttribute",
+    ]);
+
+    const index = service["@index"];
+    if (
+      typeof index !== "string" ||
+      !/^[0-9]+$/.test(index) ||
+      Number(index) > MAX_UNSIGNED_SHORT
+    ) {
+      throw new TypeError(
+        `${path}["@index"] must be a string of digits from "0" to "${MAX_UNSIGNED_SHORT}"`,
+      );
+    }
+    // Compared as numbers, because "1" and "01" are the same `xs:unsignedShort`.
+    const entryWithIndex = entryByIndex.get(Number(index));
+    if (entryWithIndex !== undefined) {
+      throw new TypeError(
+        `${path}["@index"] is "${index}", but ${SERVICES_OPTION}[${entryWithIndex}] already uses that index`,
+      );
+    }
+    entryByIndex.set(Number(index), i);
+
+    assertBooleanIfPresent(service["@isDefault"], `${path}["@isDefault"] must be a boolean`);
+    if (service["@isDefault"] === true) {
+      if (defaultEntry !== undefined) {
+        throw new TypeError(
+          `${path}["@isDefault"] is true, but ${SERVICES_OPTION}[${defaultEntry}] is already the default`,
+        );
+      }
+      defaultEntry = i;
+    }
+
+    assertNonEmptyArray(service.ServiceName, `${path}.ServiceName`);
+    assertLocalizedNames(service.ServiceName, `${path}.ServiceName`);
+    if (service.ServiceDescription != null) {
+      assertLocalizedNames(service.ServiceDescription, `${path}.ServiceDescription`);
+    }
+
+    assertNonEmptyArray(service.RequestedAttribute, `${path}.RequestedAttribute`);
+    service.RequestedAttribute.forEach((attribute, j) => {
+      const attributePath = `${path}.RequestedAttribute[${j}]`;
+      assertObject(attribute, attributePath, [
+        "@Name",
+        "@NameFormat",
+        "@FriendlyName",
+        "@isRequired",
+      ]);
+      assertNonEmptyString(attribute["@Name"], `${attributePath}["@Name"]`);
+      for (const key of ["@NameFormat", "@FriendlyName"]) {
+        if (attribute[key] != null) {
+          assertNonEmptyString(attribute[key], `${attributePath}["${key}"]`);
+        }
+      }
+      assertBooleanIfPresent(
+        attribute["@isRequired"],
+        `${attributePath}["@isRequired"] must be a boolean`,
+      );
+    });
+  });
+};
 
 export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,
@@ -138,6 +260,8 @@ export const generateServiceProviderMetadata = (
     "@Location": callbackUrl,
   } as XMLObject;
 
+  assertValidAttributeConsumingServices(params.metadataAttributeConsumingServices);
+
   // This must be assigned after `AssertionConsumerService` above, because
   // `SPSSODescriptorType` sequences `AssertionConsumerService` before
   // `AttributeConsumingService`. Likewise, the fields below are copied one by
@@ -148,7 +272,7 @@ export const generateServiceProviderMetadata = (
     metadata.EntityDescriptor.SPSSODescriptor.AttributeConsumingService =
       params.metadataAttributeConsumingServices.map((service) => ({
         "@index": service["@index"],
-        ...(service["@isDefault"] !== undefined ? { "@isDefault": service["@isDefault"] } : {}),
+        ...(service["@isDefault"] != null ? { "@isDefault": service["@isDefault"] } : {}),
         ServiceName: service.ServiceName,
         ...(service.ServiceDescription ? { ServiceDescription: service.ServiceDescription } : {}),
         RequestedAttribute: service.RequestedAttribute,

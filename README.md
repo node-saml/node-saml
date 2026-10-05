@@ -491,9 +491,9 @@ metadataAttributeConsumingServices: [
         "@isRequired": true,
       },
       {
-        "@Name": "urn:oid:1.2.840.113549.1.9.1",
+        "@Name": "urn:oid:0.9.2342.19200300.100.1.3",
         "@NameFormat": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
-        "@FriendlyName": "emailAddress",
+        "@FriendlyName": "mail",
         "@isRequired": false,
       },
     ],
@@ -501,9 +501,11 @@ metadataAttributeConsumingServices: [
 ],
 ```
 
-Each `metadataAttributeConsumingServices` entry needs an `@index` that is unique within the
-metadata, and at most one entry should set `@isDefault` to `true`. Set
-`attributeConsumingServiceIndex` to have an `AuthnRequest` select one of them by its `@index`.
+Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
+other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
+entry may set `@isDefault` to `true`. An entry that breaks these rules, or carries a key not shown
+above, is rejected with a `TypeError` when the `SAML` is constructed or the metadata is generated.
+Set `attributeConsumingServiceIndex` to have an `AuthnRequest` select one of them by its `@index`.
 
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
 
