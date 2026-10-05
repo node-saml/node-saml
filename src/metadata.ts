@@ -76,6 +76,11 @@ function assertValidContactPersons(contacts: unknown): void {
     if (typeof contactType !== "string" || !CONTACT_TYPES.includes(contactType)) {
       throw new TypeError(`${path}["@contactType"] must be one of ${CONTACT_TYPES.join(", ")}`);
     }
+    // `md:Extensions` holds elements and no text: SAML 2.0 Metadata, section 2.3.1.
+    const extensions = contact.Extensions;
+    if (extensions != null && (typeof extensions !== "object" || Array.isArray(extensions))) {
+      throw new TypeError(`${path}.Extensions must be an object of namespace-qualified elements`);
+    }
     for (const key of ["Company", "GivenName", "SurName"]) {
       if (contact[key] != null) {
         assertNonEmptyString(contact[key], `${path}.${key}`);
