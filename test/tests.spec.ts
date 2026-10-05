@@ -890,6 +890,26 @@ describe("node-saml /", function () {
             `${option}[0].RequestedAttribute[0]["@Name"] must be a non-empty string`,
           ],
           [
+            "a @NameFormat that is a short name where SAML requires an absolute URI",
+            [
+              {
+                ...service,
+                RequestedAttribute: [{ "@Name": "urn:oid:2.5.4.42", "@NameFormat": "uri" }],
+              },
+            ],
+            `${option}[0].RequestedAttribute[0]["@NameFormat"] must be an absolute URI, such as "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"`,
+          ],
+          [
+            "a @NameFormat that is not a URI",
+            [
+              {
+                ...service,
+                RequestedAttribute: [{ "@Name": "urn:oid:2.5.4.42", "@NameFormat": ":bad" }],
+              },
+            ],
+            `${option}[0].RequestedAttribute[0]["@NameFormat"] must be an absolute URI, such as "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"`,
+          ],
+          [
             "a RequestedAttribute with an AttributeValue",
             [
               {

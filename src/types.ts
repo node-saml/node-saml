@@ -274,8 +274,9 @@ export interface AttributeConsumingService {
 
     /**
      * Format of the attribute name. SAML 2.0 Core, section 8.2 defines three,
-     * which {@link SAML_ATTRIBUTE_NAME_FORMATS} lists; any other URI is
-     * permitted.
+     * which {@link SAML_ATTRIBUTE_NAME_FORMATS} lists; any other absolute URI
+     * is permitted. A value that is not an absolute URI, such as `"uri"`, is
+     * rejected.
      *
      * Omitting this emits no `NameFormat` attribute, which SAML 2.0 Core,
      * section 2.7.3.1 states is equivalent to

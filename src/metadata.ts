@@ -15,6 +15,13 @@ const MAX_UNSIGNED_SHORT = 65535;
 // The lexical space of `xs:language`, the type the schema gives `xml:lang`:
 // https://www.w3.org/TR/xmlschema-2/#language
 const LANGUAGE_TAG = /^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$/;
+// SAML 2.0 Core, section 1.3.2, requires a URI value to be absolute in the sense of RFC 2396,
+// whose grammar comes to a scheme, a colon and one or more URI characters, then an optional
+// fragment: https://www.rfc-editor.org/rfc/rfc2396#section-3
+const URI_CHARACTER = "(?:[;/?:@&=+$,a-zA-Z0-9_.!~*'()-]|%[0-9a-fA-F]{2})";
+const ABSOLUTE_URI = new RegExp(
+  `^[a-zA-Z][a-zA-Z0-9+.-]*:${URI_CHARACTER}+(?:#${URI_CHARACTER}*)?$`,
+);
 
 function assertObject(
   value: unknown,
@@ -127,10 +134,17 @@ export const assertValidAttributeConsumingServices = (services: unknown): void =
         "@isRequired",
       ]);
       assertNonEmptyString(attribute["@Name"], `${attributePath}["@Name"]`);
-      for (const key of ["@NameFormat", "@FriendlyName"]) {
-        if (attribute[key] != null) {
-          assertNonEmptyString(attribute[key], `${attributePath}["${key}"]`);
-        }
+      const nameFormat = attribute["@NameFormat"];
+      if (
+        nameFormat != null &&
+        (typeof nameFormat !== "string" || !ABSOLUTE_URI.test(nameFormat))
+      ) {
+        throw new TypeError(
+          `${attributePath}["@NameFormat"] must be an absolute URI, such as "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"`,
+        );
+      }
+      if (attribute["@FriendlyName"] != null) {
+        assertNonEmptyString(attribute["@FriendlyName"], `${attributePath}["@FriendlyName"]`);
       }
       assertBooleanIfPresent(
         attribute["@isRequired"],
