@@ -17,6 +17,13 @@ const CONTACT_TYPES = ["technical", "support", "administrative", "billing", "oth
 // The lexical space of `xs:language`, the type the schema gives `xml:lang`:
 // https://www.w3.org/TR/xmlschema-2/#language
 const LANGUAGE_TAG = /^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$/;
+// SAML 2.0 Core, section 1.3.2, requires a URI value to be absolute in the sense of RFC 2396,
+// whose grammar comes to a scheme, a colon and one or more URI characters, then an optional
+// fragment: https://www.rfc-editor.org/rfc/rfc2396#section-3
+const URI_CHARACTER = "(?:[;/?:@&=+$,a-zA-Z0-9_.!~*'()-]|%[0-9a-fA-F]{2})";
+const ABSOLUTE_URI = new RegExp(
+  `^[a-zA-Z][a-zA-Z0-9+.-]*:${URI_CHARACTER}+(?:#${URI_CHARACTER}*)?$`,
+);
 
 function assertObject(
   value: unknown,
@@ -117,6 +124,13 @@ function assertValidOrganization(organization: unknown): void {
     assertNonEmptyArray(organization[name], `metadataOrganization.${name}`);
     assertLocalizedNames(organization[name], `metadataOrganization.${name}`);
   }
+  (organization.OrganizationURL as { "#text": string }[]).forEach((url, i) => {
+    if (!ABSOLUTE_URI.test(url["#text"])) {
+      throw new TypeError(
+        `metadataOrganization.OrganizationURL[${i}]["#text"] must be an absolute URI, such as "https://example.com"`,
+      );
+    }
+  });
 }
 
 // Both options are still written into the metadata as given, so what the checks find is logged and
