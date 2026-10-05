@@ -214,6 +214,9 @@ library to report untrusted data as valid.
   Uncovered code indicates either inadequately tested public behavior or code that may be
   unnecessary; determine which rather than adding protected-method tests merely to
   increase coverage.
+- Do not test deprecation warnings, or anything else that exists only until the next major
+  removes it. A warning is deleted along with the thing it announces, so a test of it protects
+  nothing durable. Test durable features and specification compliance.
 - Add a test when a change alters what the library accepts, rejects, emits, or considers
   trustworthy.
 - For a bug fix, observe the regression test failing for the reported reason before
