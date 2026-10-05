@@ -509,8 +509,9 @@ metadataAttributeConsumingServices: [
 
 Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
 other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
-entry may set `@isDefault` to `true`. An entry that breaks these rules, or carries a key not shown
-above, is rejected with a `TypeError` when the `SAML` is constructed or the metadata is generated.
+entry may set `@isDefault` to `true`. An entry that breaks these rules, carries a key not shown
+above, or holds a malformed value such as an `@xml:lang` that is not a language tag, is rejected
+with a `TypeError` when the `SAML` is constructed or the metadata is generated.
 Set `attributeConsumingServiceIndex` to have an `AuthnRequest` select one of them by its `@index`.
 
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.

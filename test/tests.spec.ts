@@ -862,7 +862,12 @@ describe("node-saml /", function () {
           [
             "a ServiceName with no language",
             [{ ...service, ServiceName: [{ "#text": "Employee Portal" }] }],
-            `${option}[0].ServiceName[0]["@xml:lang"] must be a non-empty string`,
+            `${option}[0].ServiceName[0]["@xml:lang"] must be a language tag, such as "en" or "en-GB"`,
+          ],
+          [
+            "a ServiceName whose language is not a language tag",
+            [{ ...service, ServiceName: [{ "@xml:lang": "en_GB", "#text": "Employee Portal" }] }],
+            `${option}[0].ServiceName[0]["@xml:lang"] must be a language tag, such as "en" or "en-GB"`,
           ],
           [
             "a ServiceDescription that is not an array",
@@ -931,6 +936,21 @@ describe("node-saml /", function () {
         it("emits no AttributeConsumingService for an empty array", function () {
           expect(
             generateServiceProviderMetadata({ ...params, metadataAttributeConsumingServices: [] }),
+          ).to.not.contain("AttributeConsumingService");
+        });
+
+        it("treats null as absent, as it does for the other options", function () {
+          const metadataAttributeConsumingServices = null as unknown as SamlConfig[typeof option];
+
+          expect(
+            new SAML({
+              ...params,
+              idpCert: FAKE_CERT,
+              metadataAttributeConsumingServices,
+            }).generateServiceProviderMetadata(null),
+          ).to.not.contain("AttributeConsumingService");
+          expect(
+            generateServiceProviderMetadata({ ...params, metadataAttributeConsumingServices }),
           ).to.not.contain("AttributeConsumingService");
         });
       });
