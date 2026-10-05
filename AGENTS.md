@@ -177,6 +177,8 @@ Removing a deprecated API is part of the work, not a someday. The process:
    is a message to consumers, not permission to let the code rot.
 4. **Remove it in a major.** Not before. `CHANGELOG.md` and the release notes carry it.
 
+Don't test deprecation warnings.
+
 Two cautions specific to this repository:
 
 - A lint rule that errors on deprecated usage makes internal migration enforceable, and is
@@ -189,10 +191,10 @@ Two cautions specific to this repository:
 
 ## Tests
 
-Tests protect observable behavior, not implementation details. Favor tests that establish
-what the library accepts, rejects, emits, or considers trustworthy. Security regressions
-matter most: a test should ensure that malformed or adversarial XML cannot cause the
-library to report untrusted data as valid.
+Tests protect durable, observable behavior, not implementation details. Favor tests that
+establish what the library accepts, rejects, emits, or considers trustworthy. Security
+regressions matter most: a test should ensure that malformed or adversarial XML cannot
+cause the library to report untrusted data as valid.
 
 - Test at a public boundary for the behavior being changed. For response handling, that
   means constructing a `SAML` with a config a real caller could write, feeding it a base64
