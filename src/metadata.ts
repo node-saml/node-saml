@@ -3,12 +3,52 @@ import {
   isValidSamlSigningOptions,
   ServiceMetadataXML,
   XMLObject,
+  XMLValue,
   GenerateServiceProviderMetadataParams,
 } from "./types";
 import { assertRequired, signXmlMetadata } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
 import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+
+// The order in which `ContactType` and `OrganizationType` sequence their children: SAML 2.0
+// Metadata, sections 2.3.2.2 and 2.3.2.1.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
+const CONTACT_PERSON_CHILDREN = [
+  "Extensions",
+  "Company",
+  "GivenName",
+  "SurName",
+  "EmailAddress",
+  "TelephoneNumber",
+];
+const ORGANIZATION_CHILDREN = [
+  "Extensions",
+  "OrganizationName",
+  "OrganizationDisplayName",
+  "OrganizationURL",
+];
+
+// The builder emits keys in the order they were written, and the order a caller writes an
+// object's keys in is not a choice the schema should depend on. Any other key, such as an
+// attribute, is kept ahead of the children.
+function inSchemaOrder(element: XMLValue, children: string[]): XMLValue {
+  if (Array.isArray(element)) {
+    return element.map((entry) => inSchemaOrder(entry, children));
+  }
+  if (typeof element !== "object" || element === null) {
+    return element;
+  }
+  const keys = Object.keys(element);
+  const ordered: XMLObject = {};
+  for (const key of [
+    ...keys.filter((key) => !children.includes(key)),
+    ...children.filter((key) => keys.includes(key)),
+  ]) {
+    ordered[key] = element[key];
+  }
+  return ordered;
+}
 
 // `SAML`'s constructor has already reported its options, so its method builds the metadata
 // without warning again.
@@ -61,8 +101,12 @@ export const buildServiceProviderMetadata = (
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
         "@AuthnRequestsSigned": "false",
       },
-      ...(metadataOrganization ? { Organization: metadataOrganization } : {}),
-      ...(metadataContactPerson ? { ContactPerson: metadataContactPerson } : {}),
+      ...(metadataOrganization
+        ? { Organization: inSchemaOrder(metadataOrganization, ORGANIZATION_CHILDREN) }
+        : {}),
+      ...(metadataContactPerson
+        ? { ContactPerson: inSchemaOrder(metadataContactPerson, CONTACT_PERSON_CHILDREN) }
+        : {}),
     },
   };
 

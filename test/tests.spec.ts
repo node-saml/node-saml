@@ -687,6 +687,54 @@ describe("node-saml /", function () {
         assert.ok(getVerifiedXml(metadata, dom.documentElement, [publicCert]));
       });
 
+      it("emits ContactPerson and Organization children in schema order, whatever order the keys are in", async function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          idpCert: FAKE_CERT,
+          metadataContactPerson: [
+            {
+              TelephoneNumber: ["+1 555 0100"],
+              EmailAddress: ["mailto:ada@example.com"],
+              SurName: "Lovelace",
+              GivenName: "Ada",
+              Company: "node-saml",
+              "@contactType": "technical",
+            },
+          ],
+          metadataOrganization: {
+            OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml" }],
+            OrganizationDisplayName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+            OrganizationName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+          },
+        };
+
+        const dom = await parseDomFromString(
+          new SAML(samlConfig).generateServiceProviderMetadata(null),
+        );
+        const childrenOf = (name: string) =>
+          Array.from(dom.getElementsByTagName(name)[0].childNodes)
+            .filter((node) => node.nodeType === node.ELEMENT_NODE)
+            .map((node) => node.nodeName);
+
+        // SAML 2.0 Metadata, sections 2.3.2.2 and 2.3.2.1
+        expect(childrenOf("ContactPerson")).to.deep.equal([
+          "Company",
+          "GivenName",
+          "SurName",
+          "EmailAddress",
+          "TelephoneNumber",
+        ]);
+        expect(childrenOf("Organization")).to.deep.equal([
+          "OrganizationName",
+          "OrganizationDisplayName",
+          "OrganizationURL",
+        ]);
+        expect(dom.getElementsByTagName("ContactPerson")[0].getAttribute("contactType")).to.equal(
+          "technical",
+        );
+      });
+
       it("generateServiceProviderMetadata contains metadataExtensions", function () {
         const samlConfig: SamlConfig = {
           issuer: "http://example.serviceprovider.com",
