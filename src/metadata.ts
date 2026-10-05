@@ -6,7 +6,13 @@ import {
   XMLObject,
   GenerateServiceProviderMetadataParams,
 } from "./types";
-import { assertRequired, signXmlMetadata } from "./utility";
+import {
+  assertNonEmptyArray,
+  assertNonEmptyString,
+  assertObject,
+  assertRequired,
+  signXmlMetadata,
+} from "./utility";
 import { buildXmlBuilderObject } from "./xml";
 import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
@@ -25,26 +31,6 @@ const ABSOLUTE_URI = new RegExp(
   `^[a-zA-Z][a-zA-Z0-9+.-]*:${URI_CHARACTER}+(?:#${URI_CHARACTER}*)?$`,
 );
 
-function assertObject(
-  value: unknown,
-  path: string,
-  supportedKeys: string[],
-): asserts value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new TypeError(`${path} must be an object`);
-  }
-  const unsupportedKey = Object.keys(value).find((key) => !supportedKeys.includes(key));
-  if (unsupportedKey !== undefined) {
-    throw new TypeError(`${path} has an unsupported key "${unsupportedKey}"`);
-  }
-}
-
-function assertNonEmptyString(value: unknown, path: string): asserts value is string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new TypeError(`${path} must be a non-empty string`);
-  }
-}
-
 function assertLocalizedNames(value: unknown, path: string): void {
   if (!Array.isArray(value)) {
     throw new TypeError(`${path} must be an array`);
@@ -59,12 +45,6 @@ function assertLocalizedNames(value: unknown, path: string): void {
     }
     assertNonEmptyString(name["#text"], `${path}[${i}]["#text"]`);
   });
-}
-
-function assertNonEmptyArray(value: unknown, path: string): asserts value is unknown[] {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new TypeError(`${path} must be a non-empty array`);
-  }
 }
 
 function assertValidContactPersons(contacts: unknown): void {
