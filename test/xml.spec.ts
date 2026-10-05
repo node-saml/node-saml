@@ -151,12 +151,12 @@ describe("xml /", async function () {
       const evilCommentDoc = await parseDomFromString(evilComment);
       const goodDoc = await parseDomFromString(good);
 
-      assert(
+      assert.ok(
         evilCommentDoc.documentElement.firstChild?.textContent ===
           "admin@mycompany.com.evil-domain",
         "Invalid XML comment parsing.",
       );
-      assert(
+      assert.ok(
         goodDoc.documentElement.firstChild?.textContent === "admin@mycompany.com",
         "Invalid XML comment parsing.",
       );

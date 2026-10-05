@@ -6,3 +6,8 @@ package-lock.json
 .prettierignore
 .nyc_output
 coverage
+
+# Signed fixtures. Canonicalization and digests depend on the exact bytes, so
+# reformatting one silently invalidates its signature. Prettier has no XML parser
+# today, but that is an accident we don't want to rely on. See AGENTS.md.
+test/static

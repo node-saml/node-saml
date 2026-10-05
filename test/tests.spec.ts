@@ -10,6 +10,7 @@ import {
   Profile,
   SAML_ATTRIBUTE_NAME_FORMATS,
   SamlConfig,
+  SamlStatusError,
   ValidateInResponseTo,
   XMLOutput,
 } from "../src/types";
@@ -20,6 +21,8 @@ import { FAKE_CERT, TEST_CERT } from "./types";
 import { assertRequired, signXmlResponse } from "../src/utility";
 import { getVerifiedXml, parseDomFromString, validateSignature } from "../src/xml";
 import { generateServiceProviderMetadata } from "../src/metadata";
+import { spawnSync } from "child_process";
+import * as path from "path";
 
 const BAD_TEST_CERT =
   "MIIEOTCCAyGgAwIBAgIJAKZgJdKdCdL6MA0GCSqGSIb3DQEBBQUAMHAxCzAJBgNVBAYTAkFVMREwDwYDVQQIEwhWaWN0b3JpYTESMBAGA1UEBxMJTWVsYm91cm5lMSEwHwYDVQQKExhUYWJjb3JwIEhvbGRpbmdzIExpbWl0ZWQxFzAVBgNVBAMTDnN0cy50YWIuY29tLmF1MB4XDTE3MDUzMDA4NTQwOFoXDTI3MDUyODA4NTQwOFowcDELMAkGA1UEBhMCQVUxETAPBgNVBAgTCFZpY3RvcmlhMRIwEAYDVQQHEwlNZWxib3VybmUxITAfBgNVBAoTGFRhYmNvcnAgSG9sZGluZ3MgTGltaXRlZDEXMBUGA1UEAxMOc3RzLnRhYi5jb20uYXUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD0NuMcflq3rtupKYDf4a7lWmsXy66fYe9n8jB2DuLMakEJBlzn9j6B98IZftrilTq21VR7wUXROxG8BkN8IHY+l8X7lATmD28fFdZJj0c8Qk82eoq48faemth4fBMx2YrpnhU00jeXeP8dIIaJTPCHBTNgZltMMhphklN1YEPlzefJs3YD+Ryczy1JHbwETxt+BzO1JdjBe1fUTyl6KxAwWvtsNBURmQRYlDOk4GRgdkQnfxBuCpOMeOpV8wiBAi3h65Lab9C5avu4AJlA9e4qbOmWt6otQmgy5fiJVy6bH/d8uW7FJmSmePX9sqAWa9szhjdn36HHVQsfHC+IUEX7AgMBAAGjgdUwgdIwHQYDVR0OBBYEFN6z6cuxY7FTkg1S/lIjnS4x5ARWMIGiBgNVHSMEgZowgZeAFN6z6cuxY7FTkg1S/lIjnS4x5ARWoXSkcjBwMQswCQYDVQQGEwJBVTERMA8GA1UECBMIVmljdG9yaWExEjAQBgNVBAcTCU1lbGJvdXJuZTEhMB8GA1UEChMYVGFiY29ycCBIb2xkaW5ncyBMaW1pdGVkMRcwFQYDVQQDEw5zdHMudGFiLmNvbS5hdYIJAKZgJdKdCdL6MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAMi5HyvXgRa4+kKz3dk4SwAEXzeZRcsbeDJWVUxdb6a+JQxIoG7L9rSbd6yZvP/Xel5TrcwpCpl5eikzXB02/C0wZKWicNmDEBlOfw0Pc5ngdoh6ntxHIWm5QMlAfjR0dgTlojN4Msw2qk7cP1QEkV96e2BJUaqaNnM3zMvd7cfRjPNfbsbwl6hCCCAdwrALKYtBnjKVrCGPwO+xiw5mUJhZ1n6ZivTOdQEWbl26UO60J9ItiWP8VK0d0aChn326Ovt7qC4S3AgDlaJwcKe5Ifxl/UOWePGRwXj2UUuDWFhjtVmRntMmNZbe5yE8MkEvU+4/c6LqGwTCgDenRbK53Dgg";
@@ -685,7 +688,7 @@ describe("node-saml /", function () {
 
         const dom = await parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [publicCert])).to.be.true;
-        assert(getVerifiedXml(metadata, dom.documentElement, [publicCert]));
+        assert.ok(getVerifiedXml(metadata, dom.documentElement, [publicCert]));
       });
 
       it("generateServiceProviderMetadata contains metadataExtensions", function () {
@@ -792,6 +795,72 @@ describe("node-saml /", function () {
 
         testMetadata(samlConfig, expectedMetadata);
       });
+
+      describe("certificates", function () {
+        const readStatic = (name: string) =>
+          fs.readFileSync(`${__dirname}/static/${name}`, "utf-8");
+        const signingCert = readStatic("acme_tools_com.cert");
+        const encryptionCert = readStatic("testshib encryption cert.pem");
+        const params = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          generateUniqueId: () => "_metadata",
+        };
+        const signingMetadata = (publicCerts: string | string[]) =>
+          generateServiceProviderMetadata({
+            ...params,
+            privateKey: readStatic("acme_tools_com.key"),
+            publicCerts,
+          });
+        const encryptionMetadata = (decryptionCert: string) =>
+          generateServiceProviderMetadata({
+            ...params,
+            decryptionPvk: readStatic("testshib encryption pvk.pem"),
+            decryptionCert,
+          });
+
+        it("publishes a certificate the same whether it is given as PEM or as Base64", function () {
+          const base64 = readStatic("acme_tools_com_without_header_and_footer.cert");
+          expect(signingMetadata(base64.replace(/\s/g, ""))).to.equal(signingMetadata(signingCert));
+        });
+
+        it("should throw if decryptionCert holds more than one certificate", function () {
+          expect(() => encryptionMetadata(`${encryptionCert}${signingCert}`)).to.throw(
+            "decryptionCert must hold exactly one certificate, but holds 2",
+          );
+        });
+
+        it("should throw if an entry of publicCerts holds more than one certificate, naming the entry", function () {
+          expect(() => signingMetadata([signingCert, `${signingCert}${encryptionCert}`])).to.throw(
+            "publicCerts[1] must hold exactly one certificate, but holds 2",
+          );
+        });
+
+        it("should throw if publicCerts is a public key rather than a certificate", function () {
+          expect(() => signingMetadata(readStatic("pub.pem"))).to.throw(
+            "publicCerts must hold exactly one certificate, but holds 0",
+          );
+        });
+
+        it("signs metadata with a private key given as Base64", async function () {
+          const metadata = generateServiceProviderMetadata({
+            ...params,
+            privateKey: readStatic("single_line_acme_tools_com.key"),
+            publicCerts: signingCert,
+            signMetadata: true,
+            signatureAlgorithm: "sha256",
+            digestAlgorithm: "sha256",
+          });
+          const dom = await parseDomFromString(metadata);
+          assert.ok(getVerifiedXml(metadata, dom.documentElement, [signingCert]));
+        });
+
+        it("should throw if decryptionCert is not a certificate, naming the option", function () {
+          expect(() => encryptionMetadata(FAKE_CERT)).to.throw(
+            /^decryptionCert is not in PEM format or in base64 format: /,
+          );
+        });
+      });
     });
 
     describe("validatePostResponse checks /", function () {
@@ -836,7 +905,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
           callbackUrl: "http://localhost/saml/consume",
-          idpCert: FAKE_CERT,
+          idpCert: TEST_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
         });
@@ -852,7 +921,7 @@ describe("node-saml /", function () {
         const container = { SAMLResponse: base64xml };
         const samlObj = new SAML({
           callbackUrl: "http://localhost/saml/consume",
-          idpCert: FAKE_CERT,
+          idpCert: TEST_CERT,
           issuer: "onesaml_login",
           wantAuthnResponseSigned: false,
         });
@@ -882,8 +951,64 @@ describe("node-saml /", function () {
         expect(response).to.deep.equal({ profile: null, loggedOut: false });
       });
 
+      describe("error status under the default `wantAuthnResponseSigned`", function () {
+        const errorResponse =
+          '<?xml version="1.0" encoding="UTF-8"?><saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" Destination="http://localhost/browserSamlLogin" ID="_6a377272c8662561acf1056274ef3f81" InResponseTo="_4324fb0d00661146f7dc" IssueInstant="2014-07-02T18:16:31.278Z" Version="2.0"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">https://idp.testshib.org/idp/shibboleth</saml2:Issuer><saml2p:Status><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Responder"><saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:InvalidNameIDPolicy"/></saml2p:StatusCode><saml2p:StatusMessage>Required NameID format not supported</saml2p:StatusMessage></saml2p:Status></saml2p:Response>';
+        const samlObj = () =>
+          new SAML({
+            callbackUrl: "http://localhost/saml/consume",
+            idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
+            issuer: "onesaml_login",
+          });
+
+        it("rejects an unsigned one for the missing signature, before reading its status", async () => {
+          await assert.rejects(
+            samlObj().validatePostResponseAsync({
+              SAMLResponse: Buffer.from(errorResponse).toString("base64"),
+            }),
+            { message: "Invalid document signature" },
+          );
+        });
+
+        it("rejects a signed one with a SamlStatusError whose xmlStatus is the Status element", async () => {
+          const signed = signXmlResponse(errorResponse, {
+            privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
+            signatureAlgorithm: "sha256",
+            digestAlgorithm: "sha256",
+          });
+
+          const rejection: unknown = await samlObj()
+            .validatePostResponseAsync({ SAMLResponse: Buffer.from(signed).toString("base64") })
+            .then(
+              () => assert.fail("a non-Success status must be rejected"),
+              (err: unknown) => err,
+            );
+
+          assert.ok(rejection instanceof SamlStatusError);
+          expect(rejection.message).to.equal(
+            "SAML provider returned Responder error: Required NameID format not supported",
+          );
+          expect(await parseStringPromise(rejection.xmlStatus)).to.deep.equal({
+            Status: {
+              StatusCode: [
+                {
+                  $: { Value: "urn:oasis:names:tc:SAML:2.0:status:Responder" },
+                  StatusCode: [
+                    { $: { Value: "urn:oasis:names:tc:SAML:2.0:status:InvalidNameIDPolicy" } },
+                  ],
+                },
+              ],
+              StatusMessage: ["Required NameID format not supported"],
+            },
+          });
+        });
+      });
+
       it("accept response with an attributeStatement element without attributeValue", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2015-08-31T08:55:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2015-08-31T08:55:00+00:00"),
+          toFake: ["Date"],
+        });
 
         const container = {
           SAMLResponse: fs
@@ -909,8 +1034,123 @@ describe("node-saml /", function () {
         expect(profile).to.not.have.property("evilcorp.roles");
       });
 
+      describe("attributes with no usable value", function () {
+        const samlConfig: SamlConfig = {
+          callbackUrl: "http://localhost/saml/consume",
+          idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
+          audience: false,
+          issuer: "onesaml_login",
+          wantAssertionsSigned: false,
+        };
+        // Inclusive c14n leaves `xmlns:xsi` on the Attribute, so `xsi:nil` has to be resolved
+        // through an ancestor rather than read off the AttributeValue.
+        const samlResponse = Buffer.from(
+          signXmlResponse(
+            '<Response xmlns="urn:oasis:names:tc:SAML:2.0:protocol" ID="response0">' +
+              '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Version="2.0">' +
+              "<saml2:AttributeStatement>" +
+              "<saml2:Attribute/>" +
+              '<saml2:Attribute Name="none"/>' +
+              '<saml2:Attribute Name="empty"><saml2:AttributeValue/></saml2:Attribute>' +
+              '<saml2:Attribute Name="nil" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+              '<saml2:AttributeValue xsi:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="other-nil">' +
+              '<saml2:AttributeValue xmlns:xsi="urn:example:not-xsi" xsi:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="rebound" ' +
+              'xmlns:x500="urn:oasis:names:tc:SAML:2.0:profiles:attribute:X500" x500:Encoding="LDAP">' +
+              '<saml2:AttributeValue xmlns:x500="http://www.w3.org/2001/XMLSchema-instance" ' +
+              'x500:nil="true"/>' +
+              "</saml2:Attribute>" +
+              '<saml2:Attribute Name="multi">' +
+              "<saml2:AttributeValue>first</saml2:AttributeValue><saml2:AttributeValue/>" +
+              "</saml2:Attribute>" +
+              "</saml2:AttributeStatement>" +
+              "</saml2:Assertion>" +
+              "</Response>",
+            {
+              privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
+              signatureAlgorithm: "sha1",
+              xmlSignatureTransforms: [
+                "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+                "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
+              ],
+            },
+          ),
+        ).toString("base64");
+
+        it("leaves out one with no AttributeValue, and makes an empty or nil one undefined", async () => {
+          const { profile } = await new SAML(samlConfig).validatePostResponseAsync({
+            SAMLResponse: samlResponse,
+          });
+          assertRequired(profile, "profile must exist");
+          expect(profile.attributes).to.deep.equal({
+            empty: undefined,
+            nil: undefined,
+            "other-nil": undefined,
+            rebound: undefined,
+            multi: ["first", undefined],
+          });
+        });
+
+        describe("under NODE_DEBUG", function () {
+          let stderr: string;
+
+          // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child.
+          before(function () {
+            this.timeout(20000);
+            const script = `
+              const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+              new SAML(${JSON.stringify(samlConfig)})
+                .validatePostResponseAsync({ SAMLResponse: ${JSON.stringify(samlResponse)} })
+                .catch((error) => {
+                  console.error(error);
+                  process.exitCode = 1;
+                });
+            `;
+            const child = spawnSync(
+              process.execPath,
+              ["--require", "ts-node/register/transpile-only", "--eval", script],
+              { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+            );
+            expect(child.status, `child failed:\n${child.stderr}`).to.equal(0);
+            stderr = child.stderr;
+          });
+
+          it("warns about an attribute with no AttributeValue", function () {
+            expect(stderr).to.contain('The SAML attribute "none" has no AttributeValue');
+          });
+
+          it("warns about an empty AttributeValue, including one among several", function () {
+            expect(stderr).to.contain('The SAML attribute "empty" has an empty AttributeValue');
+            expect(stderr).to.contain('The SAML attribute "multi" has an empty AttributeValue');
+          });
+
+          it("warns about an xsi:nil AttributeValue as null, not as empty", function () {
+            expect(stderr).to.contain(
+              'The SAML attribute "nil" has an AttributeValue marked xsi:nil',
+            );
+            expect(stderr).to.not.contain('The SAML attribute "nil" has an empty AttributeValue');
+          });
+
+          it("treats nil in another namespace as an empty AttributeValue", function () {
+            expect(stderr).to.contain('The SAML attribute "other-nil" has an empty AttributeValue');
+          });
+
+          it("resolves xsi:nil against the nearest declaration of its prefix", function () {
+            expect(stderr).to.contain(
+              'The SAML attribute "rebound" has an AttributeValue marked xsi:nil',
+            );
+          });
+        });
+      });
+
       it("valid xml document with multiple SubjectConfirmation should validate", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-24T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-24T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64",
@@ -938,7 +1178,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with multiple SubjectConfirmation should fail if no one is valid", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T19:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T19:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64",
@@ -967,7 +1210,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with multiple SubjectConfirmation should validate, first is expired so it should take the second one", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64",
@@ -995,7 +1241,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with multiple SubjectConfirmations should fail if InResponseTo does not match a valid SubjectConfirmation", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-double-subjectconfirmation.xml",
           "base64",
@@ -1023,7 +1272,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with no SubjectConfirmation should validate", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-no-subjectconfirmation.xml",
           "base64",
@@ -1049,7 +1301,10 @@ describe("node-saml /", function () {
       });
 
       it("valid xml document with only empty SubjectConfirmation should not validate", async () => {
-        fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:00:00+00:00"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2020-09-25T16:00:00+00:00"),
+          toFake: ["Date"],
+        });
         const base64xml = fs.readFileSync(
           __dirname + "/static/response.root-signed.message-signed-empty-subjectconfirmation.xml",
           "base64",
@@ -1079,7 +1334,7 @@ describe("node-saml /", function () {
       [ValidateInResponseTo.always, ValidateInResponseTo.ifPresent].forEach(
         (validateInResponseTo) => {
           describe(`with validateInResponseTo set to ${validateInResponseTo}`, () => {
-            it(`removes InResponseTo value if response validation fails when validateInResponseTo=${validateInResponseTo}`, async () => {
+            it(`keeps the InResponseTo value pending when an unsigned response fails validation when validateInResponseTo=${validateInResponseTo}`, async () => {
               const requestId = "_a6fc46be84e1e3cf3c50";
               const xml =
                 '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
@@ -1107,10 +1362,10 @@ describe("node-saml /", function () {
               });
 
               await assert.rejects(samlObj.validatePostResponseAsync(container), {
-                message: "InResponseTo is not valid",
+                message: "Invalid signature",
               });
 
-              expect(await samlObj.cacheProvider.getAsync(requestId)).to.be.null;
+              expect(await samlObj.cacheProvider.getAsync(requestId)).to.not.be.null;
             });
           });
         },
@@ -1122,7 +1377,10 @@ describe("node-saml /", function () {
         let fakeClock: sinon.SinonFakeTimers;
 
         beforeEach(function () {
-          fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+          fakeClock = sinon.useFakeTimers({
+            now: Date.parse("2014-05-28T00:13:09Z"),
+            toFake: ["Date"],
+          });
         });
         afterEach(function () {
           fakeClock.restore();
@@ -1617,7 +1875,10 @@ describe("node-saml /", function () {
       let fakeClock: sinon.SinonFakeTimers;
 
       beforeEach(function () {
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
       });
 
       afterEach(function () {
@@ -2242,7 +2503,10 @@ describe("node-saml /", function () {
               };
               const samlObj = new SAML(samlConfig);
 
-              fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+              fakeClock = sinon.useFakeTimers({
+                now: Date.parse("2014-05-28T00:13:09Z"),
+                toFake: ["Date"],
+              });
 
               // Mock the SAML request being passed through Passport-SAML
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2273,7 +2537,10 @@ describe("node-saml /", function () {
               };
               const samlObj = new SAML(samlConfig);
 
-              fakeClock = sinon.useFakeTimers(Date.parse("2014-06-05T12:07:07.662Z"));
+              fakeClock = sinon.useFakeTimers({
+                now: Date.parse("2014-06-05T12:07:07.662Z"),
+                toFake: ["Date"],
+              });
 
               // Mock the SAML request being passed through Passport-SAML
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2307,7 +2574,10 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "InResponseTo is not valid",
         });
@@ -2330,7 +2600,10 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-06-05T12:07:07.662Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-06-05T12:07:07.662Z"),
+          toFake: ["Date"],
+        });
 
         // Mock the SAML request being passed through Passport-SAML
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2370,7 +2643,10 @@ describe("node-saml /", function () {
               };
               const samlObj = new SAML(samlConfig);
 
-              fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+              fakeClock = sinon.useFakeTimers({
+                now: Date.parse("2014-05-28T00:13:09Z"),
+                toFake: ["Date"],
+              });
               const { profile } = await samlObj.validatePostResponseAsync(container);
               assertRequired(profile, "profile must exist");
               expect(profile.nameID.startsWith("ploer")).to.be.true;
@@ -2397,7 +2673,10 @@ describe("node-saml /", function () {
               };
               const samlObj = new SAML(samlConfig);
 
-              fakeClock = sinon.useFakeTimers(Date.parse("2014-06-05T12:07:07.662Z"));
+              fakeClock = sinon.useFakeTimers({
+                now: Date.parse("2014-06-05T12:07:07.662Z"),
+                toFake: ["Date"],
+              });
 
               // Mock the SAML request being passed through Passport-SAML
               await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2435,7 +2714,10 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
         expect(profile.nameID.startsWith("ploer")).to.be.true;
@@ -2462,7 +2744,10 @@ describe("node-saml /", function () {
         };
         const samlObj = new SAML(samlConfig);
 
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-06-05T12:07:07.662Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-06-05T12:07:07.662Z"),
+          toFake: ["Date"],
+        });
 
         // Mock the SAML request being passed through Passport-SAML
         await samlObj.cacheProvider.saveAsync(requestId, new Date().toISOString());
@@ -2494,7 +2779,10 @@ describe("node-saml /", function () {
       let fakeClock: sinon.SinonFakeTimers;
 
       beforeEach(function () {
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
       });
 
       afterEach(function () {
@@ -2514,7 +2802,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be within the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:09Z"),
+          toFake: ["Date"],
+        });
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
@@ -2534,7 +2825,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be within the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:08Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:08Z"),
+          toFake: ["Date"],
+        });
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
@@ -2554,7 +2848,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be after the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "SAML assertion not yet valid",
         });
@@ -2579,45 +2876,64 @@ describe("node-saml /", function () {
         const samlObj = new SAML({ ...samlConfig, idpCert });
 
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "Error parsing NotBefore: 'INVALID-DATE' is not a valid date",
         });
       });
 
       it("onelogin xml document with current time equal to NotOnOrAfter (minus default clock skew) time should fail", async () => {
-        const xml =
+        const unsignedXml =
           '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
-          '<saml:Assertion xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="2.0" ID="pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa" IssueInstant="2014-05-28T00:16:08Z"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>DCnPTQYBb1hKspbe6fg1U3q8xn4=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>e0+aFomA0+JAY0f9tKqzIuqIVSSw7LiFUsneEDKPBWdiTz1sMdgr/2y1e9+rjaS2mRmCi/vSQLY3zTYz0hp6nJNU19+TWoXo9kHQyWT4KkeQL4Xs/gZ/AoKC20iHVKtpPps0IQ0Ml/qRoouSitt6Sf/WDz2LV/pWcH2hx5tv3xSw36hK2NQc7qw7r1mEXnvcjXReYo8rrVf7XHGGxNoRIEICUIi110uvsWemSXf0Z0dyb0FVYOWuSsQMDlzNpheADBifFO4UTfSEhFZvn8kVCGZUIwrbOhZ2d/+YEtgyuTg+qtslgfy4dwd4TvEcfuRzQTazeefprSFyiQckAXOjcw==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>' +
-          TEST_CERT +
-          '</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">ploer@subspacesw.com</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:19:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
+          '<saml:Assertion xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="2.0" ID="pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa" IssueInstant="2014-05-28T00:16:08Z"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">ploer@subspacesw.com</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:25:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
           "</samlp:Response>";
-        const base64xml = Buffer.from(xml).toString("base64");
+        const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+        const idpCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
+
+        const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
-        const samlObj = new SAML(samlConfig);
+        const samlObj = new SAML({ ...samlConfig, idpCert });
 
         // Fake the current date to be after the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:19:08Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:19:08Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "SAML assertion expired: clocks skewed too much",
         });
       });
 
       it("onelogin xml document with current time after NotOnOrAfter time (minus default clock skew) should fail", async () => {
-        const xml =
+        const unsignedXml =
           '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
-          '<saml:Assertion xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="2.0" ID="pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa" IssueInstant="2014-05-28T00:16:08Z"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>DCnPTQYBb1hKspbe6fg1U3q8xn4=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>e0+aFomA0+JAY0f9tKqzIuqIVSSw7LiFUsneEDKPBWdiTz1sMdgr/2y1e9+rjaS2mRmCi/vSQLY3zTYz0hp6nJNU19+TWoXo9kHQyWT4KkeQL4Xs/gZ/AoKC20iHVKtpPps0IQ0Ml/qRoouSitt6Sf/WDz2LV/pWcH2hx5tv3xSw36hK2NQc7qw7r1mEXnvcjXReYo8rrVf7XHGGxNoRIEICUIi110uvsWemSXf0Z0dyb0FVYOWuSsQMDlzNpheADBifFO4UTfSEhFZvn8kVCGZUIwrbOhZ2d/+YEtgyuTg+qtslgfy4dwd4TvEcfuRzQTazeefprSFyiQckAXOjcw==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>' +
-          TEST_CERT +
-          '</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">ploer@subspacesw.com</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:19:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
+          '<saml:Assertion xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="2.0" ID="pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa" IssueInstant="2014-05-28T00:16:08Z"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">ploer@subspacesw.com</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:25:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
           "</samlp:Response>";
-        const base64xml = Buffer.from(xml).toString("base64");
+        const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+        const idpCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
+
+        const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
-        const samlObj = new SAML(samlConfig);
+        const samlObj = new SAML({ ...samlConfig, idpCert });
 
         // Fake the current date to be after the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:19:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:19:09Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "SAML assertion expired: clocks skewed too much",
         });
@@ -2646,7 +2962,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be after the valid time range
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:20:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:20:09Z"),
+          toFake: ["Date"],
+        });
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
@@ -2672,7 +2991,10 @@ describe("node-saml /", function () {
         const samlObj = new SAML({ ...samlConfig, idpCert });
 
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "Error parsing NotOnOrAfter: 'INVALID-DATE' is not a valid date",
         });
@@ -2697,30 +3019,42 @@ describe("node-saml /", function () {
         const samlObj = new SAML({ ...samlConfig, idpCert });
 
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "Error parsing NotOnOrAfter: 'INVALID-DATE' is not a valid date",
         });
       });
 
       it("onelogin xml document with current time after MaxAssertionAge (minus default clock skew) should fail", async () => {
-        const xml =
+        const unsignedXml =
           '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="R689b0733bccca22a137e3654830312332940b1be" Version="2.0" IssueInstant="2014-05-28T00:16:08Z" Destination="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>' +
-          '<saml:Assertion xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="2.0" ID="pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa" IssueInstant="2014-05-28T00:16:08Z"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>DCnPTQYBb1hKspbe6fg1U3q8xn4=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>e0+aFomA0+JAY0f9tKqzIuqIVSSw7LiFUsneEDKPBWdiTz1sMdgr/2y1e9+rjaS2mRmCi/vSQLY3zTYz0hp6nJNU19+TWoXo9kHQyWT4KkeQL4Xs/gZ/AoKC20iHVKtpPps0IQ0Ml/qRoouSitt6Sf/WDz2LV/pWcH2hx5tv3xSw36hK2NQc7qw7r1mEXnvcjXReYo8rrVf7XHGGxNoRIEICUIi110uvsWemSXf0Z0dyb0FVYOWuSsQMDlzNpheADBifFO4UTfSEhFZvn8kVCGZUIwrbOhZ2d/+YEtgyuTg+qtslgfy4dwd4TvEcfuRzQTazeefprSFyiQckAXOjcw==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>' +
-          TEST_CERT +
-          '</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">ploer@subspacesw.com</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="2014-05-28T00:19:08Z" Recipient="{recipient}" InResponseTo="_a6fc46be84e1e3cf3c50"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
+          '<saml:Assertion xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="2.0" ID="pfx3b63c7be-fe86-62fd-8cb5-16ab6273efaa" IssueInstant="2014-05-28T00:16:08Z"><saml:Issuer>https://app.onelogin.com/saml/metadata/371755</saml:Issuer><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">ploer@subspacesw.com</saml:NameID></saml:Subject><saml:Conditions NotBefore="2014-05-28T00:13:08Z" NotOnOrAfter="2014-05-28T00:19:08Z"><saml:AudienceRestriction><saml:Audience>{audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="2014-05-28T00:16:07Z" SessionNotOnOrAfter="2014-05-29T00:16:08Z" SessionIndex="_30a4af50-c82b-0131-f8b5-782bcb56fcaa"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion>' +
           "</samlp:Response>";
-        const base64xml = Buffer.from(xml).toString("base64");
+        const signingKey = fs.readFileSync(__dirname + "/static/key.pem");
+        const idpCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
+        const signedXml = signXmlResponse(unsignedXml, {
+          privateKey: signingKey,
+          signatureAlgorithm: "sha1",
+        });
+
+        const base64xml = Buffer.from(signedXml).toString("base64");
         const container = { SAMLResponse: base64xml };
 
         // Set the maxAssertionAgeMs so that IssueInstant + maxAssertionAgeMs == 2014-05-28T00:16:09Z
-        // Note that NotOnOrAfter == 2014-05-28T00:19:08Z in the response
-        const samlObj = new SAML({ ...samlConfig, maxAssertionAgeMs: 1000 });
+        // Note that NotOnOrAfter == 2014-05-28T00:19:08Z in the response, and that the assertion
+        // carries no SubjectConfirmation, which maxAssertionAgeMs would bound first
+        const samlObj = new SAML({ ...samlConfig, idpCert, maxAssertionAgeMs: 1000 });
 
         // Fake the current date to be after the time limit set by maxAssertionAgeMs,
         // but before the limit set by NotOnOrAfter
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:17:09Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:17:09Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "SAML assertion expired: assertion too old",
         });
@@ -2742,7 +3076,10 @@ describe("node-saml /", function () {
 
         // Fake the current date to be before the time limit set by maxAssertionAgeMs
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:16:08Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:16:08Z"),
+          toFake: ["Date"],
+        });
 
         const { profile } = await samlObj.validatePostResponseAsync(container);
         assertRequired(profile, "profile must exist");
@@ -2769,7 +3106,10 @@ describe("node-saml /", function () {
         const samlObj = new SAML({ ...samlConfig, idpCert });
 
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2014-05-28T00:13:07Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2014-05-28T00:13:07Z"),
+          toFake: ["Date"],
+        });
         await assert.rejects(samlObj.validatePostResponseAsync(container), {
           message: "Error parsing IssueInstant: 'INVALID-DATE' is not a valid date",
         });
@@ -3001,9 +3341,11 @@ describe("node-saml /", function () {
         "\t<child22><<</child>\n" +
         "\t<child/>\n" +
         "</xml>";
+      // The wording of the parse failure belongs to xmldom and changes between
+      // releases; what we require is that the document is rejected and that the
+      // error carries the position, which is why `parseDomFromString` passes a locator.
       await assert.rejects(parseDomFromString(badXml), {
-        message:
-          "[xmldom error]\telement parse error: Error: invalid tagName:<<\n" + "@#[line:3,col:11]",
+        message: /^\[xmldom error\]\telement parse error: Error: .+\n@#\[line:3,col:11\]$/,
       });
     });
 
@@ -3186,18 +3528,48 @@ describe("node-saml /", function () {
     const request =
       '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
 
-    if (process.versions.node.split(".")[0] >= "18") {
-      await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-        message: "error:1E08010C:DECODER routines::unsupported",
-      });
-    } else {
-      await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-        message: "error:0909006C:PEM routines:get_name:no start line",
-      });
-    }
+    await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
+      message: "privateKey is not in PEM format or in base64 format: Invalid PEM format.",
+    });
   });
 
   describe("validateRedirect()", function () {
+    function withoutSignature(request: Record<string, string>): Record<string, string> {
+      const unsigned = { ...request };
+      delete unsigned.Signature;
+      delete unsigned.SigAlg;
+      unsigned.originalQuery = request.originalQuery
+        .split("&")
+        .filter((param) => !/^(Signature|SigAlg)=/.test(param))
+        .join("&");
+      return unsigned;
+    }
+
+    // `util.debuglog` reads NODE_DEBUG once per process, so this runs in a child rather
+    // than mutating the environment the rest of the suite shares.
+    function validateRedirectWithNodeDebug(request: Record<string, string>) {
+      const config: SamlConfig = {
+        callbackUrl: "http://localhost/saml/consume",
+        idpCert: fs.readFileSync(__dirname + "/static/acme_tools_com.cert", "ascii"),
+        issuer: "onesaml_login",
+        acceptedClockSkewMs: -1,
+      };
+      const script = `
+        const { SAML } = require(${JSON.stringify(path.join(__dirname, "..", "src"))});
+        new SAML(${JSON.stringify(config)})
+          .validateRedirectAsync(${JSON.stringify(request)}, ${JSON.stringify(request.originalQuery)})
+          .catch((error) => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+      `;
+      return spawnSync(
+        process.execPath,
+        ["--require", "ts-node/register/transpile-only", "--eval", script],
+        { env: { ...process.env, NODE_DEBUG: "node-saml" }, encoding: "utf8" },
+      );
+    }
+
     describe("idp slo", function () {
       let samlObj: SAML;
       let fakeClock: sinon.SinonFakeTimers;
@@ -3212,7 +3584,10 @@ describe("node-saml /", function () {
           {},
           JSON.parse(fs.readFileSync(__dirname + "/static/idp_slo_redirect.json", "utf8")),
         );
-        fakeClock = sinon.useFakeTimers(Date.parse("2018-04-11T14:08:00Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2018-04-11T14:08:00Z"),
+          toFake: ["Date"],
+        });
       });
       afterEach(function () {
         fakeClock.restore();
@@ -3235,7 +3610,10 @@ describe("node-saml /", function () {
       });
       it("errors if request has expired", async function () {
         fakeClock.restore();
-        fakeClock = sinon.useFakeTimers(Date.parse("2100-04-11T14:08:00Z"));
+        fakeClock = sinon.useFakeTimers({
+          now: Date.parse("2100-04-11T14:08:00Z"),
+          toFake: ["Date"],
+        });
 
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
@@ -3261,6 +3639,23 @@ describe("node-saml /", function () {
           nameIDFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
           sessionIndex: "_00bf7b2d5d9d3c970217eecefb1194bef3362a618e",
         });
+      });
+      // Pins behavior scheduled to change, not behavior we want: when this becomes a
+      // rejection the test must fail and be rewritten. https://github.com/node-saml/node-saml/issues/419
+      it("accepts a message with no Signature parameter, pending rejection in the next major", async function () {
+        const request = withoutSignature(this.request);
+        const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
+        expect(loggedOut).to.be.true;
+      });
+      it("warns via NODE_DEBUG when it accepts a message with no Signature parameter", function () {
+        this.timeout(20000); // Compiling the library in the child process is not fast.
+        const { status, stderr } = validateRedirectWithNodeDebug(withoutSignature(this.request));
+
+        expect(status, stderr).to.equal(0);
+        expect(stderr).to.contain(
+          "SAMLRequest over the Redirect binding with no Signature parameter",
+        );
+        expect(stderr).to.contain("unverified");
       });
     });
     describe("sp slo", function () {
@@ -3329,6 +3724,26 @@ describe("node-saml /", function () {
           this.request.originalQuery,
         );
         expect(loggedOut).to.be.true;
+      });
+
+      // As above, pinned pending rejection: the status reported here is the attacker's to
+      // choose. https://github.com/node-saml/node-saml/issues/419
+      it("accepts a response with no Signature parameter, pending rejection in the next major", async function () {
+        await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
+        const request = withoutSignature(this.request);
+        const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
+        expect(loggedOut).to.be.true;
+      });
+
+      it("warns via NODE_DEBUG when it accepts a response with no Signature parameter", function () {
+        this.timeout(20000); // Compiling the library in the child process is not fast.
+        const { status, stderr } = validateRedirectWithNodeDebug(withoutSignature(this.request));
+
+        expect(status, stderr).to.equal(0);
+        expect(stderr).to.contain(
+          "SAMLResponse over the Redirect binding with no Signature parameter",
+        );
+        expect(stderr).to.contain("unverified");
       });
 
       it("accepts cert without header and footer line", async function () {

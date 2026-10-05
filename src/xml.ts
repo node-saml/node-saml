@@ -16,6 +16,7 @@ import {
   XmlSignatureLocation,
 } from "./types";
 import { assertRequired } from "./utility";
+import { keyInfoToPem } from "./crypto";
 
 const debugLog = util.debuglog("node-saml");
 
@@ -48,15 +49,6 @@ export const decryptXml = async (xml: string, decryptionKey: string | Buffer) =>
   util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionKey });
 
 /**
- * we can use this utility before passing XML to `xml-crypto`
- * we are considered the XML processor and are responsible for newline normalization
- * https://github.com/node-saml/passport-saml/issues/431#issuecomment-718132752
- */
-const normalizeNewlines = (xml: string): string => {
-  return xml.replace(/\r\n?/g, "\n");
-};
-
-/**
  * // modeled after the current validateSignature method, to maintain consistency for unit tests
  * Input: fullXml, the document for SignedXML context
  * Input: currentNode, this node must have a Signature
@@ -70,8 +62,6 @@ export const getVerifiedXml = (
   currentNode: Element,
   pemFiles: string[],
 ): string | null => {
-  fullXml = normalizeNewlines(fullXml);
-
   // find any signature
   const signatures = xpath.selectElements(
     currentNode,
@@ -101,22 +91,24 @@ export const getVerifiedXml = (
     sig.publicCert = pemFile; // public certificate to verify
     sig.loadSignature(signature);
 
-    // here are the sanity checks
-    // They do not affect the actual security of the program
-    // more so to check conformance with the SAML spec
     const refs = sig.getReferences();
 
     if (refs.length !== 1) return null;
-    if (!signature.parentNode) {
-      return null;
-    }
 
     const ref = refs[0];
 
     // only allow enveloped signature
     const refUri = ref.uri;
 
-    const refId = refUri[0] === "#" ? refUri.substring(1) : refUri;
+    assertRequired(refUri, "signature reference uri not found");
+
+    // For an ID of "foo" the reference URI must be "#foo"; a bare "foo" names another resource.
+    // SAML core 5.4.2: https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
+    if (!refUri.startsWith("#")) {
+      throw new Error("Invalid signature: reference URI is not a same-document reference");
+    }
+
+    const refId = refUri.substring(1);
 
     assertRequired(refId, "signature reference uri not found");
     // prevent XPath injection
@@ -146,10 +138,6 @@ export const getVerifiedXml = (
         continue; // no signatures verified
       }
 
-      if (sig.getSignedReferences().length !== 1) {
-        throw new Error("Only 1 signed references should be present in signature");
-      }
-
       return sig.getSignedReferences()[0];
     } catch {
       // return null; // we don't return null, since we have to verify with another key
@@ -160,15 +148,22 @@ export const getVerifiedXml = (
 };
 
 /**
- * Internally deprecated Do not only return boolean value, instead return the actual signed content. SAML Libraries must only use the referenced bytes from the signature
  * This function checks that the |currentNode| in the |fullXml| document contains exactly 1 valid
  *   signature of the |currentNode|.
  *
  * See https://github.com/bergie/passport-saml/issues/19 for references to some of the attack
  *   vectors against SAML signature verification.
+ *
+ * @deprecated Reports only whether a signature verified, leaving the caller to find the signed
+ * content somewhere else — and an attacker controls the difference between what verified and what
+ * the caller then reads. Removed in the next major version; use `getVerifiedXml()`, which returns
+ * the bytes the signature covers.
  */
-
-const _validateSignature = (fullXml: string, currentNode: Element, pemFiles: string[]): boolean => {
+export const validateSignature = (
+  fullXml: string,
+  currentNode: Element,
+  pemFiles: string[],
+): boolean => {
   const xpathSigQuery = `.//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#' and descendant::*[local-name(.)='Reference' and @URI='#${currentNode.getAttribute("ID")}']]`;
   const signatures = xpath.selectElements(currentNode, xpathSigQuery);
   // This function is expecting to validate exactly one signature, so if we find more or fewer
@@ -196,12 +191,6 @@ const _validateSignature = (fullXml: string, currentNode: Element, pemFiles: str
     return validateXmlSignatureWithPemFile(signature, pemFile, fullXml, currentNode);
   });
 };
-
-// validateSignature is deprecated, should be using getVerifiedXml
-// Existing non-sensitive callers can still use validateSignature
-// but new callers should use getVerifiedXml
-// this allows us to deprecate it without raising a warning
-export const validateSignature = _validateSignature;
 
 /**
  * This function checks that the |signature| is signed with a given |pemFile|.
@@ -236,7 +225,6 @@ const validateXmlSignatureWithPemFile = (
   if (totalReferencedNodes.length > 1) {
     return false;
   }
-  fullXml = normalizeNewlines(fullXml);
 
   try {
     return sig.checkSignature(fullXml);
@@ -272,8 +260,16 @@ export const signXml = (
     transforms,
     digestAlgorithm: algorithms.getDigestAlgorithm(options.digestAlgorithm),
   });
-  sig.privateKey = options.privateKey;
-  sig.publicCert = options.publicCert;
+  sig.privateKey = keyInfoToPem(options.privateKey, "PRIVATE KEY", "privateKey");
+  if (options.publicCert != null) {
+    const publicCert = keyInfoToPem(options.publicCert, "CERTIFICATE", "publicCert");
+    // toPem() keeps a PEM's own label, and xml-crypto omits KeyInfo when it finds no certificate.
+    assertRequired(
+      xmlCrypto.pemCertificates(publicCert).length > 0 || undefined,
+      "publicCert must hold at least one certificate",
+    );
+    sig.publicCert = publicCert;
+  }
   sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
   sig.computeSignature(xml, { location });
 
