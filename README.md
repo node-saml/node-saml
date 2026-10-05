@@ -524,6 +524,10 @@ explain rejections that might otherwise look overly strict:
   signature on an element, an `ID` resolving to more than one element, a reference pointing anywhere
   other than its own parent, or more than two transforms is refused. The library does not pick a
   reading, and it does not pick the reading that happens to verify.
+  One case is not refused yet: a signature with more than one reference is ignored, so its element
+  counts as unsigned. That matters only for a `Response` under `wantAuthnResponseSigned: false`,
+  which is then accepted on the strength of its separately signed assertion. The next major version
+  rejects such a message; until then it logs a warning under `NODE_DEBUG=node-saml`.
 - **Validation fails closed.** Decrypted content is not trusted content: an `EncryptedAssertion` is
   decrypted and then still has to have its signature verified. Timestamps, audience, issuer, and
   `InResponseTo` are security controls rather than conveniences — an option that switches one off
