@@ -14,6 +14,9 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 const debugLog = util.debuglog("node-saml");
 
 const CONTACT_TYPES = ["technical", "support", "administrative", "billing", "other"];
+// The lexical space of `xs:language`, the type the schema gives `xml:lang`:
+// https://www.w3.org/TR/xmlschema-2/#language
+const LANGUAGE_TAG = /^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$/;
 
 function assertObject(
   value: unknown,
@@ -41,7 +44,12 @@ function assertLocalizedNames(value: unknown, path: string): void {
   }
   value.forEach((name: unknown, i) => {
     assertObject(name, `${path}[${i}]`, ["@xml:lang", "#text"]);
-    assertNonEmptyString(name["@xml:lang"], `${path}[${i}]["@xml:lang"]`);
+    const language = name["@xml:lang"];
+    if (typeof language !== "string" || !LANGUAGE_TAG.test(language)) {
+      throw new TypeError(
+        `${path}[${i}]["@xml:lang"] must be a language tag, such as "en" or "en-GB"`,
+      );
+    }
     assertNonEmptyString(name["#text"], `${path}[${i}]["#text"]`);
   });
 }
