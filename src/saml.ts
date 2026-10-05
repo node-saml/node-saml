@@ -244,7 +244,7 @@ class SAML {
           keyExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs,
         }),
       logoutUrl: ctorOptions.logoutUrl ?? ctorOptions.entryPoint ?? "", // Default to Entry Point
-      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, sha256-mgf1 or sha512
+      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, sha256-mgf1, or sha512
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
       generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
       signMetadata: ctorOptions.signMetadata ?? false,
@@ -318,15 +318,12 @@ class SAML {
     }
     signer.update(querystring.stringify(samlMessageToSign));
     const privateKey = keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey");
-    const signParams =
-      this.options.signatureAlgorithm !== "sha256-mgf1"
-        ? privateKey
-        : {
-            key: this.options.privateKey,
-            padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-            saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
-          };
-    samlMessage.Signature = signer.sign(signParams, "base64");
+    samlMessage.Signature = signer.sign(
+      this.options.signatureAlgorithm === "sha256-mgf1"
+        ? { key: privateKey, ...algorithms.PSS_OPTIONS }
+        : privateKey,
+      "base64",
+    );
   }
 
   protected async generateAuthorizeRequestAsync(
@@ -1173,6 +1170,15 @@ class SAML {
     alg: string,
     pemFile: string,
   ): boolean {
+    // No digest name in `crypto.getHashes()` stands for a padding scheme, so the lookup below
+    // cannot find this one.
+    if (alg === algorithms.RSA_SHA256_MGF1) {
+      return crypto
+        .createVerify("RSA-SHA256")
+        .update(urlString)
+        .verify({ key: pemFile, ...algorithms.PSS_OPTIONS }, signature, "base64");
+    }
+
     // See if we support a matching algorithm, case-insensitive. Otherwise, throw error.
     function hasMatch(ourAlgo: string) {
       // The incoming algorithm is forwarded as a URL.

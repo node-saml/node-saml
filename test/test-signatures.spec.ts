@@ -768,17 +768,22 @@ describe("Signatures", function () {
     });
   });
 
-  describe("Signatures with sha256-rsa-MGF1", () => {
+  describe("Signature on saml:Response made with sha256-rsa-MGF1", () => {
     let fakeClock: sinon.SinonFakeTimers;
+
     beforeEach(function () {
-      fakeClock = sinon.useFakeTimers(Date.parse("2020-09-25T16:59:00Z"));
+      fakeClock = sinon.useFakeTimers({
+        now: Date.parse("2020-09-25T16:59:00Z"),
+        toFake: ["Date"],
+      });
     });
+
     afterEach(function () {
       fakeClock.restore();
     });
 
     it(
-      "should validate a valid signature",
+      "R1A - root signed => valid",
       testOneResponse(
         "/valid/response.root-signed.assertion-unsigned.sha256-rsa-mgf1.xml",
         false,
