@@ -959,6 +959,26 @@ describe("node-saml /", function () {
           ).to.not.contain("AttributeConsumingService");
         });
 
+        it("accepts a @NameFormat that SAML does not define, and emits it", function () {
+          const metadata = new SAML({
+            ...params,
+            idpCert: FAKE_CERT,
+            metadataAttributeConsumingServices: [
+              {
+                ...service,
+                RequestedAttribute: [
+                  {
+                    "@Name": "employeeNumber",
+                    "@NameFormat": "https://example.com/custom-attribute-format",
+                  },
+                ],
+              },
+            ],
+          }).generateServiceProviderMetadata(null);
+
+          expect(metadata).to.contain('NameFormat="https://example.com/custom-attribute-format"');
+        });
+
         it("treats null as absent, as it does for the other options", function () {
           const metadataAttributeConsumingServices = null as unknown as SamlConfig[typeof option];
 
