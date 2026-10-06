@@ -166,7 +166,7 @@ const LOCALIZED_ORGANIZATION_CHILDREN = [
 const ORGANIZATION_CHILDREN = ["Extensions", ...LOCALIZED_ORGANIZATION_CHILDREN];
 // Both types end in `anyAttribute namespace="##other"`, which is how a REFEDS security contact is
 // marked: a prefixed attribute, next to the `xmlns:` declaration of its prefix.
-const QUALIFIED_ATTRIBUTE = /^@[^:]+:[^:]+$/;
+const QUALIFIED_ATTRIBUTE = /^@([^:]+):[^:]+$/;
 
 function assertElement(
   value: unknown,
@@ -178,9 +178,22 @@ function assertElement(
       ? Object.keys(value).filter((key) => QUALIFIED_ATTRIBUTE.test(key))
       : [];
   assertObject(value, path, [...keys, ...attributes]);
+  const declarations: Record<string, unknown> = { ...INHERITED_NAMESPACES, ...value };
   for (const attribute of attributes) {
+    const [, prefix] = QUALIFIED_ATTRIBUTE.exec(attribute) as RegExpExecArray;
+    if (prefix === "xmlns") {
+      assertNonEmptyString(value[attribute], `${path}["${attribute}"]`);
+      continue;
+    }
     if (typeof value[attribute] !== "string") {
       throw new TypeError(`${path}["${attribute}"] must be a string`);
+    }
+    const namespace = declarations[`@xmlns:${prefix}`];
+    // The `xml` prefix is bound without a declaration: https://www.w3.org/TR/xml-names/#ns-decl
+    if (prefix !== "xml" && (!namespace || namespace === METADATA_NAMESPACE)) {
+      throw new TypeError(
+        `${path}["${attribute}"] needs "@xmlns:${prefix}" beside it, naming a namespace other than the metadata namespace`,
+      );
     }
   }
 }
