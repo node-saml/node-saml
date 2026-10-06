@@ -767,6 +767,32 @@ describe("node-saml /", function () {
         );
       });
 
+      it("emits a contact's attributes from another namespace", async function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          idpCert: FAKE_CERT,
+          metadataContactPerson: [
+            {
+              "@contactType": "other",
+              "@xmlns:remd": "http://refeds.org/metadata",
+              "@remd:contactType": "http://refeds.org/metadata/contactType/security",
+              EmailAddress: ["mailto:security@example.com"],
+            },
+          ],
+        };
+
+        const dom = await parseDomFromString(
+          new SAML(samlConfig).generateServiceProviderMetadata(null),
+        );
+        const [contact] = Array.from(dom.getElementsByTagName("ContactPerson"));
+
+        // SAML 2.0 Metadata, section 2.3.2.2
+        expect(contact.getAttributeNS("http://refeds.org/metadata", "contactType")).to.equal(
+          "http://refeds.org/metadata/contactType/security",
+        );
+      });
+
       it("generateServiceProviderMetadata contains metadataExtensions", function () {
         const samlConfig: SamlConfig = {
           issuer: "http://example.serviceprovider.com",

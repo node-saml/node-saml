@@ -157,6 +157,33 @@ const LOCALIZED_ORGANIZATION_CHILDREN = [
   "OrganizationURL",
 ];
 const ORGANIZATION_CHILDREN = ["Extensions", ...LOCALIZED_ORGANIZATION_CHILDREN];
+// Both types end in `anyAttribute namespace="##other"`, which is how a REFEDS security contact is
+// marked: a prefixed attribute, next to the `xmlns:` declaration of its prefix.
+const QUALIFIED_ATTRIBUTE = /^@[^:]+:[^:]+$/;
+
+function assertElement(
+  value: unknown,
+  path: string,
+  keys: string[],
+): asserts value is Record<string, unknown> {
+  const attributes =
+    typeof value === "object" && value !== null
+      ? Object.keys(value).filter((key) => QUALIFIED_ATTRIBUTE.test(key))
+      : [];
+  assertObject(value, path, [...keys, ...attributes]);
+  for (const attribute of attributes) {
+    if (typeof value[attribute] !== "string") {
+      throw new TypeError(`${path}["${attribute}"] must be a string`);
+    }
+  }
+}
+
+// `md:Extensions` holds elements and no text: SAML 2.0 Metadata, section 2.3.1.
+function assertExtensions(extensions: unknown, path: string): void {
+  if (extensions != null && (typeof extensions !== "object" || Array.isArray(extensions))) {
+    throw new TypeError(`${path} must be an object of namespace-qualified elements`);
+  }
+}
 
 function assertValidContactPersons(contacts: unknown): void {
   if (contacts == null) {
@@ -168,17 +195,13 @@ function assertValidContactPersons(contacts: unknown): void {
 
   contacts.forEach((contact: unknown, i) => {
     const path = `metadataContactPerson[${i}]`;
-    assertObject(contact, path, ["@contactType", ...CONTACT_PERSON_CHILDREN]);
+    assertElement(contact, path, ["@contactType", ...CONTACT_PERSON_CHILDREN]);
 
     const contactType = contact["@contactType"];
     if (typeof contactType !== "string" || !CONTACT_TYPES.includes(contactType)) {
       throw new TypeError(`${path}["@contactType"] must be one of ${CONTACT_TYPES.join(", ")}`);
     }
-    // `md:Extensions` holds elements and no text: SAML 2.0 Metadata, section 2.3.1.
-    const extensions = contact.Extensions;
-    if (extensions != null && (typeof extensions !== "object" || Array.isArray(extensions))) {
-      throw new TypeError(`${path}.Extensions must be an object of namespace-qualified elements`);
-    }
+    assertExtensions(contact.Extensions, `${path}.Extensions`);
     for (const key of ["Company", "GivenName", "SurName"]) {
       if (contact[key] != null) {
         assertNonEmptyString(contact[key], `${path}.${key}`);
@@ -201,7 +224,8 @@ function assertValidOrganization(organization: unknown): void {
   if (organization == null) {
     return;
   }
-  assertObject(organization, "metadataOrganization", LOCALIZED_ORGANIZATION_CHILDREN);
+  assertElement(organization, "metadataOrganization", ORGANIZATION_CHILDREN);
+  assertExtensions(organization.Extensions, "metadataOrganization.Extensions");
   for (const name of LOCALIZED_ORGANIZATION_CHILDREN) {
     assertNonEmptyArray(organization[name], `metadataOrganization.${name}`);
     assertLocalizedNames(organization[name], `metadataOrganization.${name}`);
@@ -311,10 +335,10 @@ export const buildServiceProviderMetadata = (
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
         "@AuthnRequestsSigned": "false",
       },
-      ...(metadataOrganization
-        ? { Organization: inSchemaOrder(metadataOrganization, ORGANIZATION_CHILDREN) }
-        : {}),
       // `Extensions` is xmlbuilder content the caller built, which its type does not describe.
+      ...(metadataOrganization
+        ? { Organization: inSchemaOrder(metadataOrganization as XMLValue, ORGANIZATION_CHILDREN) }
+        : {}),
       ...(metadataContactPerson
         ? {
             ContactPerson: inSchemaOrder(

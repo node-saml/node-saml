@@ -507,8 +507,22 @@ metadataAttributeConsumingServices: [
 ],
 ```
 
-A contact's `Extensions` takes namespace-qualified elements as an xmlbuilder object, like the
-options under [Extensions](#extensions) below. A string there cannot produce valid metadata.
+`Extensions`, on a contact or on the organization, takes namespace-qualified elements as an
+xmlbuilder object, like the options under [Extensions](#extensions) below. A string there cannot
+produce valid metadata. Both also take attributes from another namespace, each written with its
+prefix next to the `@xmlns:` declaration of that prefix. A REFEDS security contact is marked that
+way:
+
+```javascript
+metadataContactPerson: [
+  {
+    "@contactType": "other",
+    "@xmlns:remd": "http://refeds.org/metadata",
+    "@remd:contactType": "http://refeds.org/metadata/contactType/security",
+    EmailAddress: ["mailto:security@example.com"],
+  },
+],
+```
 
 Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
 other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one

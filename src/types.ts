@@ -363,6 +363,11 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   metadataContactPerson?: {
     "@contactType": "technical" | "support" | "administrative" | "billing" | "other";
     /**
+     * An attribute from another namespace, next to the `@xmlns:` declaration of its prefix. A
+     * REFEDS security contact is marked with one.
+     */
+    [qualifiedAttribute: `@${string}:${string}`]: string;
+    /**
      * Extension elements, as an [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object.
      * Each must be qualified by a namespace that SAML does not define. A string cannot produce
      * valid metadata; the type accepts one only until the next major version.
@@ -376,6 +381,13 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
     TelephoneNumber?: string[];
   }[];
   metadataOrganization?: {
+    /** An attribute from another namespace, next to the `@xmlns:` declaration of its prefix. */
+    [qualifiedAttribute: `@${string}:${string}`]: string;
+    /**
+     * Extension elements, as an [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object.
+     * Each must be qualified by a namespace that SAML does not define.
+     */
+    Extensions?: Record<string, unknown>;
     OrganizationName: {
       "@xml:lang": string;
       "#text": string;
