@@ -771,7 +771,7 @@ describe("node-saml /", function () {
         );
       });
 
-      it("emits a contact's attributes from another namespace", async function () {
+      it("emits attributes from another namespace on a contact and on the organization", async function () {
         const samlConfig: SamlConfig = {
           issuer: "http://example.serviceprovider.com",
           callbackUrl: "http://example.serviceprovider.com/saml/callback",
@@ -784,17 +784,26 @@ describe("node-saml /", function () {
               EmailAddress: ["mailto:security@example.com"],
             },
           ],
+          metadataOrganization: {
+            "@xmlns:ext": "urn:example:ext",
+            "@ext:id": "node-saml",
+            OrganizationName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+            OrganizationDisplayName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+            OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml" }],
+          },
         };
 
         const dom = await parseDomFromString(
           new SAML(samlConfig).generateServiceProviderMetadata(null),
         );
         const [contact] = Array.from(dom.getElementsByTagName("ContactPerson"));
+        const [organization] = Array.from(dom.getElementsByTagName("Organization"));
 
-        // SAML 2.0 Metadata, section 2.3.2.2
+        // SAML 2.0 Metadata, sections 2.3.2.2 and 2.3.2.1
         expect(contact.getAttributeNS("http://refeds.org/metadata", "contactType")).to.equal(
           "http://refeds.org/metadata/contactType/security",
         );
+        expect(organization.getAttributeNS("urn:example:ext", "id")).to.equal("node-saml");
       });
 
       it("generateServiceProviderMetadata contains metadataExtensions", function () {
