@@ -140,6 +140,24 @@ export const assertValidAttributeConsumingServices = (services: unknown): void =
   });
 };
 
+// The order in which `ContactType` and `OrganizationType` sequence their children: SAML 2.0
+// Metadata, sections 2.3.2.2 and 2.3.2.1.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
+const CONTACT_PERSON_CHILDREN = [
+  "Extensions",
+  "Company",
+  "GivenName",
+  "SurName",
+  "EmailAddress",
+  "TelephoneNumber",
+];
+const LOCALIZED_ORGANIZATION_CHILDREN = [
+  "OrganizationName",
+  "OrganizationDisplayName",
+  "OrganizationURL",
+];
+const ORGANIZATION_CHILDREN = ["Extensions", ...LOCALIZED_ORGANIZATION_CHILDREN];
+
 function assertValidContactPersons(contacts: unknown): void {
   if (contacts == null) {
     return;
@@ -150,15 +168,7 @@ function assertValidContactPersons(contacts: unknown): void {
 
   contacts.forEach((contact: unknown, i) => {
     const path = `metadataContactPerson[${i}]`;
-    assertObject(contact, path, [
-      "@contactType",
-      "Extensions",
-      "Company",
-      "GivenName",
-      "SurName",
-      "EmailAddress",
-      "TelephoneNumber",
-    ]);
+    assertObject(contact, path, ["@contactType", ...CONTACT_PERSON_CHILDREN]);
 
     const contactType = contact["@contactType"];
     if (typeof contactType !== "string" || !CONTACT_TYPES.includes(contactType)) {
@@ -191,9 +201,8 @@ function assertValidOrganization(organization: unknown): void {
   if (organization == null) {
     return;
   }
-  const names = ["OrganizationName", "OrganizationDisplayName", "OrganizationURL"];
-  assertObject(organization, "metadataOrganization", names);
-  for (const name of names) {
+  assertObject(organization, "metadataOrganization", LOCALIZED_ORGANIZATION_CHILDREN);
+  for (const name of LOCALIZED_ORGANIZATION_CHILDREN) {
     assertNonEmptyArray(organization[name], `metadataOrganization.${name}`);
     assertLocalizedNames(organization[name], `metadataOrganization.${name}`);
   }
@@ -229,24 +238,6 @@ export const warnIfContactOrOrganizationInvalid = (
     }
   }
 };
-
-// The order in which `ContactType` and `OrganizationType` sequence their children: SAML 2.0
-// Metadata, sections 2.3.2.2 and 2.3.2.1.
-// https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
-const CONTACT_PERSON_CHILDREN = [
-  "Extensions",
-  "Company",
-  "GivenName",
-  "SurName",
-  "EmailAddress",
-  "TelephoneNumber",
-];
-const ORGANIZATION_CHILDREN = [
-  "Extensions",
-  "OrganizationName",
-  "OrganizationDisplayName",
-  "OrganizationURL",
-];
 
 // The builder emits keys in the order they were written, and the order a caller writes an
 // object's keys in is not a choice the schema should depend on. Any other key, such as an
