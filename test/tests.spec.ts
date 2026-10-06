@@ -665,6 +665,38 @@ describe("node-saml /", function () {
         expect(metadata).to.contain('AuthnRequestsSigned="true"');
       });
 
+      it("emits every EmailAddress and TelephoneNumber, and Extensions given as elements", async function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          idpCert: FAKE_CERT,
+          metadataContactPerson: [
+            {
+              "@contactType": "technical",
+              Extensions: { "ext:Team": { "@xmlns:ext": "urn:example:ext", "#text": "identity" } },
+              EmailAddress: ["mailto:ada@example.com", "mailto:grace@example.com"],
+              TelephoneNumber: ["+1 555 0100", "+1 555 0101"],
+            },
+          ],
+        };
+
+        const dom = await parseDomFromString(
+          new SAML(samlConfig).generateServiceProviderMetadata(null),
+        );
+        const textOf = (name: string) =>
+          Array.from(dom.getElementsByTagName(name)).map((element) => element.textContent);
+
+        // SAML 2.0 Metadata, section 2.3.2.2
+        expect(textOf("EmailAddress")).to.deep.equal([
+          "mailto:ada@example.com",
+          "mailto:grace@example.com",
+        ]);
+        expect(textOf("TelephoneNumber")).to.deep.equal(["+1 555 0100", "+1 555 0101"]);
+        const [team] = Array.from(dom.getElementsByTagNameNS("urn:example:ext", "Team"));
+        expect(team.parentNode?.nodeName).to.equal("Extensions");
+        expect(team.textContent).to.equal("identity");
+      });
+
       it("signMetadata creates a valid signature", async function () {
         const samlConfig: SamlConfig = {
           idpCert: TEST_CERT,
@@ -685,6 +717,54 @@ describe("node-saml /", function () {
         const dom = await parseDomFromString(metadata);
         expect(validateSignature(metadata, dom.documentElement, [publicCert])).to.be.true;
         assert.ok(getVerifiedXml(metadata, dom.documentElement, [publicCert]));
+      });
+
+      it("emits ContactPerson and Organization children in schema order, whatever order the keys are in", async function () {
+        const samlConfig: SamlConfig = {
+          issuer: "http://example.serviceprovider.com",
+          callbackUrl: "http://example.serviceprovider.com/saml/callback",
+          idpCert: FAKE_CERT,
+          metadataContactPerson: [
+            {
+              TelephoneNumber: ["+1 555 0100"],
+              EmailAddress: ["mailto:ada@example.com"],
+              SurName: "Lovelace",
+              GivenName: "Ada",
+              Company: "node-saml",
+              "@contactType": "technical",
+            },
+          ],
+          metadataOrganization: {
+            OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml" }],
+            OrganizationDisplayName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+            OrganizationName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+          },
+        };
+
+        const dom = await parseDomFromString(
+          new SAML(samlConfig).generateServiceProviderMetadata(null),
+        );
+        const childrenOf = (name: string) =>
+          Array.from(dom.getElementsByTagName(name)[0].childNodes)
+            .filter((node) => node.nodeType === node.ELEMENT_NODE)
+            .map((node) => node.nodeName);
+
+        // SAML 2.0 Metadata, sections 2.3.2.2 and 2.3.2.1
+        expect(childrenOf("ContactPerson")).to.deep.equal([
+          "Company",
+          "GivenName",
+          "SurName",
+          "EmailAddress",
+          "TelephoneNumber",
+        ]);
+        expect(childrenOf("Organization")).to.deep.equal([
+          "OrganizationName",
+          "OrganizationDisplayName",
+          "OrganizationURL",
+        ]);
+        expect(dom.getElementsByTagName("ContactPerson")[0].getAttribute("contactType")).to.equal(
+          "technical",
+        );
       });
 
       it("generateServiceProviderMetadata contains metadataExtensions", function () {

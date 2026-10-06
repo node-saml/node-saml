@@ -475,7 +475,7 @@ metadataContactPerson: [
   {
     "@contactType": "support", // "technical" | "support" | "administrative" | "billing" | "other"
     GivenName: "test",
-    EmailAddress: ["test@node-saml"], // note: an array
+    EmailAddress: ["mailto:test@node-saml"], // an array of `mailto:` URIs
   },
 ],
 metadataOrganization: {
@@ -506,6 +506,9 @@ metadataAttributeConsumingServices: [
   },
 ],
 ```
+
+A contact's `Extensions` takes namespace-qualified elements as an xmlbuilder object, like the
+options under [Extensions](#extensions) below. A string there cannot produce valid metadata.
 
 Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
 other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
