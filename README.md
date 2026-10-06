@@ -524,6 +524,9 @@ metadataContactPerson: [
 ],
 ```
 
+The `SamlOptions` types do not declare such attributes until the next major version. In TypeScript,
+build the entry outside the config literal, or cast it.
+
 Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
 other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
 entry may set `@isDefault` to `true`. An entry that breaks these rules, carries a key not shown
