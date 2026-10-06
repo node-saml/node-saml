@@ -731,6 +731,7 @@ describe("node-saml /", function () {
               SurName: "Lovelace",
               GivenName: "Ada",
               Company: "node-saml",
+              Extensions: { "ext:Team": { "@xmlns:ext": "urn:example:ext", "#text": "identity" } },
               "@contactType": "technical",
             },
           ],
@@ -738,6 +739,7 @@ describe("node-saml /", function () {
             OrganizationURL: [{ "@xml:lang": "en", "#text": "https://github.com/node-saml" }],
             OrganizationDisplayName: [{ "@xml:lang": "en", "#text": "node-saml" }],
             OrganizationName: [{ "@xml:lang": "en", "#text": "node-saml" }],
+            Extensions: { "ext:Team": { "@xmlns:ext": "urn:example:ext", "#text": "identity" } },
           },
         };
 
@@ -751,6 +753,7 @@ describe("node-saml /", function () {
 
         // SAML 2.0 Metadata, sections 2.3.2.2 and 2.3.2.1
         expect(childrenOf("ContactPerson")).to.deep.equal([
+          "Extensions",
           "Company",
           "GivenName",
           "SurName",
@@ -758,6 +761,7 @@ describe("node-saml /", function () {
           "TelephoneNumber",
         ]);
         expect(childrenOf("Organization")).to.deep.equal([
+          "Extensions",
           "OrganizationName",
           "OrganizationDisplayName",
           "OrganizationURL",
