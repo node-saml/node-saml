@@ -200,10 +200,20 @@ function assertExtensions(parent: Record<string, unknown>, path: string): void {
   for (const key of Object.keys(parent).filter((key) => key.startsWith("@xmlns:"))) {
     declarations[key] = parent[key];
   }
-  const built = new xmldom.DOMParser().parseFromString(
+  // Without a handler, xmldom writes what it finds to the console.
+  let wellFormed = true;
+  const notWellFormed = () => {
+    wellFormed = false;
+  };
+  const built = new xmldom.DOMParser({
+    errorHandler: { warning: notWellFormed, error: notWellFormed, fatalError: notWellFormed },
+  }).parseFromString(
     buildXmlBuilderObject({ Extensions: { ...declarations, ...extensions } }, false),
     "text/xml",
   ).documentElement;
+  if (!wellFormed || built == null) {
+    throw new TypeError(`${path} must be well-formed XML`);
+  }
   const children = Array.from(built.childNodes);
   const elements = children.filter((node): node is Element => node.nodeType === node.ELEMENT_NODE);
 
