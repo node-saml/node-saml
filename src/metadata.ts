@@ -1,3 +1,4 @@
+import * as xmldom from "@xmldom/xmldom";
 import * as util from "util";
 import * as algorithms from "./algorithms";
 import {
@@ -21,6 +22,12 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 
 const debugLog = util.debuglog("node-saml");
 
+const METADATA_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:metadata";
+// Declared on `EntityDescriptor`, and so in scope on every element of the metadata.
+const INHERITED_NAMESPACES = {
+  "@xmlns": METADATA_NAMESPACE,
+  "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
+};
 const CONTACT_TYPES = ["technical", "support", "administrative", "billing", "other"];
 const SERVICES_OPTION = "metadataAttributeConsumingServices";
 const MAX_UNSIGNED_SHORT = 65535;
@@ -178,10 +185,45 @@ function assertElement(
   }
 }
 
-// `md:Extensions` holds elements and no text: SAML 2.0 Metadata, section 2.3.1.
-function assertExtensions(extensions: unknown, path: string): void {
-  if (extensions != null && (typeof extensions !== "object" || Array.isArray(extensions))) {
+// `ExtensionsType` is one or more elements from a namespace other than the metadata one, and no
+// text: SAML 2.0 Metadata, section 2.3.1. A child's key does not show its namespace, which comes
+// from the declarations in scope, so the element is built as it will be emitted and read back.
+function assertExtensions(parent: Record<string, unknown>, path: string): void {
+  const extensions = parent.Extensions;
+  if (extensions == null) {
+    return;
+  }
+  if (typeof extensions !== "object" || Array.isArray(extensions)) {
     throw new TypeError(`${path} must be an object of namespace-qualified elements`);
+  }
+  const declarations: Record<string, unknown> = { ...INHERITED_NAMESPACES };
+  for (const key of Object.keys(parent).filter((key) => key.startsWith("@xmlns:"))) {
+    declarations[key] = parent[key];
+  }
+  const built = new xmldom.DOMParser().parseFromString(
+    buildXmlBuilderObject({ Extensions: { ...declarations, ...extensions } }, false),
+    "text/xml",
+  ).documentElement;
+  const children = Array.from(built.childNodes);
+  const elements = children.filter((node): node is Element => node.nodeType === node.ELEMENT_NODE);
+
+  if (built.namespaceURI !== METADATA_NAMESPACE) {
+    throw new TypeError(`${path} must not declare a default namespace of its own`);
+  }
+  const isText = (node: Node) =>
+    node.nodeType === node.TEXT_NODE || node.nodeType === node.CDATA_SECTION_NODE;
+  if (children.some((node) => isText(node) && /\S/.test(node.nodeValue ?? ""))) {
+    throw new TypeError(`${path} must not hold text`);
+  }
+  if (elements.length === 0) {
+    throw new TypeError(`${path} must hold at least one element`);
+  }
+  for (const element of elements) {
+    if (!element.namespaceURI || element.namespaceURI === METADATA_NAMESPACE) {
+      throw new TypeError(
+        `${path}["${element.nodeName}"] must be in a namespace other than the metadata namespace`,
+      );
+    }
   }
 }
 
@@ -201,7 +243,7 @@ function assertValidContactPersons(contacts: unknown): void {
     if (typeof contactType !== "string" || !CONTACT_TYPES.includes(contactType)) {
       throw new TypeError(`${path}["@contactType"] must be one of ${CONTACT_TYPES.join(", ")}`);
     }
-    assertExtensions(contact.Extensions, `${path}.Extensions`);
+    assertExtensions(contact, `${path}.Extensions`);
     for (const key of ["Company", "GivenName", "SurName"]) {
       if (contact[key] != null) {
         assertNonEmptyString(contact[key], `${path}.${key}`);
@@ -225,7 +267,7 @@ function assertValidOrganization(organization: unknown): void {
     return;
   }
   assertElement(organization, "metadataOrganization", ORGANIZATION_CHILDREN);
-  assertExtensions(organization.Extensions, "metadataOrganization.Extensions");
+  assertExtensions(organization, "metadataOrganization.Extensions");
   for (const name of LOCALIZED_ORGANIZATION_CHILDREN) {
     assertNonEmptyArray(organization[name], `metadataOrganization.${name}`);
     assertLocalizedNames(organization[name], `metadataOrganization.${name}`);
@@ -327,8 +369,7 @@ export const buildServiceProviderMetadata = (
 
   const metadata: ServiceMetadataXML = {
     EntityDescriptor: {
-      "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
-      "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
+      ...INHERITED_NAMESPACES,
       "@entityID": issuer,
       "@ID": generateUniqueId(),
       SPSSODescriptor: {
