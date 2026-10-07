@@ -105,19 +105,27 @@ function assertNamespaces(element: Element, path: string): void {
 // xmldom 0.8 does not parse a name outside the Basic Multilingual Plane, so one is reported here:
 // signing parses the document the same way.
 function build(name: string, content: Record<string, unknown>, path: string): Element {
+  const xml = buildXmlBuilderObject({ [name]: content }, false);
   // Without a handler, xmldom writes what it finds to the console.
   let wellFormed = true;
   const notWellFormed = () => {
     wellFormed = false;
   };
-  const built = new xmldom.DOMParser({
-    errorHandler: { warning: notWellFormed, error: notWellFormed, fatalError: notWellFormed },
-  }).parseFromString(buildXmlBuilderObject({ [name]: content }, false), "text/xml").documentElement;
+  // xmldom 0.9 throws on what 0.8 only reports, and has node types of its own. The `catch` and
+  // the cast are for that: with them, moving to 0.9 changes only the name of the handler option.
+  let built: unknown;
+  try {
+    built = new xmldom.DOMParser({
+      errorHandler: { warning: notWellFormed, error: notWellFormed, fatalError: notWellFormed },
+    }).parseFromString(xml, "text/xml").documentElement;
+  } catch {
+    notWellFormed();
+  }
   if (!wellFormed || built == null) {
     throw new TypeError(`${path} must be well-formed XML`);
   }
-  assertNamespaces(built, path);
-  return built;
+  assertNamespaces(built as Element, path);
+  return built as Element;
 }
 
 // An `ExtensionsType`, in the metadata schema and in the protocol one, is one or more elements and
