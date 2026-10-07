@@ -254,10 +254,14 @@ const REQUEST_EXTENSIONS = {
 };
 
 // Both options are still written into the request as given, so what the check finds is logged and
-// not thrown. The next major version throws it.
+// not thrown. The next major version throws it. Until then the check, which builds and parses XML,
+// is skipped where nothing would be logged.
 export const warnIfRequestExtensionsInvalid = (
   options: Pick<SamlOptions, keyof typeof REQUEST_EXTENSIONS>,
 ): void => {
+  if (!debugLog.enabled) {
+    return;
+  }
   for (const option of Object.keys(REQUEST_EXTENSIONS) as (keyof typeof REQUEST_EXTENSIONS)[]) {
     try {
       if (options[option] != null) {
