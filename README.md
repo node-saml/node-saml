@@ -475,7 +475,7 @@ metadataContactPerson: [
   {
     "@contactType": "support", // "technical" | "support" | "administrative" | "billing" | "other"
     GivenName: "test",
-    EmailAddress: ["test@node-saml"], // note: an array
+    EmailAddress: ["mailto:test@node-saml"], // an array of `mailto:` URIs
   },
 ],
 metadataOrganization: {
@@ -507,6 +507,27 @@ metadataAttributeConsumingServices: [
 ],
 ```
 
+`Extensions`, on a contact or on the organization, takes namespace-qualified elements as an
+xmlbuilder object, like the options under [Extensions](#extensions) below. A string there cannot
+produce valid metadata. Both also take namespace-qualified attributes, each written with its
+prefix next to the `@xmlns:` declaration of that prefix. The elements and the attributes come from
+a namespace that SAML does not define: not the SAML 2.0 metadata, assertion or protocol namespace.
+A REFEDS security contact is marked that way:
+
+```javascript
+metadataContactPerson: [
+  {
+    "@contactType": "other",
+    "@xmlns:remd": "http://refeds.org/metadata",
+    "@remd:contactType": "http://refeds.org/metadata/contactType/security",
+    EmailAddress: ["mailto:security@example.com"],
+  },
+],
+```
+
+The `SamlOptions` types do not declare such attributes until the next major version. In TypeScript,
+build the entry outside the config literal, or cast it.
+
 Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
 other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
 entry may set `@isDefault` to `true`. An entry that breaks these rules, carries a key not shown
@@ -515,21 +536,27 @@ with a `TypeError` when the `SAML` is constructed or the metadata is generated.
 Set `attributeConsumingServiceIndex` to have an `AuthnRequest` select one of them by its `@index`.
 
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
+`metadataContactPerson` and `metadataOrganization` are not rejected yet: either one in any other
+shape is still written into the metadata as given, which can leave the metadata invalid. Run with
+`NODE_DEBUG=node-saml` to be told when that happens. The next major version rejects it.
 
 ### Extensions
 
 `samlAuthnRequestExtensions` and `samlLogoutRequestExtensions` add an `Extensions` element to the
 generated `AuthnRequest` and `LogoutRequest`. They are useful for things like the
 [requested attributes protocol extension](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html),
-and accept any [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object, so any element is
-expressible.
+and take an [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object of namespace-qualified
+elements.
 
 ```javascript
 samlAuthnRequestExtensions: {
-  "md:RequestedAttribute": {
-    "@isRequired": "true",
-    "@Name": "LastName",
-    "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
+  "req-attr:RequestedAttributes": {
+    "@xmlns:req-attr": "urn:oasis:names:tc:SAML:protocol:ext:req-attr",
+    "md:RequestedAttribute": {
+      "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
+      "@isRequired": "true",
+      "@Name": "LastName",
+    },
   },
   vetuma: {
     "@xmlns": "urn:vetuma:SAML:2.0:extensions",
@@ -544,6 +571,12 @@ samlLogoutRequestExtensions: {
   },
 },
 ```
+
+Each element directly inside `Extensions` comes from a namespace that SAML does not define: not the
+SAML 2.0 assertion, protocol or metadata namespace. That is why the requested attributes above sit
+inside the extension's own `RequestedAttributes` element, and not directly in `Extensions`. Neither
+option is rejected yet: one in any other shape is still written into the request as given. Run with
+`NODE_DEBUG=node-saml` to be told when that happens. The next major version rejects it.
 
 ## Security and signatures
 

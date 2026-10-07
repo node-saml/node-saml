@@ -1,8 +1,10 @@
+import * as util from "util";
 import * as algorithms from "./algorithms";
 import {
   isValidSamlSigningOptions,
   ServiceMetadataXML,
   XMLObject,
+  XMLValue,
   GenerateServiceProviderMetadataParams,
 } from "./types";
 import {
@@ -14,13 +16,25 @@ import {
   signXmlMetadata,
 } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
+import { assertElement } from "./extensions";
 import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
+const debugLog = util.debuglog("node-saml");
+
+// Declared on `EntityDescriptor`, and so in scope on every element of the metadata.
+const INHERITED_NAMESPACES = {
+  "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
+  "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
+};
+const CONTACT_TYPES = ["technical", "support", "administrative", "billing", "other"];
 const SERVICES_OPTION = "metadataAttributeConsumingServices";
 const MAX_UNSIGNED_SHORT = 65535;
 // The lexical space of `xs:language`, the type the schema gives `xml:lang`:
 // https://www.w3.org/TR/xmlschema-2/#language
+// This and every other value is tested as written, and not after the whitespace collapse that
+// XML Schema would apply first: SAML 2.0 Core, section 1.3.1, rules out depending on trimming.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
 const LANGUAGE_TAG = /^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$/;
 // SAML 2.0 Core, section 1.3.2, requires a URI value to be absolute in the sense of RFC 2396,
 // whose grammar comes to a scheme, a colon and one or more URI characters, then an optional
@@ -135,6 +149,132 @@ export const assertValidAttributeConsumingServices = (services: unknown): void =
   });
 };
 
+// The order in which `ContactType` and `OrganizationType` sequence their children: SAML 2.0
+// Metadata, sections 2.3.2.2 and 2.3.2.1.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
+const CONTACT_PERSON_CHILDREN = [
+  "Extensions",
+  "Company",
+  "GivenName",
+  "SurName",
+  "EmailAddress",
+  "TelephoneNumber",
+];
+const LOCALIZED_ORGANIZATION_CHILDREN = [
+  "OrganizationName",
+  "OrganizationDisplayName",
+  "OrganizationURL",
+];
+const ORGANIZATION_CHILDREN = ["Extensions", ...LOCALIZED_ORGANIZATION_CHILDREN];
+function assertValidContactPersons(contacts: unknown): void {
+  if (contacts == null) {
+    return;
+  }
+  if (!Array.isArray(contacts)) {
+    throw new TypeError("metadataContactPerson must be an array");
+  }
+
+  contacts.forEach((contact: unknown, i) => {
+    const path = `metadataContactPerson[${i}]`;
+    assertElement(
+      contact,
+      path,
+      ["@contactType", ...CONTACT_PERSON_CHILDREN],
+      INHERITED_NAMESPACES,
+      "ContactType",
+    );
+
+    const contactType = contact["@contactType"];
+    if (typeof contactType !== "string" || !CONTACT_TYPES.includes(contactType)) {
+      throw new TypeError(`${path}["@contactType"] must be one of ${CONTACT_TYPES.join(", ")}`);
+    }
+    for (const key of ["Company", "GivenName", "SurName"]) {
+      if (contact[key] != null) {
+        assertNonEmptyString(contact[key], `${path}.${key}`);
+      }
+    }
+    for (const key of ["EmailAddress", "TelephoneNumber"]) {
+      const values = contact[key];
+      if (values == null) {
+        continue;
+      }
+      if (!Array.isArray(values)) {
+        throw new TypeError(`${path}.${key} must be an array`);
+      }
+      values.forEach((value: unknown, j) => assertNonEmptyString(value, `${path}.${key}[${j}]`));
+    }
+  });
+}
+
+function assertValidOrganization(organization: unknown): void {
+  if (organization == null) {
+    return;
+  }
+  assertElement(
+    organization,
+    "metadataOrganization",
+    ORGANIZATION_CHILDREN,
+    INHERITED_NAMESPACES,
+    "OrganizationType",
+  );
+  for (const name of LOCALIZED_ORGANIZATION_CHILDREN) {
+    assertNonEmptyArray(organization[name], `metadataOrganization.${name}`);
+    assertLocalizedNames(organization[name], `metadataOrganization.${name}`);
+  }
+  (organization.OrganizationURL as { "#text": string }[]).forEach((url, i) => {
+    if (!ABSOLUTE_URI.test(url["#text"])) {
+      throw new TypeError(
+        `metadataOrganization.OrganizationURL[${i}]["#text"] must be an absolute URI, such as "https://example.com"`,
+      );
+    }
+  });
+}
+
+// Both options are still written into the metadata as given, so what the checks find is logged and
+// not thrown. The next major version throws it.
+export const warnIfContactOrOrganizationInvalid = (
+  params: Pick<
+    GenerateServiceProviderMetadataParams,
+    "metadataContactPerson" | "metadataOrganization"
+  >,
+): void => {
+  const checks = [
+    () => assertValidContactPersons(params.metadataContactPerson),
+    () => assertValidOrganization(params.metadataOrganization),
+  ];
+  for (const check of checks) {
+    try {
+      check();
+    } catch (error) {
+      debugLog(
+        "%s. The metadata is still generated from the option as given, and may not follow the SAML metadata schema. The next major version rejects this instead.",
+        (error as Error).message,
+      );
+    }
+  }
+};
+
+// The builder emits keys in the order they were written, and the order a caller writes an
+// object's keys in is not a choice the schema should depend on. Any other key, such as an
+// attribute, is kept ahead of the children.
+function inSchemaOrder(element: XMLValue, children: string[]): XMLValue {
+  if (Array.isArray(element)) {
+    return element.map((entry) => inSchemaOrder(entry, children));
+  }
+  if (typeof element !== "object" || element === null) {
+    return element;
+  }
+  const keys = Object.keys(element);
+  const ordered: XMLObject = {};
+  for (const key of [
+    ...keys.filter((key) => !children.includes(key)),
+    ...children.filter((key) => keys.includes(key)),
+  ]) {
+    ordered[key] = element[key];
+  }
+  return ordered;
+}
+
 // `SAML`'s constructor has already reported its options, so its method builds the metadata
 // without warning again.
 export const buildServiceProviderMetadata = (
@@ -178,16 +318,25 @@ export const buildServiceProviderMetadata = (
 
   const metadata: ServiceMetadataXML = {
     EntityDescriptor: {
-      "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
-      "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
+      ...INHERITED_NAMESPACES,
       "@entityID": issuer,
       "@ID": generateUniqueId(),
       SPSSODescriptor: {
         "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
         "@AuthnRequestsSigned": "false",
       },
-      ...(metadataOrganization ? { Organization: metadataOrganization } : {}),
-      ...(metadataContactPerson ? { ContactPerson: metadataContactPerson } : {}),
+      // `Extensions` is xmlbuilder content the caller built, which its type does not describe.
+      ...(metadataOrganization
+        ? { Organization: inSchemaOrder(metadataOrganization as XMLValue, ORGANIZATION_CHILDREN) }
+        : {}),
+      ...(metadataContactPerson
+        ? {
+            ContactPerson: inSchemaOrder(
+              metadataContactPerson as XMLValue,
+              CONTACT_PERSON_CHILDREN,
+            ),
+          }
+        : {}),
     },
   };
 
@@ -309,6 +458,7 @@ export const generateServiceProviderMetadata = (
       algorithms.warnIfAlgorithmNotRecognized(option, params[option]);
     }
   }
+  warnIfContactOrOrganizationInvalid(params);
 
   return buildServiceProviderMetadata(params);
 };
