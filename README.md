@@ -545,15 +545,18 @@ shape is still written into the metadata as given, which can leave the metadata 
 `samlAuthnRequestExtensions` and `samlLogoutRequestExtensions` add an `Extensions` element to the
 generated `AuthnRequest` and `LogoutRequest`. They are useful for things like the
 [requested attributes protocol extension](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html),
-and accept any [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object, so any element is
-expressible.
+and take an [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object of namespace-qualified
+elements.
 
 ```javascript
 samlAuthnRequestExtensions: {
-  "md:RequestedAttribute": {
-    "@isRequired": "true",
-    "@Name": "LastName",
-    "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
+  "req-attr:RequestedAttributes": {
+    "@xmlns:req-attr": "urn:oasis:names:tc:SAML:protocol:ext:req-attr",
+    "md:RequestedAttribute": {
+      "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
+      "@isRequired": "true",
+      "@Name": "LastName",
+    },
   },
   vetuma: {
     "@xmlns": "urn:vetuma:SAML:2.0:extensions",
@@ -568,6 +571,12 @@ samlLogoutRequestExtensions: {
   },
 },
 ```
+
+Each element directly inside `Extensions` comes from a namespace that SAML does not define: not the
+SAML 2.0 assertion, protocol or metadata namespace. That is why the requested attributes above sit
+inside the extension's own `RequestedAttributes` element, and not directly in `Extensions`. Neither
+option is rejected yet: one in any other shape is still written into the request as given. Run with
+`NODE_DEBUG=node-saml` to be told when that happens. The next major version rejects it.
 
 ## Security and signatures
 

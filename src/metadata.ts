@@ -1,4 +1,3 @@
-import * as xmldom from "@xmldom/xmldom";
 import * as util from "util";
 import * as algorithms from "./algorithms";
 import {
@@ -17,23 +16,19 @@ import {
   signXmlMetadata,
 } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
+import {
+  assertExtensions,
+  build,
+  METADATA_NAMESPACE,
+  NCNAME,
+  SAML_NAMESPACES,
+  XML_NAMESPACE,
+} from "./extensions";
 import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
 const debugLog = util.debuglog("node-saml");
 
-const METADATA_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:metadata";
-// The namespaces that SAML 2.0 Metadata, section 1.1, lists as SAML's. An extension element or
-// attribute must come from any other: sections 2.3.2.1 and 2.3.2.2. That is narrower than the
-// schema's `##other`, and leaves room for later OASIS extensions such as `mdui`.
-// https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
-const SAML_NAMESPACES = [
-  METADATA_NAMESPACE,
-  "urn:oasis:names:tc:SAML:2.0:assertion",
-  "urn:oasis:names:tc:SAML:2.0:protocol",
-];
-const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
-const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 const XSI_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance";
 // Declared on `EntityDescriptor`, and so in scope on every element of the metadata.
 const INHERITED_NAMESPACES = {
@@ -180,110 +175,9 @@ const LOCALIZED_ORGANIZATION_CHILDREN = [
 ];
 const ORGANIZATION_CHILDREN = ["Extensions", ...LOCALIZED_ORGANIZATION_CHILDREN];
 // Both types end in `anyAttribute namespace="##other"`, which is how a REFEDS security contact is
-// marked: a prefixed attribute, next to the `xmlns:` declaration of its prefix. The prefix and the
-// name are each an `NCName`: https://www.w3.org/TR/xml-names/#NT-NCName
-const NAME_START_CHARACTER =
-  "A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF" +
-  "\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD" +
-  "\\u{10000}-\\u{EFFFF}";
-const NAME_CHARACTER = `\\u0300-\\u036F${NAME_START_CHARACTER}.0-9\\u00B7\\u203F-\\u2040\\-`;
-const NCNAME = `[${NAME_START_CHARACTER}][${NAME_CHARACTER}]*`;
+// marked: a prefixed attribute, next to the `xmlns:` declaration of its prefix.
 const QUALIFIED_ATTRIBUTE = new RegExp(`^@(${NCNAME}):(${NCNAME})$`, "u");
 const QNAME = new RegExp(`^(?:(${NCNAME}):)?(${NCNAME})$`, "u");
-
-// The grammar of a URI reference: https://www.rfc-editor.org/rfc/rfc3986#appendix-A
-const REG_NAME_CHARACTER = "[A-Za-z0-9._~!$&'()*+,;=-]|%[0-9A-Fa-f]{2}";
-const PCHAR = `(?:${REG_NAME_CHARACTER}|[:@])`;
-const SEGMENTS = `(?:/${PCHAR}*)*`;
-const AUTHORITY =
-  `//(?:(?:${REG_NAME_CHARACTER}|:)*@)?` +
-  `(?:\\[(?:${REG_NAME_CHARACTER}|:)+\\]|(?:${REG_NAME_CHARACTER})*)(?::[0-9]*)?`;
-const hierarchy = (firstSegment: string) =>
-  `(?:${AUTHORITY}${SEGMENTS}|/(?:${PCHAR}+${SEGMENTS})?|${firstSegment}${SEGMENTS})?`;
-const QUERY_OR_FRAGMENT = `(?:${PCHAR}|[/?])*`;
-const URI_REFERENCE = new RegExp(
-  `^(?:[A-Za-z][A-Za-z0-9+.-]*:${hierarchy(`${PCHAR}+`)}|${hierarchy(`(?:${REG_NAME_CHARACTER}|@)+`)})` +
-    `(?:\\?${QUERY_OR_FRAGMENT})?(?:#${QUERY_OR_FRAGMENT})?$`,
-);
-
-// A namespace name is a URI reference, and the `xml` and `xmlns` prefixes and their namespaces
-// are reserved: https://www.w3.org/TR/xml-names/#ns-decl
-function assertNamespaceName(prefix: string, namespace: string, path: string): void {
-  if (!URI_REFERENCE.test(namespace) || (prefix && !namespace)) {
-    throw new TypeError(`${path} must be a URI`);
-  }
-  if (
-    prefix === "xmlns" ||
-    namespace === XMLNS_NAMESPACE ||
-    (prefix === "xml") !== (namespace === XML_NAMESPACE)
-  ) {
-    throw new TypeError(
-      `${path} must leave the "xml" and "xmlns" prefixes and their namespaces as XML defines them`,
-    );
-  }
-}
-
-// xmldom parses an element whose namespaces are not well formed without reporting it:
-// https://www.w3.org/TR/xml-names/#Conformance
-function assertNamespaces(element: Element, path: string): void {
-  const attributes = Array.from(element.attributes);
-  const qualified: Attr[] = [];
-  for (const attribute of attributes) {
-    const { prefix, localName, nodeName, value } = attribute;
-    if (prefix === "xmlns" || nodeName === "xmlns") {
-      assertNamespaceName(prefix ? localName : "", value, `${path}["@${nodeName}"]`);
-    } else if (prefix) {
-      qualified.push(attribute);
-    }
-  }
-  const undeclared = [element, ...qualified].find((node) => node.prefix && !node.namespaceURI);
-  if (undeclared) {
-    throw new TypeError(
-      `${path}["${undeclared === element ? "" : "@"}${undeclared.nodeName}"] uses the prefix "${undeclared.prefix}", which is not declared`,
-    );
-  }
-  qualified.forEach((attribute, i) => {
-    const earlier = qualified
-      .slice(0, i)
-      .find(
-        (other) =>
-          other.namespaceURI === attribute.namespaceURI && other.localName === attribute.localName,
-      );
-    if (earlier) {
-      throw new TypeError(
-        `${path}["@${attribute.nodeName}"] repeats "@${earlier.nodeName}": both prefixes name one namespace`,
-      );
-    }
-  });
-  for (const child of Array.from(element.childNodes)) {
-    if (child.nodeType === child.ELEMENT_NODE) {
-      assertNamespaces(child as Element, path);
-    }
-  }
-}
-
-// A key shows neither its namespace nor whether its prefix is declared, since both come from the
-// declarations in scope. So what the caller wrote is built as it will be emitted, and read back.
-// xmldom does not parse a name outside the Basic Multilingual Plane, so one is reported here:
-// signing the metadata parses it the same way.
-function build(content: Record<string, unknown>, path: string): Element {
-  // Without a handler, xmldom writes what it finds to the console.
-  let wellFormed = true;
-  const notWellFormed = () => {
-    wellFormed = false;
-  };
-  const built = new xmldom.DOMParser({
-    errorHandler: { warning: notWellFormed, error: notWellFormed, fatalError: notWellFormed },
-  }).parseFromString(
-    buildXmlBuilderObject({ Element: { ...INHERITED_NAMESPACES, ...content } }, false),
-    "text/xml",
-  ).documentElement;
-  if (!wellFormed || built == null) {
-    throw new TypeError(`${path} must be well-formed XML`);
-  }
-  assertNamespaces(built, path);
-  return built;
-}
 
 // The attributes that https://www.w3.org/2001/xml.xsd, which the metadata schema imports, gives a
 // type narrower than a URI.
@@ -316,7 +210,7 @@ function assertElement(
     }
     qualified[attribute] = value[attribute];
   }
-  const built = build(qualified, path);
+  const built = build("Element", { ...INHERITED_NAMESPACES, ...qualified }, path);
   for (const { prefix, namespaceURI, localName, nodeName, value: content } of Array.from(
     built.attributes,
   )) {
@@ -351,42 +245,15 @@ function assertElement(
   }
 }
 
-// `ExtensionsType` is one or more elements and no text, each from a namespace that SAML does not
-// define: SAML 2.0 Metadata, sections 2.3.1, 2.3.2.1 and 2.3.2.2.
-function assertExtensions(parent: Record<string, unknown>, path: string): void {
-  const extensions = parent.Extensions;
-  if (extensions == null) {
+function assertElementExtensions(parent: Record<string, unknown>, path: string): void {
+  if (parent.Extensions == null) {
     return;
   }
-  if (typeof extensions !== "object" || Array.isArray(extensions)) {
-    throw new TypeError(`${path} must be an object of namespace-qualified elements`);
-  }
-  const declarations: Record<string, unknown> = {};
+  const declarations: Record<string, unknown> = { ...INHERITED_NAMESPACES };
   for (const key of Object.keys(parent).filter((key) => key.startsWith("@xmlns:"))) {
     declarations[key] = parent[key];
   }
-  const built = build({ ...declarations, ...extensions }, path);
-  const children = Array.from(built.childNodes);
-  const elements = children.filter((node): node is Element => node.nodeType === node.ELEMENT_NODE);
-
-  if (built.namespaceURI !== METADATA_NAMESPACE) {
-    throw new TypeError(`${path} must not declare a default namespace of its own`);
-  }
-  const isText = (node: Node) =>
-    node.nodeType === node.TEXT_NODE || node.nodeType === node.CDATA_SECTION_NODE;
-  if (children.some((node) => isText(node) && /\S/.test(node.nodeValue ?? ""))) {
-    throw new TypeError(`${path} must not hold text`);
-  }
-  if (elements.length === 0) {
-    throw new TypeError(`${path} must hold at least one element`);
-  }
-  for (const element of elements) {
-    if (!element.namespaceURI || SAML_NAMESPACES.includes(element.namespaceURI)) {
-      throw new TypeError(
-        `${path}["${element.nodeName}"] must be in a namespace that SAML does not define`,
-      );
-    }
-  }
+  assertExtensions(parent.Extensions, path, "Extensions", declarations);
 }
 
 function assertValidContactPersons(contacts: unknown): void {
@@ -405,7 +272,7 @@ function assertValidContactPersons(contacts: unknown): void {
     if (typeof contactType !== "string" || !CONTACT_TYPES.includes(contactType)) {
       throw new TypeError(`${path}["@contactType"] must be one of ${CONTACT_TYPES.join(", ")}`);
     }
-    assertExtensions(contact, `${path}.Extensions`);
+    assertElementExtensions(contact, `${path}.Extensions`);
     for (const key of ["Company", "GivenName", "SurName"]) {
       if (contact[key] != null) {
         assertNonEmptyString(contact[key], `${path}.${key}`);
@@ -429,7 +296,7 @@ function assertValidOrganization(organization: unknown): void {
     return;
   }
   assertElement(organization, "metadataOrganization", ORGANIZATION_CHILDREN, "OrganizationType");
-  assertExtensions(organization, "metadataOrganization.Extensions");
+  assertElementExtensions(organization, "metadataOrganization.Extensions");
   for (const name of LOCALIZED_ORGANIZATION_CHILDREN) {
     assertNonEmptyArray(organization[name], `metadataOrganization.${name}`);
     assertLocalizedNames(organization[name], `metadataOrganization.${name}`);

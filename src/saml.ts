@@ -8,6 +8,7 @@ import * as algorithms from "./algorithms";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 import { generateUniqueId, keyInfoToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
+import { warnIfRequestExtensionsInvalid } from "./extensions";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
 import {
   assertValidAttributeConsumingServices,
@@ -290,6 +291,7 @@ class SAML {
     }
 
     warnIfContactOrOrganizationInvalid(ctorOptions);
+    warnIfRequestExtensionsInvalid(ctorOptions);
 
     /**
      * List of possible values:

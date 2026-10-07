@@ -28,6 +28,7 @@ rather than widening the change; don't let cleanup swallow the fix you were aske
 - `src/xml.ts` — signature verification, decryption, XPath, and DOM/xml2js parsing.
 - `src/crypto.ts` — PEM parsing and normalization (RFC 7468) and unique ID generation.
 - `src/metadata.ts` — service provider metadata generation.
+- `src/extensions.ts` — checks on the XML a caller supplies at SAML's extension points.
 - `src/types.ts` — public types, including the whole `SamlOptions` surface.
 - `test/*.spec.ts` — Mocha specs. `test/types.ts` is a shared fixture helper, not a spec.
 - `test/static/` — fixtures, including `test/static/signatures/{valid,invalid}/`. See the
