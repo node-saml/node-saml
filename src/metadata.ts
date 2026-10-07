@@ -177,6 +177,7 @@ const NAME_START_CHARACTER =
 const NAME_CHARACTER = `\\u0300-\\u036F${NAME_START_CHARACTER}.0-9\\u00B7\\u203F-\\u2040\\-`;
 const NCNAME = `[${NAME_START_CHARACTER}][${NAME_CHARACTER}]*`;
 const QUALIFIED_ATTRIBUTE = new RegExp(`^@(${NCNAME}):(${NCNAME})$`, "u");
+const QNAME = new RegExp(`^(?:(${NCNAME}):)?(${NCNAME})$`, "u");
 
 // The grammar of a URI reference: https://www.rfc-editor.org/rfc/rfc3986#appendix-A
 const REG_NAME_CHARACTER = "[A-Za-z0-9._~!$&'()*+,;=-]|%[0-9A-Fa-f]{2}";
@@ -320,10 +321,14 @@ function assertElement(
       throw new TypeError(`${attributePath} must be left out: the element cannot be nil`);
     }
     if (namespaceURI === XSI_NAMESPACE && localName === "type") {
-      const [, typePrefix, typeName] = /^(?:([^:]*):)?(.*)$/.exec(content) as RegExpExecArray;
-      const declaration = typePrefix === undefined ? "xmlns" : `xmlns:${typePrefix}`;
-      if (built.getAttribute(declaration) !== METADATA_NAMESPACE || typeName !== type) {
-        throw new TypeError(`${attributePath} must name the element's own type, ${type}`);
+      // A type from another namespace may derive from the element's own, which only the schema
+      // of that namespace can say.
+      const [, typePrefix, typeName] = QNAME.exec(content) ?? [];
+      const typeNamespace = built.getAttribute(typePrefix ? `xmlns:${typePrefix}` : "xmlns");
+      if (!typeNamespace || (typeNamespace === METADATA_NAMESPACE && typeName !== type)) {
+        throw new TypeError(
+          `${attributePath} must name the element's own type, ${type}, or a type from another namespace whose prefix is declared`,
+        );
       }
     }
     const rule = XML_ATTRIBUTES.find(
