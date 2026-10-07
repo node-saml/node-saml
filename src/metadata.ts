@@ -23,6 +23,8 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 const debugLog = util.debuglog("node-saml");
 
 const METADATA_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:metadata";
+const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
+const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 // Declared on `EntityDescriptor`, and so in scope on every element of the metadata.
 const INHERITED_NAMESPACES = {
   "@xmlns": METADATA_NAMESPACE,
@@ -166,7 +168,45 @@ const LOCALIZED_ORGANIZATION_CHILDREN = [
 const ORGANIZATION_CHILDREN = ["Extensions", ...LOCALIZED_ORGANIZATION_CHILDREN];
 // Both types end in `anyAttribute namespace="##other"`, which is how a REFEDS security contact is
 // marked: a prefixed attribute, next to the `xmlns:` declaration of its prefix.
-const QUALIFIED_ATTRIBUTE = /^@([^:]+):[^:]+$/;
+const QUALIFIED_ATTRIBUTE = /^@([^:]+):([^:]+)$/;
+
+// The `xml` and `xmlns` prefixes and their namespaces are reserved:
+// https://www.w3.org/TR/xml-names/#xmlReserved
+function assertNotReserved(prefix: string, namespace: string, path: string): void {
+  if (
+    prefix === "xmlns" ||
+    namespace === XMLNS_NAMESPACE ||
+    (prefix === "xml") !== (namespace === XML_NAMESPACE)
+  ) {
+    throw new TypeError(
+      `${path} must leave the "xml" and "xmlns" prefixes and their namespaces as XML defines them`,
+    );
+  }
+}
+
+// xmldom parses an element whose namespaces are not well formed without reporting it:
+// https://www.w3.org/TR/xml-names/#nsc-NSDeclared
+function assertNamespaces(element: Element, path: string): void {
+  const attributes = Array.from(element.attributes);
+  for (const { prefix, localName, nodeName, value } of attributes) {
+    if (prefix === "xmlns" || nodeName === "xmlns") {
+      assertNotReserved(prefix ? localName : "", value, `${path}["@${nodeName}"]`);
+    }
+  }
+  const undeclared = [element, ...attributes].find(
+    (node) => node.prefix && node.prefix !== "xmlns" && !node.namespaceURI,
+  );
+  if (undeclared) {
+    throw new TypeError(
+      `${path}["${undeclared.nodeName}"] uses the prefix "${undeclared.prefix}", which is not declared`,
+    );
+  }
+  for (const child of Array.from(element.childNodes)) {
+    if (child.nodeType === child.ELEMENT_NODE) {
+      assertNamespaces(child as Element, path);
+    }
+  }
+}
 
 function assertElement(
   value: unknown,
@@ -180,9 +220,10 @@ function assertElement(
   assertObject(value, path, [...keys, ...attributes]);
   const declarations: Record<string, unknown> = { ...INHERITED_NAMESPACES, ...value };
   for (const attribute of attributes) {
-    const [, prefix] = QUALIFIED_ATTRIBUTE.exec(attribute) as RegExpExecArray;
+    const [, prefix, name] = QUALIFIED_ATTRIBUTE.exec(attribute) as RegExpExecArray;
     if (prefix === "xmlns") {
       assertNonEmptyString(value[attribute], `${path}["${attribute}"]`);
+      assertNotReserved(name, value[attribute], `${path}["${attribute}"]`);
       continue;
     }
     if (typeof value[attribute] !== "string") {
@@ -227,6 +268,7 @@ function assertExtensions(parent: Record<string, unknown>, path: string): void {
   if (!wellFormed || built == null) {
     throw new TypeError(`${path} must be well-formed XML`);
   }
+  assertNamespaces(built, path);
   const children = Array.from(built.childNodes);
   const elements = children.filter((node): node is Element => node.nodeType === node.ELEMENT_NODE);
 
