@@ -60,8 +60,9 @@ function assertNamespaceName(prefix: string, namespace: string, path: string): v
   }
 }
 
-// xmldom parses an element whose namespaces are not well formed without reporting it:
+// xmldom 0.8 parses an element whose namespaces are not well formed without reporting it:
 // https://www.w3.org/TR/xml-names/#Conformance
+// xmldom 0.9 reports an undeclared prefix itself, though none of the rest.
 function assertNamespaces(element: Element, path: string): void {
   const attributes = Array.from(element.attributes);
   const qualified: Attr[] = [];
@@ -101,7 +102,7 @@ function assertNamespaces(element: Element, path: string): void {
 
 // A key shows neither its namespace nor whether its prefix is declared, since both come from the
 // declarations in scope. So what the caller wrote is built as it will be emitted, and read back.
-// xmldom does not parse a name outside the Basic Multilingual Plane, so one is reported here:
+// xmldom 0.8 does not parse a name outside the Basic Multilingual Plane, so one is reported here:
 // signing parses the document the same way.
 function build(name: string, content: Record<string, unknown>, path: string): Element {
   // Without a handler, xmldom writes what it finds to the console.
