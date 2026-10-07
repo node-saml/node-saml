@@ -16,23 +16,15 @@ import {
   signXmlMetadata,
 } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
-import {
-  assertExtensions,
-  build,
-  METADATA_NAMESPACE,
-  NCNAME,
-  SAML_NAMESPACES,
-  XML_NAMESPACE,
-} from "./extensions";
+import { assertElement } from "./extensions";
 import { generateUniqueId as generateUniqueIdDefault, keyInfoToBase64Certificate } from "./crypto";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 
 const debugLog = util.debuglog("node-saml");
 
-const XSI_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance";
 // Declared on `EntityDescriptor`, and so in scope on every element of the metadata.
 const INHERITED_NAMESPACES = {
-  "@xmlns": METADATA_NAMESPACE,
+  "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
   "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
 };
 const CONTACT_TYPES = ["technical", "support", "administrative", "billing", "other"];
@@ -174,88 +166,6 @@ const LOCALIZED_ORGANIZATION_CHILDREN = [
   "OrganizationURL",
 ];
 const ORGANIZATION_CHILDREN = ["Extensions", ...LOCALIZED_ORGANIZATION_CHILDREN];
-// Both types end in `anyAttribute namespace="##other"`, which is how a REFEDS security contact is
-// marked: a prefixed attribute, next to the `xmlns:` declaration of its prefix.
-const QUALIFIED_ATTRIBUTE = new RegExp(`^@(${NCNAME}):(${NCNAME})$`, "u");
-const QNAME = new RegExp(`^(?:(${NCNAME}):)?(${NCNAME})$`, "u");
-
-// The attributes that https://www.w3.org/2001/xml.xsd, which the metadata schema imports, gives a
-// type narrower than a URI.
-const XML_ATTRIBUTES: [string, RegExp, string][] = [
-  ["lang", new RegExp(`${LANGUAGE_TAG.source}|^$`), 'a language tag, such as "en" or "en-GB"'],
-  ["space", /^(?:default|preserve)$/, '"default" or "preserve"'],
-  ["id", new RegExp(`^${NCNAME}$`, "u"), "an XML name without a colon"],
-];
-
-// The wildcard that admits an attribute from another namespace does not free one that XML Schema
-// or the XML namespace defines from its own rule: https://www.w3.org/TR/xmlschema-1/#xsi_type
-function assertElement(
-  value: unknown,
-  path: string,
-  keys: string[],
-  type: string,
-): asserts value is Record<string, unknown> {
-  const attributes =
-    typeof value === "object" && value !== null
-      ? Object.keys(value).filter((key) => QUALIFIED_ATTRIBUTE.test(key))
-      : [];
-  assertObject(value, path, [...keys, ...attributes]);
-  if (attributes.length === 0) {
-    return;
-  }
-  const qualified: Record<string, unknown> = {};
-  for (const attribute of attributes) {
-    if (typeof value[attribute] !== "string") {
-      throw new TypeError(`${path}["${attribute}"] must be a string`);
-    }
-    qualified[attribute] = value[attribute];
-  }
-  const built = build("Element", { ...INHERITED_NAMESPACES, ...qualified }, path);
-  for (const { prefix, namespaceURI, localName, nodeName, value: content } of Array.from(
-    built.attributes,
-  )) {
-    if (!prefix || prefix === "xmlns") {
-      continue;
-    }
-    const attributePath = `${path}["@${nodeName}"]`;
-    if (namespaceURI !== null && SAML_NAMESPACES.includes(namespaceURI)) {
-      throw new TypeError(`${attributePath} must be in a namespace that SAML does not define`);
-    }
-    if (namespaceURI === XSI_NAMESPACE && localName === "nil") {
-      throw new TypeError(`${attributePath} must be left out: the element cannot be nil`);
-    }
-    if (namespaceURI === XSI_NAMESPACE && localName === "type") {
-      // A type from a namespace that SAML does not define may derive from the element's own,
-      // which only the schema of that namespace can say.
-      const [, typePrefix, typeName] = QNAME.exec(content) ?? [];
-      const typeNamespace = built.getAttribute(typePrefix ? `xmlns:${typePrefix}` : "xmlns");
-      const ownType = typeNamespace === METADATA_NAMESPACE && typeName === type;
-      if (!typeNamespace || (SAML_NAMESPACES.includes(typeNamespace) && !ownType)) {
-        throw new TypeError(
-          `${attributePath} must name the element's own type, ${type}, or a type from a namespace that SAML does not define, whose prefix is declared`,
-        );
-      }
-    }
-    const rule = XML_ATTRIBUTES.find(
-      ([name]) => namespaceURI === XML_NAMESPACE && name === localName,
-    );
-    if (rule && !rule[1].test(content)) {
-      throw new TypeError(`${attributePath} must be ${rule[2]}`);
-    }
-  }
-}
-
-function assertElementExtensions(parent: Record<string, unknown>, path: string): void {
-  if (parent.Extensions == null) {
-    return;
-  }
-  const declarations: Record<string, unknown> = { ...INHERITED_NAMESPACES };
-  for (const key of Object.keys(parent).filter((key) => key.startsWith("@xmlns:"))) {
-    declarations[key] = parent[key];
-  }
-  assertExtensions(parent.Extensions, path, "Extensions", declarations);
-}
-
 function assertValidContactPersons(contacts: unknown): void {
   if (contacts == null) {
     return;
@@ -266,13 +176,18 @@ function assertValidContactPersons(contacts: unknown): void {
 
   contacts.forEach((contact: unknown, i) => {
     const path = `metadataContactPerson[${i}]`;
-    assertElement(contact, path, ["@contactType", ...CONTACT_PERSON_CHILDREN], "ContactType");
+    assertElement(
+      contact,
+      path,
+      ["@contactType", ...CONTACT_PERSON_CHILDREN],
+      INHERITED_NAMESPACES,
+      "ContactType",
+    );
 
     const contactType = contact["@contactType"];
     if (typeof contactType !== "string" || !CONTACT_TYPES.includes(contactType)) {
       throw new TypeError(`${path}["@contactType"] must be one of ${CONTACT_TYPES.join(", ")}`);
     }
-    assertElementExtensions(contact, `${path}.Extensions`);
     for (const key of ["Company", "GivenName", "SurName"]) {
       if (contact[key] != null) {
         assertNonEmptyString(contact[key], `${path}.${key}`);
@@ -295,8 +210,13 @@ function assertValidOrganization(organization: unknown): void {
   if (organization == null) {
     return;
   }
-  assertElement(organization, "metadataOrganization", ORGANIZATION_CHILDREN, "OrganizationType");
-  assertElementExtensions(organization, "metadataOrganization.Extensions");
+  assertElement(
+    organization,
+    "metadataOrganization",
+    ORGANIZATION_CHILDREN,
+    INHERITED_NAMESPACES,
+    "OrganizationType",
+  );
   for (const name of LOCALIZED_ORGANIZATION_CHILDREN) {
     assertNonEmptyArray(organization[name], `metadataOrganization.${name}`);
     assertLocalizedNames(organization[name], `metadataOrganization.${name}`);

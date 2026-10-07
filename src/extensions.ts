@@ -1,11 +1,12 @@
 import * as xmldom from "@xmldom/xmldom";
 import * as util from "util";
 import { SamlOptions } from "./types";
+import { assertObject } from "./utility";
 import { buildXmlBuilderObject } from "./xml";
 
 const debugLog = util.debuglog("node-saml");
 
-export const METADATA_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:metadata";
+const METADATA_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:metadata";
 const ASSERTION_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:assertion";
 const PROTOCOL_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:protocol";
 // The namespaces that SAML 2.0 Metadata, section 1.1, lists as SAML's. An extension element or
@@ -14,9 +15,10 @@ const PROTOCOL_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:protocol";
 // later OASIS extensions such as `mdui`.
 // https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
 // https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
-export const SAML_NAMESPACES = [METADATA_NAMESPACE, ASSERTION_NAMESPACE, PROTOCOL_NAMESPACE];
-export const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
+const SAML_NAMESPACES = [METADATA_NAMESPACE, ASSERTION_NAMESPACE, PROTOCOL_NAMESPACE];
+const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
+const XSI_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance";
 
 // An `NCName`, which a prefix and a local name each are: https://www.w3.org/TR/xml-names/#NT-NCName
 const NAME_START_CHARACTER =
@@ -24,7 +26,7 @@ const NAME_START_CHARACTER =
   "\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD" +
   "\\u{10000}-\\u{EFFFF}";
 const NAME_CHARACTER = `\\u0300-\\u036F${NAME_START_CHARACTER}.0-9\\u00B7\\u203F-\\u2040\\-`;
-export const NCNAME = `[${NAME_START_CHARACTER}][${NAME_CHARACTER}]*`;
+const NCNAME = `[${NAME_START_CHARACTER}][${NAME_CHARACTER}]*`;
 
 // The grammar of a URI reference: https://www.rfc-editor.org/rfc/rfc3986#appendix-A
 const REG_NAME_CHARACTER = "[A-Za-z0-9._~!$&'()*+,;=-]|%[0-9A-Fa-f]{2}";
@@ -101,7 +103,7 @@ function assertNamespaces(element: Element, path: string): void {
 // declarations in scope. So what the caller wrote is built as it will be emitted, and read back.
 // xmldom does not parse a name outside the Basic Multilingual Plane, so one is reported here:
 // signing parses the document the same way.
-export function build(name: string, content: Record<string, unknown>, path: string): Element {
+function build(name: string, content: Record<string, unknown>, path: string): Element {
   // Without a handler, xmldom writes what it finds to the console.
   let wellFormed = true;
   const notWellFormed = () => {
@@ -120,7 +122,7 @@ export function build(name: string, content: Record<string, unknown>, path: stri
 // An `ExtensionsType`, in the metadata schema and in the protocol one, is one or more elements and
 // no text. Each element is from a namespace that SAML does not define. `declarations` are the
 // ones in scope where the element named `name` is emitted.
-export function assertExtensions(
+function assertExtensions(
   extensions: unknown,
   path: string,
   name: string,
@@ -151,6 +153,85 @@ export function assertExtensions(
         `${path}["${element.nodeName}"] must be in a namespace that SAML does not define`,
       );
     }
+  }
+}
+
+// An attribute that SAML's `anyAttribute namespace="##other"` admits, which is how a REFEDS
+// security contact is marked: a prefixed one, next to the `xmlns:` declaration of its prefix.
+const QUALIFIED_ATTRIBUTE = new RegExp(`^@(${NCNAME}):(${NCNAME})$`, "u");
+const QNAME = new RegExp(`^(?:(${NCNAME}):)?(${NCNAME})$`, "u");
+// The attributes that https://www.w3.org/2001/xml.xsd, which the SAML schemas import, gives a type
+// narrower than a URI. The first is `xs:language` or nothing.
+const XML_ATTRIBUTES: [string, RegExp, string][] = [
+  ["lang", /^(?:[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*)?$/, 'a language tag, such as "en" or "en-GB"'],
+  ["space", /^(?:default|preserve)$/, '"default" or "preserve"'],
+  ["id", new RegExp(`^${NCNAME}$`, "u"), "an XML name without a colon"],
+];
+
+// An element of the metadata that a caller may extend, with attributes from a namespace that SAML
+// does not define and with an `Extensions` child. `declarations` are the ones in scope where the
+// element is emitted, and `type` is the name of its type in the metadata schema. The wildcard that
+// admits an attribute does not free one that XML Schema or the XML namespace defines from its own
+// rule: https://www.w3.org/TR/xmlschema-1/#xsi_type
+export function assertElement(
+  value: unknown,
+  path: string,
+  keys: string[],
+  declarations: Record<string, unknown>,
+  type: string,
+): asserts value is Record<string, unknown> {
+  const attributes =
+    typeof value === "object" && value !== null
+      ? Object.keys(value).filter((key) => QUALIFIED_ATTRIBUTE.test(key))
+      : [];
+  assertObject(value, path, [...keys, ...attributes]);
+  const qualified: Record<string, unknown> = {};
+  for (const attribute of attributes) {
+    if (typeof value[attribute] !== "string") {
+      throw new TypeError(`${path}["${attribute}"] must be a string`);
+    }
+    qualified[attribute] = value[attribute];
+  }
+  const built =
+    attributes.length > 0 ? build("Element", { ...declarations, ...qualified }, path) : null;
+  for (const { prefix, namespaceURI, localName, nodeName, value: content } of Array.from(
+    built?.attributes ?? [],
+  )) {
+    if (!prefix || prefix === "xmlns") {
+      continue;
+    }
+    const attributePath = `${path}["@${nodeName}"]`;
+    if (namespaceURI !== null && SAML_NAMESPACES.includes(namespaceURI)) {
+      throw new TypeError(`${attributePath} must be in a namespace that SAML does not define`);
+    }
+    if (namespaceURI === XSI_NAMESPACE && localName === "nil") {
+      throw new TypeError(`${attributePath} must be left out: the element cannot be nil`);
+    }
+    if (namespaceURI === XSI_NAMESPACE && localName === "type") {
+      // A type from a namespace that SAML does not define may derive from the element's own,
+      // which only the schema of that namespace can say.
+      const [, typePrefix, typeName] = QNAME.exec(content) ?? [];
+      const typeNamespace = built?.getAttribute(typePrefix ? `xmlns:${typePrefix}` : "xmlns");
+      const ownType = typeNamespace === METADATA_NAMESPACE && typeName === type;
+      if (!typeNamespace || (SAML_NAMESPACES.includes(typeNamespace) && !ownType)) {
+        throw new TypeError(
+          `${attributePath} must name the element's own type, ${type}, or a type from a namespace that SAML does not define, whose prefix is declared`,
+        );
+      }
+    }
+    const rule = XML_ATTRIBUTES.find(
+      ([name]) => namespaceURI === XML_NAMESPACE && name === localName,
+    );
+    if (rule && !rule[1].test(content)) {
+      throw new TypeError(`${attributePath} must be ${rule[2]}`);
+    }
+  }
+  if (value.Extensions != null) {
+    const inScope = { ...declarations };
+    for (const key of Object.keys(value).filter((key) => key.startsWith("@xmlns:"))) {
+      inScope[key] = value[key];
+    }
+    assertExtensions(value.Extensions, `${path}.Extensions`, "Extensions", inScope);
   }
 }
 
