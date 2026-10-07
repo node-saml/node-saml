@@ -509,9 +509,10 @@ metadataAttributeConsumingServices: [
 
 `Extensions`, on a contact or on the organization, takes namespace-qualified elements as an
 xmlbuilder object, like the options under [Extensions](#extensions) below. A string there cannot
-produce valid metadata. Both also take attributes from another namespace, each written with its
-prefix next to the `@xmlns:` declaration of that prefix. A REFEDS security contact is marked that
-way:
+produce valid metadata. Both also take namespace-qualified attributes, each written with its
+prefix next to the `@xmlns:` declaration of that prefix. The elements and the attributes come from
+a namespace that SAML does not define: not the SAML 2.0 metadata, assertion or protocol namespace.
+A REFEDS security contact is marked that way:
 
 ```javascript
 metadataContactPerson: [

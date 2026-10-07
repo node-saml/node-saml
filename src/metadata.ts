@@ -23,6 +23,15 @@ import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./con
 const debugLog = util.debuglog("node-saml");
 
 const METADATA_NAMESPACE = "urn:oasis:names:tc:SAML:2.0:metadata";
+// The namespaces that SAML 2.0 Metadata, section 1.1, lists as SAML's. An extension element or
+// attribute must come from any other: sections 2.3.2.1 and 2.3.2.2. That is narrower than the
+// schema's `##other`, and leaves room for later OASIS extensions such as `mdui`.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
+const SAML_NAMESPACES = [
+  METADATA_NAMESPACE,
+  "urn:oasis:names:tc:SAML:2.0:assertion",
+  "urn:oasis:names:tc:SAML:2.0:protocol",
+];
 const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 const XSI_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance";
@@ -315,22 +324,21 @@ function assertElement(
       continue;
     }
     const attributePath = `${path}["@${nodeName}"]`;
-    if (namespaceURI === METADATA_NAMESPACE) {
-      throw new TypeError(
-        `${attributePath} must be in a namespace other than the metadata namespace`,
-      );
+    if (namespaceURI !== null && SAML_NAMESPACES.includes(namespaceURI)) {
+      throw new TypeError(`${attributePath} must be in a namespace that SAML does not define`);
     }
     if (namespaceURI === XSI_NAMESPACE && localName === "nil") {
       throw new TypeError(`${attributePath} must be left out: the element cannot be nil`);
     }
     if (namespaceURI === XSI_NAMESPACE && localName === "type") {
-      // A type from another namespace may derive from the element's own, which only the schema
-      // of that namespace can say.
+      // A type from a namespace that SAML does not define may derive from the element's own,
+      // which only the schema of that namespace can say.
       const [, typePrefix, typeName] = QNAME.exec(content) ?? [];
       const typeNamespace = built.getAttribute(typePrefix ? `xmlns:${typePrefix}` : "xmlns");
-      if (!typeNamespace || (typeNamespace === METADATA_NAMESPACE && typeName !== type)) {
+      const ownType = typeNamespace === METADATA_NAMESPACE && typeName === type;
+      if (!typeNamespace || (SAML_NAMESPACES.includes(typeNamespace) && !ownType)) {
         throw new TypeError(
-          `${attributePath} must name the element's own type, ${type}, or a type from another namespace whose prefix is declared`,
+          `${attributePath} must name the element's own type, ${type}, or a type from a namespace that SAML does not define, whose prefix is declared`,
         );
       }
     }
@@ -343,8 +351,8 @@ function assertElement(
   }
 }
 
-// `ExtensionsType` is one or more elements from a namespace other than the metadata one, and no
-// text: SAML 2.0 Metadata, section 2.3.1.
+// `ExtensionsType` is one or more elements and no text, each from a namespace that SAML does not
+// define: SAML 2.0 Metadata, sections 2.3.1, 2.3.2.1 and 2.3.2.2.
 function assertExtensions(parent: Record<string, unknown>, path: string): void {
   const extensions = parent.Extensions;
   if (extensions == null) {
@@ -373,9 +381,9 @@ function assertExtensions(parent: Record<string, unknown>, path: string): void {
     throw new TypeError(`${path} must hold at least one element`);
   }
   for (const element of elements) {
-    if (!element.namespaceURI || element.namespaceURI === METADATA_NAMESPACE) {
+    if (!element.namespaceURI || SAML_NAMESPACES.includes(element.namespaceURI)) {
       throw new TypeError(
-        `${path}["${element.nodeName}"] must be in a namespace other than the metadata namespace`,
+        `${path}["${element.nodeName}"] must be in a namespace that SAML does not define`,
       );
     }
   }
