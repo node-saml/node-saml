@@ -231,17 +231,13 @@ function assertValidOrganization(organization: unknown): void {
 }
 
 // Both options are still written into the metadata as given, so what the checks find is logged and
-// not thrown. The next major version throws it. Until then the checks, which build and parse XML,
-// are skipped where nothing would be logged.
+// not thrown. The next major version throws it.
 export const warnIfContactOrOrganizationInvalid = (
   params: Pick<
     GenerateServiceProviderMetadataParams,
     "metadataContactPerson" | "metadataOrganization"
   >,
 ): void => {
-  if (!debugLog.enabled) {
-    return;
-  }
   const checks = [
     () => assertValidContactPersons(params.metadataContactPerson),
     () => assertValidOrganization(params.metadataOrganization),
