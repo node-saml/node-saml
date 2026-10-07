@@ -36,6 +36,9 @@ const SERVICES_OPTION = "metadataAttributeConsumingServices";
 const MAX_UNSIGNED_SHORT = 65535;
 // The lexical space of `xs:language`, the type the schema gives `xml:lang`:
 // https://www.w3.org/TR/xmlschema-2/#language
+// This and every other value is tested as written, and not after the whitespace collapse that
+// XML Schema would apply first: SAML 2.0 Core, section 1.3.1, rules out depending on trimming.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
 const LANGUAGE_TAG = /^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$/;
 // SAML 2.0 Core, section 1.3.2, requires a URI value to be absolute in the sense of RFC 2396,
 // whose grammar comes to a scheme, a colon and one or more URI characters, then an optional
