@@ -13,7 +13,7 @@ const publicCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
 const RSA_SHA1 = "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
 const RSA_SHA256 = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
 const RSA_SHA512 = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512";
-// RSASSA-PSS, RFC 6931 2.3.10: https://www.rfc-editor.org/rfc/rfc6931#section-2.3.10
+// RSASSA-PSS, RFC 9231 2.3.10: https://www.rfc-editor.org/rfc/rfc9231#section-2.3.10
 const RSA_SHA256_MGF1 = "http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1";
 const pss = {
   padding: crypto.constants.RSA_PKCS1_PSS_PADDING,

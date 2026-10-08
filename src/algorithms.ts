@@ -5,7 +5,7 @@ const debugLog = util.debuglog("node-saml");
 
 type AlgorithmOption = "signatureAlgorithm" | "digestAlgorithm";
 
-// RSASSA-PSS, RFC 6931 2.3.10: https://www.rfc-editor.org/rfc/rfc6931#section-2.3.10
+// RSASSA-PSS, RFC 9231 2.3.10: https://www.rfc-editor.org/rfc/rfc9231#section-2.3.10
 export const RSA_SHA256_MGF1 = "http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1";
 
 // That section fixes the salt at the length of the hash, which is also what xml-crypto signs and

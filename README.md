@@ -652,10 +652,10 @@ signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-r
 `"sha1"`, `"sha256"` and `"sha512"` sign with PKCS #1 v1.5 padding, which is what most IdPs expect.
 `"sha256-mgf1"` signs with RSASSA-PSS instead and names itself
 `http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1`
-([RFC 6931 §2.3.10](https://www.rfc-editor.org/rfc/rfc6931#section-2.3.10)), with a salt the
+([RFC 9231 §2.3.10](https://www.rfc-editor.org/rfc/rfc9231#section-2.3.10)), with a salt the
 length of the digest. Choose it when your IdP requires PSS signatures; an IdP that does not know the
 identifier will reject the request. It applies to everything Node-SAML signs: Redirect-binding
-requests, POST-binding `AuthnRequest`s, and metadata.
+requests and logout responses, POST-binding `AuthnRequest`s, and metadata.
 
 What your IdP signs is a separate matter and needs no option: a message it signs with
 `sha256-rsa-MGF1` is verified on both bindings.
