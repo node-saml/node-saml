@@ -1,19 +1,20 @@
 import * as crypto from "crypto";
 import * as util from "util";
+import { SignatureAlgorithm, SignedXml } from "xml-crypto";
 
 const debugLog = util.debuglog("node-saml");
 
 type AlgorithmOption = "signatureAlgorithm" | "digestAlgorithm";
 
-// RSASSA-PSS, RFC 9231 2.3.10: https://www.rfc-editor.org/rfc/rfc9231#section-2.3.10
-export const RSA_SHA256_MGF1 = "http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1";
-
-// That section fixes the salt at the length of the hash, which is also what xml-crypto signs and
-// verifies this algorithm with.
-export const PSS_OPTIONS = {
-  padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-  saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
-};
+// The Redirect binding signs octets, not XML, but names the algorithm with an XML Signature
+// identifier (SAML bindings 3.4.4.1), so what an identifier means is xml-crypto's to say. Its
+// default set leaves out HMAC, which would let anyone holding the IdP's certificate sign.
+export function findSignatureAlgorithm(identifier: string): SignatureAlgorithm | undefined {
+  const registered = new SignedXml().SignatureAlgorithms;
+  return Object.prototype.hasOwnProperty.call(registered, identifier)
+    ? new registered[identifier]()
+    : undefined;
+}
 
 // The short names the switches below recognize. Anything else falls through to SHA-1, so every
 // caller that signs warns against these lists rather than let a typo downgrade signing silently.
@@ -50,7 +51,8 @@ export function getSigningAlgorithm(shortName?: string): string {
     case "sha256":
       return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
     case "sha256-mgf1":
-      return RSA_SHA256_MGF1;
+      // RSASSA-PSS, RFC 9231 2.3.10: https://www.rfc-editor.org/rfc/rfc9231#section-2.3.10
+      return "http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1";
     case "sha512":
       return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512";
     case "sha1":
@@ -71,11 +73,14 @@ export function getDigestAlgorithm(shortName?: string): string {
   }
 }
 
+/**
+ * @deprecated No longer used: xml-crypto signs Redirect-binding messages. Removed in the next
+ *   major version; call `crypto.createSign()` yourself.
+ */
 export function getSigner(shortName?: string) {
   // The return type of `crypto.createSign` is `crypto.Sign`, but in Node@14, it fails compilation if specified; it is correct inferred if not specified
   switch (shortName) {
     case "sha256":
-    case "sha256-mgf1":
       return crypto.createSign("RSA-SHA256");
     case "sha512":
       return crypto.createSign("RSA-SHA512");

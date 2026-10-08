@@ -12,7 +12,9 @@ const publicCert = fs.readFileSync(__dirname + "/static/cert.pem", "utf-8");
 
 const RSA_SHA1 = "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
 const RSA_SHA256 = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+const RSA_SHA384 = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384";
 const RSA_SHA512 = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512";
+const HMAC_SHA1 = "http://www.w3.org/2000/09/xmldsig#hmac-sha1";
 // RSASSA-PSS, RFC 9231 2.3.10: https://www.rfc-editor.org/rfc/rfc9231#section-2.3.10
 const RSA_SHA256_MGF1 = "http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1";
 const pss = {
@@ -151,7 +153,7 @@ describe("Signing algorithms /", function () {
     });
   });
 
-  describe("HTTP-Redirect: verifying a message the IdP signed with sha256-rsa-MGF1", function () {
+  describe("HTTP-Redirect: verifying a message the IdP signed", function () {
     const logoutRequest =
       '<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ' +
       `ID="_logout_request" Version="2.0" IssueInstant="${new Date().toISOString()}">` +
@@ -205,6 +207,23 @@ describe("Signing algorithms /", function () {
       );
 
       await assert.rejects(validate({ container, query }), { message: "Invalid query signature" });
+    });
+
+    it("accepts a PKCS #1 v1.5 signature under rsa-sha384", async () => {
+      const message = redirectMessage(RSA_SHA384, (octets) =>
+        crypto.sign("sha384", octets, privateKey),
+      );
+
+      const { profile } = await validate(message);
+      expect(profile?.nameID).to.equal("user");
+    });
+
+    it("rejects an HMAC keyed with the IdP's certificate", async () => {
+      const message = redirectMessage(HMAC_SHA1, (octets) =>
+        crypto.createHmac("sha1", publicCert).update(octets).digest(),
+      );
+
+      await assert.rejects(validate(message), { message: `${HMAC_SHA1} is not supported` });
     });
   });
 

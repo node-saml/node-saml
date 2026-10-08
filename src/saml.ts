@@ -311,8 +311,10 @@ class SAML {
     assertRequired(this.options.privateKey, "privateKey is required");
 
     const samlMessageToSign: querystring.ParsedUrlQueryInput = {};
-    samlMessage.SigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
-    const signer = algorithms.getSigner(this.options.signatureAlgorithm);
+    const sigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
+    samlMessage.SigAlg = sigAlg;
+    const signer = algorithms.findSignatureAlgorithm(sigAlg);
+    assertRequired(signer, `${sigAlg} is not supported`);
     if (samlMessage.SAMLRequest) {
       samlMessageToSign.SAMLRequest = samlMessage.SAMLRequest;
     }
@@ -325,13 +327,9 @@ class SAML {
     if (samlMessage.SigAlg) {
       samlMessageToSign.SigAlg = samlMessage.SigAlg;
     }
-    signer.update(querystring.stringify(samlMessageToSign));
-    const privateKey = keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey");
-    samlMessage.Signature = signer.sign(
-      this.options.signatureAlgorithm === "sha256-mgf1"
-        ? { key: privateKey, ...algorithms.PSS_OPTIONS }
-        : privateKey,
-      "base64",
+    samlMessage.Signature = signer.getSignature(
+      querystring.stringify(samlMessageToSign),
+      keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
     );
   }
 
@@ -1179,16 +1177,14 @@ class SAML {
     alg: string,
     pemFile: string,
   ): boolean {
-    // No digest name in `crypto.getHashes()` stands for a padding scheme, so the lookup below
-    // cannot find this one.
-    if (alg === algorithms.RSA_SHA256_MGF1) {
-      return crypto
-        .createVerify("RSA-SHA256")
-        .update(urlString)
-        .verify({ key: pemFile, ...algorithms.PSS_OPTIONS }, signature, "base64");
+    // xml-crypto types the signed octets as a string, which is what this library passes.
+    const signatureAlgorithm = algorithms.findSignatureAlgorithm(alg);
+    if (signatureAlgorithm && typeof urlString === "string") {
+      return signatureAlgorithm.verifySignature(urlString, pemFile, signature);
     }
 
-    // See if we support a matching algorithm, case-insensitive. Otherwise, throw error.
+    // An identifier xml-crypto does not implement, such as rsa-sha384, is looked up among
+    // OpenSSL's digest names, case-insensitive. Otherwise, throw error.
     function hasMatch(ourAlgo: string) {
       // The incoming algorithm is forwarded as a URL.
       // We trim everything before the last # get something we can compare to the Node.js list
