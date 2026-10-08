@@ -256,7 +256,7 @@ class SAML {
           keyExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs,
         }),
       logoutUrl: ctorOptions.logoutUrl ?? ctorOptions.entryPoint ?? "", // Default to Entry Point
-      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, sha256-mgf1, or sha512
+      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1",
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
       generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
       signMetadata: ctorOptions.signMetadata ?? false,
@@ -1190,7 +1190,7 @@ class SAML {
     }
 
     // An identifier xml-crypto does not implement, such as rsa-sha384, is looked up among
-    // OpenSSL's digest names, case-insensitive. Otherwise, throw error.
+    // OpenSSL's digest names, case-insensitive.
     function hasMatch(ourAlgo: string) {
       // The incoming algorithm is forwarded as a URL.
       // We trim everything before the last # get something we can compare to the Node.js list
@@ -1209,8 +1209,7 @@ class SAML {
     verifier.update(urlString);
 
     const verified = verifier.verify(pemFile, signature, "base64");
-    // The next major version keeps rsa-sha384, through xml-crypto:
-    // https://github.com/node-saml/xml-crypto/pull/654
+    // The next major version still verifies rsa-sha384, so it gets no warning.
     if (
       verified &&
       !signatureAlgorithm &&
