@@ -214,6 +214,12 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
     assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
+    if (isValidSamlSigningOptions(ctorOptions)) {
+      algorithms.assertDigestAlgorithmChosen(
+        ctorOptions.signatureAlgorithm,
+        ctorOptions.digestAlgorithm,
+      );
+    }
 
     const options: SamlOptions = {
       ...ctorOptions,
@@ -250,7 +256,7 @@ class SAML {
           keyExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs,
         }),
       logoutUrl: ctorOptions.logoutUrl ?? ctorOptions.entryPoint ?? "", // Default to Entry Point
-      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, or sha512
+      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1",
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
       generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
       signMetadata: ctorOptions.signMetadata ?? false,
@@ -311,8 +317,10 @@ class SAML {
     assertRequired(this.options.privateKey, "privateKey is required");
 
     const samlMessageToSign: querystring.ParsedUrlQueryInput = {};
-    samlMessage.SigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
-    const signer = algorithms.getSigner(this.options.signatureAlgorithm);
+    const sigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
+    samlMessage.SigAlg = sigAlg;
+    const signer = algorithms.findSignatureAlgorithm(sigAlg);
+    assertRequired(signer, `${sigAlg} is not supported`);
     if (samlMessage.SAMLRequest) {
       samlMessageToSign.SAMLRequest = samlMessage.SAMLRequest;
     }
@@ -325,10 +333,9 @@ class SAML {
     if (samlMessage.SigAlg) {
       samlMessageToSign.SigAlg = samlMessage.SigAlg;
     }
-    signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(
+    samlMessage.Signature = signer.getSignature(
+      querystring.stringify(samlMessageToSign),
       keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
-      "base64",
     );
   }
 
@@ -1176,7 +1183,14 @@ class SAML {
     alg: string,
     pemFile: string,
   ): boolean {
-    // See if we support a matching algorithm, case-insensitive. Otherwise, throw error.
+    // xml-crypto types the signed octets as a string, which is what this library passes.
+    const signatureAlgorithm = algorithms.findSignatureAlgorithm(alg);
+    if (signatureAlgorithm && typeof urlString === "string") {
+      return signatureAlgorithm.verifySignature(urlString, pemFile, signature);
+    }
+
+    // An identifier xml-crypto does not implement, such as rsa-sha384, is looked up among
+    // OpenSSL's digest names, case-insensitive.
     function hasMatch(ourAlgo: string) {
       // The incoming algorithm is forwarded as a URL.
       // We trim everything before the last # get something we can compare to the Node.js list
@@ -1194,7 +1208,19 @@ class SAML {
     const verifier = crypto.createVerify(matchingAlgo);
     verifier.update(urlString);
 
-    return verifier.verify(pemFile, signature, "base64");
+    const verified = verifier.verify(pemFile, signature, "base64");
+    // The next major version still verifies rsa-sha384, so it gets no warning.
+    if (
+      verified &&
+      !signatureAlgorithm &&
+      alg !== "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384"
+    ) {
+      debugLog(
+        "A Redirect-binding signature was verified under the `SigAlg` %s, which the next major version rejects. Configure the identity provider to sign with rsa-sha256, rsa-sha384 or rsa-sha512, and to name it by its XML Signature identifier, such as http://www.w3.org/2001/04/xmldsig-more#rsa-sha256.",
+        alg,
+      );
+    }
+    return verified;
   }
 
   protected verifyLogoutRequest(doc: XMLOutput): void {
