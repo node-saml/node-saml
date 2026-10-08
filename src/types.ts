@@ -362,14 +362,25 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   metadataAttributeConsumingServices?: AttributeConsumingService[];
   metadataContactPerson?: {
     "@contactType": "technical" | "support" | "administrative" | "billing" | "other";
-    Extensions?: string;
+    /**
+     * Extension elements, as an [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object.
+     * Each must be qualified by a namespace that SAML does not define. A string cannot produce
+     * valid metadata; the type accepts one only until the next major version.
+     */
+    Extensions?: Record<string, unknown> | string;
     Company?: string;
     GivenName?: string;
     SurName?: string;
-    EmailAddress?: [string];
-    TelephoneNumber?: [string];
+    /** `mailto:` URIs */
+    EmailAddress?: string[];
+    TelephoneNumber?: string[];
   }[];
   metadataOrganization?: {
+    /**
+     * Extension elements, as an [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object.
+     * Each must be qualified by a namespace that SAML does not define.
+     */
+    Extensions?: Record<string, unknown>;
     OrganizationName: {
       "@xml:lang": string;
       "#text": string;

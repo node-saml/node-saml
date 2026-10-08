@@ -8,8 +8,13 @@ import * as algorithms from "./algorithms";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 import { generateUniqueId, keyInfoToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
+import { warnIfRequestExtensionsInvalid } from "./extensions";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
-import { assertValidAttributeConsumingServices, buildServiceProviderMetadata } from "./metadata";
+import {
+  assertValidAttributeConsumingServices,
+  buildServiceProviderMetadata,
+  warnIfContactOrOrganizationInvalid,
+} from "./metadata";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import {
   AudienceRestrictionXML,
@@ -284,6 +289,9 @@ class SAML {
     for (const option of ["signatureAlgorithm", "digestAlgorithm"] as const) {
       algorithms.warnIfAlgorithmNotRecognized(option, ctorOptions[option]);
     }
+
+    warnIfContactOrOrganizationInvalid(ctorOptions);
+    warnIfRequestExtensionsInvalid(ctorOptions);
 
     /**
      * List of possible values:
