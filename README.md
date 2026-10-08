@@ -344,9 +344,9 @@ It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from th
 
 Called directly, it signs the metadata when `signMetadata` is `true` and `privateKey` is set. Choose
 both algorithms when it does: `signatureAlgorithm` has no default here, so omitting it is an error,
-while an omitted `digestAlgorithm` selects `sha1`. The note under
-[`signatureAlgorithm`](#configuration-option-signaturealgorithm) applies to this function too, and
-it logs the same warnings under `NODE_DEBUG=node-saml`.
+while an omitted `digestAlgorithm` selects `sha1`, or is an error too when `signatureAlgorithm` is
+`"sha256-mgf1"`. The note under [`signatureAlgorithm`](#configuration-option-signaturealgorithm)
+applies to this function too, and it logs the same warnings under `NODE_DEBUG=node-saml`.
 
 ## Config parameter details
 
@@ -368,7 +368,7 @@ it logs the same warnings under `NODE_DEBUG=node-saml`.
 | `publicCert`             | —                              | SP public signing certificate, embedded in the `AuthnRequest` so the IdP can verify it. Must match `privateKey`.                                                                                  |
 | `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers.                                                                                                                  |
 | `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, `"sha256-mgf1"`, or `"sha512"`. **Set this explicitly** if you set `privateKey`; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm). |
-| `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above.                                                                                           |
+| `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above. Required with `"sha256-mgf1"`.                                                            |
 | `xmlSignatureTransforms` | enveloped-signature + exc-c14n | Signature transforms used in HTTP-POST signatures. The default is `["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"]`.                         |
 | `generateUniqueId`       | built-in                       | Function returning the unique IDs used for outgoing SAML messages.                                                                                                                                |
 
@@ -685,6 +685,9 @@ pair that with `digestAlgorithm: "sha256"`.
 > for. The next major version rejects it instead. `digestAlgorithm` is typed as a plain string, so
 > TypeScript does not catch a typo in it. Run with `NODE_DEBUG=node-saml` to be told when any of
 > this happens, whether the options go to `SAML` or straight to `generateServiceProviderMetadata`.
+>
+> The exception is `signatureAlgorithm: "sha256-mgf1"`: with it, a `digestAlgorithm` that is unset
+> or not one of those listed is already an error.
 
 ### Configuration option `privateKey`
 

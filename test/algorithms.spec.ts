@@ -79,6 +79,18 @@ const xmlSigningCases: Array<{
   },
 ];
 
+// "sha256-mgf1" has no caller to break, so it does not get the SHA-1 fallback the rows above pin.
+const pssDigestErrors: Array<{ digestAlgorithm?: string; message: string }> = [
+  {
+    digestAlgorithm: undefined,
+    message: 'digestAlgorithm is required when signatureAlgorithm is "sha256-mgf1"',
+  },
+  {
+    digestAlgorithm: "sha-256",
+    message: 'digestAlgorithm "sha-256" is not recognized; use one of sha1, sha256, sha512',
+  },
+];
+
 describe("Signing algorithms /", function () {
   const config = {
     callbackUrl: "http://localhost/saml/consume",
@@ -91,6 +103,7 @@ describe("Signing algorithms /", function () {
   describe("HTTP-Redirect: SigAlg, and the hash the Signature verifies under", function () {
     const cases: Array<{
       signatureAlgorithm?: SignatureAlgorithm;
+      digestAlgorithm?: string;
       sigAlg: string;
       hash: string;
       padding?: typeof pss;
@@ -98,15 +111,25 @@ describe("Signing algorithms /", function () {
       { signatureAlgorithm: undefined, sigAlg: RSA_SHA1, hash: "sha1" },
       { signatureAlgorithm: "sha1", sigAlg: RSA_SHA1, hash: "sha1" },
       { signatureAlgorithm: "sha256", sigAlg: RSA_SHA256, hash: "sha256" },
-      { signatureAlgorithm: "sha256-mgf1", sigAlg: RSA_SHA256_MGF1, hash: "sha256", padding: pss },
+      {
+        signatureAlgorithm: "sha256-mgf1",
+        digestAlgorithm: "sha256",
+        sigAlg: RSA_SHA256_MGF1,
+        hash: "sha256",
+        padding: pss,
+      },
       { signatureAlgorithm: "sha512", sigAlg: RSA_SHA512, hash: "sha512" },
       { signatureAlgorithm: UNRECOGNIZED, sigAlg: RSA_SHA1, hash: "sha1" },
     ];
 
-    for (const { signatureAlgorithm, sigAlg, hash, padding } of cases) {
+    for (const { signatureAlgorithm, digestAlgorithm, sigAlg, hash, padding } of cases) {
       it(`signatureAlgorithm ${label(signatureAlgorithm)} => ${hash}${padding ? " under RSASSA-PSS" : ""}`, async () => {
         const url = new URL(
-          await new SAML({ ...config, signatureAlgorithm }).getAuthorizeUrlAsync("", undefined, {}),
+          await new SAML({ ...config, signatureAlgorithm, digestAlgorithm }).getAuthorizeUrlAsync(
+            "",
+            undefined,
+            {},
+          ),
         );
         // SAML bindings 3.4.4.1: the signature covers the other parameters as they appear in the URL.
         const signedOctets = url.search
@@ -134,6 +157,7 @@ describe("Signing algorithms /", function () {
           ...config,
           privateKey: readStatic("single_line_acme_tools_com.key"),
           signatureAlgorithm: "sha256-mgf1",
+          digestAlgorithm: "sha256",
         }).getAuthorizeUrlAsync("", undefined, {}),
       );
       const signedOctets = url.search
@@ -227,6 +251,23 @@ describe("Signing algorithms /", function () {
     });
   });
 
+  describe('constructing a SAML with signatureAlgorithm "sha256-mgf1"', function () {
+    for (const { digestAlgorithm, message } of pssDigestErrors) {
+      it(`digestAlgorithm ${label(digestAlgorithm)} => error rather than SHA-1`, function () {
+        assert.throws(
+          () => new SAML({ ...config, signatureAlgorithm: "sha256-mgf1", digestAlgorithm }),
+          { name: "TypeError", message },
+        );
+      });
+    }
+
+    it("digestAlgorithm omitted, and no privateKey to sign with => no error", function () {
+      assert.doesNotThrow(
+        () => new SAML({ ...config, privateKey: undefined, signatureAlgorithm: "sha256-mgf1" }),
+      );
+    });
+  });
+
   describe("HTTP-POST AuthnRequest: SignatureMethod and DigestMethod", function () {
     const signedRequest = async (options: {
       signatureAlgorithm?: SignatureAlgorithm;
@@ -278,6 +319,18 @@ describe("Signing algorithms /", function () {
         "signatureAlgorithm is required",
       );
     });
+
+    for (const { digestAlgorithm, message } of pssDigestErrors) {
+      it(`signatureAlgorithm "sha256-mgf1", digestAlgorithm ${label(digestAlgorithm)} => error rather than SHA-1`, function () {
+        assert.throws(
+          () => signedMetadata({ signatureAlgorithm: "sha256-mgf1", digestAlgorithm }),
+          {
+            name: "TypeError",
+            message,
+          },
+        );
+      });
+    }
 
     for (const { signatureAlgorithm, digestAlgorithm, expected } of xmlSigningCases) {
       it(`signatureAlgorithm ${label(signatureAlgorithm)}, digestAlgorithm ${label(digestAlgorithm)}`, function () {

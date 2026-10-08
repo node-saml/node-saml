@@ -450,6 +450,7 @@ export const generateServiceProviderMetadata = (
   params: GenerateServiceProviderMetadataParams,
 ): string => {
   if (params.signMetadata === true && isValidSamlSigningOptions(params)) {
+    algorithms.assertDigestAlgorithmChosen(params.signatureAlgorithm, params.digestAlgorithm);
     // An omitted `signatureAlgorithm` needs no notice here: signing fails without one.
     if (params.digestAlgorithm === undefined) {
       algorithms.warnAlgorithmNotSet("digestAlgorithm");

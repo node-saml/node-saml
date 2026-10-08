@@ -214,6 +214,12 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
     assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
+    if (isValidSamlSigningOptions(ctorOptions)) {
+      algorithms.assertDigestAlgorithmChosen(
+        ctorOptions.signatureAlgorithm,
+        ctorOptions.digestAlgorithm,
+      );
+    }
 
     const options: SamlOptions = {
       ...ctorOptions,
