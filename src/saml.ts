@@ -1202,7 +1202,20 @@ class SAML {
     const verifier = crypto.createVerify(matchingAlgo);
     verifier.update(urlString);
 
-    return verifier.verify(pemFile, signature, "base64");
+    const verified = verifier.verify(pemFile, signature, "base64");
+    // The next major version keeps rsa-sha384, through xml-crypto:
+    // https://github.com/node-saml/xml-crypto/pull/654
+    if (
+      verified &&
+      !signatureAlgorithm &&
+      alg !== "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384"
+    ) {
+      debugLog(
+        "A Redirect-binding signature was verified under the `SigAlg` %s, which the next major version rejects. Configure the identity provider to sign with rsa-sha256, rsa-sha384 or rsa-sha512, and to name it by its XML Signature identifier, such as http://www.w3.org/2001/04/xmldsig-more#rsa-sha256.",
+        alg,
+      );
+    }
+    return verified;
   }
 
   protected verifyLogoutRequest(doc: XMLOutput): void {

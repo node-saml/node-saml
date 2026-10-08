@@ -660,6 +660,11 @@ requests and logout responses, POST-binding `AuthnRequest`s, and metadata.
 What your IdP signs is a separate matter and needs no option: a message it signs with
 `sha256-rsa-MGF1` is verified on both bindings.
 
+On the Redirect binding, the next major version verifies a signature only when `SigAlg` is exactly
+the `rsa-sha1`, `rsa-sha256`, `rsa-sha384`, `rsa-sha512` or `sha256-rsa-MGF1` identifier. Other
+values that verify today, such as `rsa-sha224` or a bare `RSA-SHA256`, are rejected then. Run with
+`NODE_DEBUG=node-saml` to be told when your IdP sends one.
+
 `digestAlgorithm` takes `"sha1"`, `"sha256"`, or `"sha512"` and controls the digest over the signed
 data object. It does not take `"sha256-mgf1"`, which names a signature padding rather than a digest;
 pair that with `digestAlgorithm: "sha256"`.
