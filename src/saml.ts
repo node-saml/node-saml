@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import { ParsedQs } from "qs";
 import * as querystring from "querystring";
-import { URL } from "url";
+import { URL, URLSearchParams } from "url";
 import * as util from "util";
 import * as zlib from "zlib";
 import * as algorithms from "./algorithms";
@@ -157,6 +157,11 @@ const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
 const redirectParameterNames = ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg", "Signature"];
+
+// For a parameter a caller supplies: null and undefined mean it was not given, and "" or [] that
+// it is empty.
+const hasValue = <T>(value: T | null | undefined): value is T =>
+  value != null && String(value) !== "";
 
 // As `querystring.parse` decodes a name or a value.
 const decodeQueryComponent = (component: string): string =>
@@ -450,25 +455,20 @@ class SAML {
   protected signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
     assertRequired(this.options.privateKey, "privateKey is required");
 
-    const samlMessageToSign: querystring.ParsedUrlQueryInput = {};
     const sigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
     samlMessage.SigAlg = sigAlg;
     const signer = algorithms.findSignatureAlgorithm(sigAlg);
     assertRequired(signer, `${sigAlg} is not supported`);
-    if (samlMessage.SAMLRequest) {
-      samlMessageToSign.SAMLRequest = samlMessage.SAMLRequest;
-    }
-    if (samlMessage.SAMLResponse) {
-      samlMessageToSign.SAMLResponse = samlMessage.SAMLResponse;
-    }
-    if (samlMessage.RelayState) {
-      samlMessageToSign.RelayState = samlMessage.RelayState;
-    }
-    if (samlMessage.SigAlg) {
-      samlMessageToSign.SigAlg = samlMessage.SigAlg;
+    // SAML bindings 3.4.4.1: the signature covers these as `_requestToUrlAsync` serializes them.
+    // https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
+    const signedParameters = new URLSearchParams();
+    for (const name of ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg"]) {
+      if (hasValue(samlMessage[name])) {
+        signedParameters.set(name, samlMessage[name] as string);
+      }
     }
     samlMessage.Signature = signer.getSignature(
-      querystring.stringify(samlMessageToSign),
+      signedParameters.toString(),
       keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
     );
   }
@@ -741,6 +741,16 @@ class SAML {
     Object.keys(additionalParameters).forEach((k) => {
       samlMessage[k] = additionalParameters[k];
     });
+    // The caller's RelayState, or else the one in the endpoint's own URL. An empty one is not sent:
+    // SAML bindings 3.4.4.1 signs none when there is no value, and receivers differ on whether a
+    // signature covers an empty one that arrives.
+    const relayState = samlMessage.RelayState ?? target.searchParams.get("RelayState");
+    if (hasValue(relayState)) {
+      samlMessage.RelayState = relayState;
+    } else {
+      delete samlMessage.RelayState;
+      target.searchParams.delete("RelayState");
+    }
     if (isValidSamlSigningOptions(this.options)) {
       if (!this.options.entryPoint) {
         throw new Error('"entryPoint" config parameter is required for signed messages');
