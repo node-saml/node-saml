@@ -3868,6 +3868,10 @@ describe("node-saml /", function () {
       });
       it("errors if request has a bad signature", async function () {
         this.request.Signature = "foo";
+        this.request.originalQuery = this.request.originalQuery.replace(
+          /Signature=[^&]*/,
+          "Signature=foo",
+        );
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
           { message: "Invalid query signature" },
@@ -3947,6 +3951,10 @@ describe("node-saml /", function () {
       it("errors if bad signature", async function () {
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
         this.request.Signature = "foo";
+        this.request.originalQuery = this.request.originalQuery.replace(
+          /Signature=[^&]*/,
+          "Signature=foo",
+        );
         await assert.rejects(
           samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
           { message: "Invalid query signature" },
@@ -4070,6 +4078,22 @@ describe("node-saml /", function () {
         });
       }
 
+      for (const [written, name] of [
+        ["RelayState[]", "RelayState"],
+        ["RelayState%5Bnext%5D", "RelayState"],
+        ["[RelayState]", "RelayState"],
+        ["[RelayState]next", "RelayState"],
+        ["SAMLRequest[]", "SAMLRequest"],
+      ]) {
+        it(`rejects ${written} beside the signed parameters`, async function () {
+          const query = `${signedForAlice}&${written}=${encodeURIComponent("https://evil.example")}`;
+
+          await assert.rejects(validate(lastValues(query), query), {
+            message: `The query string has a ${name} parameter in bracket notation`,
+          });
+        });
+      }
+
       it("rejects a SAMLResponse beside the signed SAMLRequest", async function () {
         const query = `${signedForAlice}&${mallory.replace("SAMLRequest", "SAMLResponse")}`;
 
@@ -4091,6 +4115,30 @@ describe("node-saml /", function () {
 
         const { profile } = await validate(container, signedForAlice);
         expect(profile?.nameID).to.equal("alice");
+      });
+
+      it("verifies the Signature in the query string when container holds another", async function () {
+        const container = { ...lastValues(signedForAlice), Signature: "AAAA" };
+
+        const { profile } = await validate(container, signedForAlice);
+        expect(profile?.nameID).to.equal("alice");
+      });
+
+      it("rejects a signed container when the Signature in the query string is another", async function () {
+        const container = lastValues(signedForAlice);
+
+        await assert.rejects(
+          validate(container, signedForAlice.replace(/Signature=[^&]*/, "Signature=AAAA")),
+          { message: "Invalid query signature" },
+        );
+      });
+
+      it("rejects a signed container when the query string has no Signature", async function () {
+        const container = lastValues(signedForAlice);
+
+        await assert.rejects(validate(container, `${alice}&${sigAlg}`), {
+          message: "The query string has no Signature parameter",
+        });
       });
 
       it("accepts a RelayState that contains the name of another parameter", async function () {

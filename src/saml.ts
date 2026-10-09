@@ -168,12 +168,21 @@ function readSignedRedirectParameters(originalQuery: string): {
   samlMessageType: "SAMLRequest" | "SAMLResponse";
   samlMessage: string;
   sigAlg: string;
+  signature: string;
   signedOctets: string;
 } {
   const parameters = new Map<string, { token: string; value: string }>();
   for (const token of originalQuery.split("&")) {
     const [encodedName] = token.split("=", 1);
     const name = decodeQueryComponent(encodedName);
+    // `qs`, the parser behind Express's `req.query`, reads `RelayState[]` and `[RelayState]` as
+    // RelayState, so a caller could be handed a value that this function never saw.
+    const bracketed = redirectParameterNames.find(
+      (reserved) => name.startsWith(`${reserved}[`) || name.startsWith(`[${reserved}]`),
+    );
+    if (bracketed) {
+      throw new Error(`The query string has a ${bracketed} parameter in bracket notation`);
+    }
     if (!redirectParameterNames.includes(name)) continue;
     // Parsers differ on which of two values a caller is handed, so neither is taken as signed.
     if (parameters.has(name)) {
@@ -192,6 +201,10 @@ function readSignedRedirectParameters(originalQuery: string): {
   if (!message) {
     throw new Error("The query string has no SAMLRequest or SAMLResponse parameter");
   }
+  const signature = parameters.get("Signature");
+  if (!signature) {
+    throw new Error("The query string has no Signature parameter");
+  }
   const sigAlg = parameters.get("SigAlg");
   if (!sigAlg) {
     throw new Error("The query string has a Signature parameter but no SigAlg parameter");
@@ -203,6 +216,7 @@ function readSignedRedirectParameters(originalQuery: string): {
     samlMessageType: request ? "SAMLRequest" : "SAMLResponse",
     samlMessage: message.value,
     sigAlg: sigAlg.value,
+    signature: signature.value,
     signedOctets: signed.map(({ token }) => token).join("&"),
   };
 }
@@ -1194,16 +1208,11 @@ class SAML {
     originalQuery: string,
   ): Promise<boolean | void> {
     if (container.Signature) {
-      const { signedOctets, sigAlg } = readSignedRedirectParameters(originalQuery);
+      const { signedOctets, signature, sigAlg } = readSignedRedirectParameters(originalQuery);
 
       const pemFiles = await this.getKeyInfosAsPem();
       const hasValidQuerySignature = pemFiles.some((pemFile) => {
-        return this.validateSignatureForRedirect(
-          signedOctets,
-          container.Signature as string,
-          sigAlg,
-          pemFile,
-        );
+        return this.validateSignatureForRedirect(signedOctets, signature, sigAlg, pemFile);
       });
       if (!hasValidQuerySignature) {
         throw new Error("Invalid query signature");
