@@ -288,13 +288,14 @@ const originalQuery = req.url.slice(req.url.indexOf("?") + 1);
 const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, originalQuery);
 ```
 
-When the message carries a `Signature`, everything that is verified and processed is read from
-`originalQuery`: the `SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and the `Signature`
-itself. `req.query` only says that there is a `Signature` to check. A signed query string is
-rejected when one of those five parameters appears more than once, when it has both a `SAMLRequest`
-and a `SAMLResponse`, or when it names one of them in bracket notation, such as `RelayState[]` or
-`[RelayState]`, which Express's `qs` parser reads as `RelayState`. Parsers disagree on what such a
-query string holds, so `req.query` could otherwise hand you a value that was never signed.
+A message counts as signed when `originalQuery` or `req.query` has a `Signature` parameter, even an
+empty one. Everything that is then verified and processed is read from `originalQuery`: the
+`SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and the `Signature` itself. A signed query
+string is rejected when one of those five parameters appears more than once, when it has both a
+`SAMLRequest` and a `SAMLResponse`, or when it names one of them in bracket notation, such as
+`RelayState[]` or `[RelayState]`, which Express's `qs` parser reads as `RelayState`. Parsers
+disagree on what such a query string holds, so `req.query` could otherwise hand you a value that
+was never signed.
 
 > **Note:** on the Redirect binding, a signature is only checked when the message carries a
 > `Signature` query parameter, because the binding makes signing optional. A message arriving

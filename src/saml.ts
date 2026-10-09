@@ -162,6 +162,22 @@ const redirectParameterNames = ["SAMLRequest", "SAMLResponse", "RelayState", "Si
 const decodeQueryComponent = (component: string): string =>
   querystring.unescape(component.replace(/\+/g, " "));
 
+// `qs`, the parser behind Express's `req.query`, reads `RelayState[]` and `[RelayState]` as
+// RelayState.
+const bracketedParameter = (name: string): string | undefined =>
+  redirectParameterNames.find(
+    (reserved) => name.startsWith(`${reserved}[`) || name.startsWith(`[${reserved}]`),
+  );
+
+// A caller's parse can lose a Signature that the query string has, and an application that asks
+// whether one is present gets a yes for an empty one. Either way the message claims a signature.
+const carriesSignature = (container: ParsedQs, originalQuery: string): boolean =>
+  container.Signature != null ||
+  originalQuery
+    .split("&")
+    .map((token) => decodeQueryComponent(token.split("=", 1)[0]))
+    .some((name) => name === "Signature" || bracketedParameter(name) === "Signature");
+
 // SAML bindings 3.4.4.1: the signature covers these parameters as they arrived, still URL-encoded.
 // https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
 function readSignedRedirectParameters(originalQuery: string): {
@@ -175,11 +191,8 @@ function readSignedRedirectParameters(originalQuery: string): {
   for (const token of originalQuery.split("&")) {
     const [encodedName] = token.split("=", 1);
     const name = decodeQueryComponent(encodedName);
-    // `qs`, the parser behind Express's `req.query`, reads `RelayState[]` and `[RelayState]` as
-    // RelayState, so a caller could be handed a value that this function never saw.
-    const bracketed = redirectParameterNames.find(
-      (reserved) => name.startsWith(`${reserved}[`) || name.startsWith(`[${reserved}]`),
-    );
+    // A caller could be handed this value in place of the one that is verified.
+    const bracketed = bracketedParameter(name);
     if (bracketed) {
       throw new Error(`The query string has a ${bracketed} parameter in bracket notation`);
     }
@@ -1167,10 +1180,11 @@ class SAML {
     container: ParsedQs,
     originalQuery: string,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
+    const signed = carriesSignature(container, originalQuery);
     const unsignedType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
     // A signed message is read from the query string its signature is verified over. `container`
     // is the caller's parse of that string, and can hold a parameter that was not the one signed.
-    const { samlMessageType, samlMessage } = container.Signature
+    const { samlMessageType, samlMessage } = signed
       ? readSignedRedirectParameters(originalQuery)
       : { samlMessageType: unsignedType, samlMessage: container[unsignedType] as string };
 
@@ -1186,7 +1200,7 @@ class SAML {
     } else {
       // Retired here, not in the overridable processing method, so an override can't lose track of
       // whether the message was signed. An unsigned one can name anyone's pending request.
-      const signedInResponseTo = container.Signature ? doc.LogoutResponse.$.InResponseTo : null;
+      const signedInResponseTo = signed ? doc.LogoutResponse.$.InResponseTo : null;
       const retire = signedInResponseTo != null && this.mustValidateInResponseTo(true);
       try {
         await this.verifyLogoutResponse(doc);
@@ -1207,7 +1221,7 @@ class SAML {
     container: ParsedQs,
     originalQuery: string,
   ): Promise<boolean | void> {
-    if (container.Signature) {
+    if (carriesSignature(container, originalQuery)) {
       const { signedOctets, signature, sigAlg } = readSignedRedirectParameters(originalQuery);
 
       const pemFiles = await this.getKeyInfosAsPem();

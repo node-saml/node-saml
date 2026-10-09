@@ -385,6 +385,18 @@ describe("InResponseTo request ID consumption", function () {
       );
     });
 
+    it("rejects a signed one presented again when container holds no Signature", async () => {
+      const { container, query } = signedRedirectLogoutResponse(logoutResponseXml());
+      const { SAMLResponse } = container;
+
+      expect(await outcome(saml.validateRedirectAsync({ SAMLResponse }, query))).to.equal(
+        "accepted",
+      );
+      expect(await outcome(saml.validateRedirectAsync({ SAMLResponse }, query))).to.equal(
+        "InResponseTo is not valid",
+      );
+    });
+
     it("retires the request when a signed one answering it fails on the Redirect binding", async () => {
       const failed = signedRedirectLogoutResponse(logoutResponseXml({ status: requesterError }));
       const signed = signedRedirectLogoutResponse(logoutResponseXml());

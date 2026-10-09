@@ -3842,7 +3842,7 @@ describe("node-saml /", function () {
         const body = {
           SAMLRequest: "asdf",
         };
-        await assert.rejects(samlObj.validateRedirectAsync(body, this.request.originalQuery));
+        await assert.rejects(samlObj.validateRedirectAsync(body, "SAMLRequest=asdf"));
       });
       it("errors if idpIssuer is set and issuer is wrong", async function () {
         samlObj.options.idpIssuer = "foo";
@@ -4058,6 +4058,57 @@ describe("node-saml /", function () {
           });
         }
       }
+
+      for (const { position, parse, query } of [
+        { position: "after", parse: lastValues, query: `${signedForAlice}&${mallory}&Signature=` },
+        {
+          position: "before",
+          parse: firstValues,
+          query: `${mallory}&Signature=&${signedForAlice}`,
+        },
+      ]) {
+        it(`rejects a forged SAMLRequest and an empty Signature ${position} the signed ones`, async function () {
+          await assert.rejects(validate(parse(query), query), {
+            message: "The query string has more than one SAMLRequest parameter",
+          });
+        });
+      }
+
+      for (const [claim, message] of [
+        ["Signature=", "Invalid query signature"],
+        ["Signature", "Invalid query signature"],
+        ["[Signature]", "The query string has a Signature parameter in bracket notation"],
+      ]) {
+        it(`rejects an unsigned SAMLRequest that comes with ${claim}`, async function () {
+          const query = `${mallory}&${sigAlg}&${claim}`;
+
+          await assert.rejects(validate(lastValues(query), query), { message });
+        });
+      }
+
+      it("rejects an empty Signature in container when the query string does not hold the message", async function () {
+        const container = lastValues(`${mallory}&Signature=`);
+
+        await assert.rejects(validate(container, ""), {
+          message: "The query string has no SAMLRequest or SAMLResponse parameter",
+        });
+      });
+
+      it("verifies a Signature in the query string that container does not hold", async function () {
+        const query = `${mallory}&${sigAlg}&${param("Signature", "AAAA")}`;
+        const { SAMLRequest } = lastValues(query);
+
+        await assert.rejects(validate({ SAMLRequest }, query), {
+          message: "Invalid query signature",
+        });
+      });
+
+      it("returns the profile of the signed SAMLRequest when container holds another and no Signature", async function () {
+        const { SAMLRequest } = lastValues(mallory);
+
+        const { profile } = await validate({ SAMLRequest }, signedForAlice);
+        expect(profile?.nameID).to.equal("alice");
+      });
 
       it("rejects a forged SAMLRequest whose name is percent-encoded", async function () {
         const query = `${signedForAlice}&${mallory.replace("SAMLRequest", "SAML%52equest")}`;
