@@ -203,12 +203,13 @@ describe("Signing algorithms /", function () {
   const entryPointWith = (relayState: string) =>
     `${config.entryPoint}?RelayState=${encodeURIComponent(relayState)}`;
 
+  const user = {
+    issuer: "idp",
+    nameID: "user",
+    nameIDFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
+  };
+
   describe("HTTP-Redirect: a receiver verifies the Signature over the query string as sent", function () {
-    const user = {
-      issuer: "idp",
-      nameID: "user",
-      nameIDFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
-    };
     // Every printable ASCII character that `querystring` and a URL's `searchParams` encode
     // differently.
     const relayState = "a b!'()~";
@@ -244,7 +245,7 @@ describe("Signing algorithms /", function () {
       const url = await new SAML({
         ...signing,
         entryPoint: entryPointWith(relayState),
-      }).getAuthorizeUrlAsync("", {});
+      }).getAuthorizeUrlAsync(undefined, {});
 
       expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal([relayState]);
       expect(verifiesAsSent(url)).to.equal(true);
@@ -265,11 +266,35 @@ describe("Signing algorithms /", function () {
     const untyped = (value: null | undefined) => value as unknown as string;
     const cases: Array<{
       given: string;
+      argument?: string | null;
       inAdditionalParams?: AuthOptions["additionalParams"];
       entryPoint?: string;
       sent: string[];
     }> = [
-      { given: "one in the entryPoint", entryPoint: entryPointWith("fixed"), sent: ["fixed"] },
+      { given: '"" as the argument', argument: "", sent: [] },
+      {
+        given: '"" as the argument and one in the entryPoint',
+        argument: "",
+        entryPoint: entryPointWith("fixed"),
+        sent: [],
+      },
+      {
+        given: '"" as the argument and "x" in additionalParams',
+        argument: "",
+        inAdditionalParams: { RelayState: "x" },
+        sent: ["x"],
+      },
+      {
+        given: "null as the argument and one in the entryPoint",
+        argument: null,
+        entryPoint: entryPointWith("fixed"),
+        sent: ["fixed"],
+      },
+      {
+        given: "undefined as the argument and one in the entryPoint",
+        entryPoint: entryPointWith("fixed"),
+        sent: ["fixed"],
+      },
       { given: '"" in additionalParams', inAdditionalParams: { RelayState: "" }, sent: [] },
       { given: "[] in additionalParams", inAdditionalParams: { RelayState: [] }, sent: [] },
       { given: "an empty one in the entryPoint", entryPoint: entryPointWith(""), sent: [] },
@@ -305,10 +330,16 @@ describe("Signing algorithms /", function () {
 
     for (const privateKey of [config.privateKey, undefined]) {
       describe(privateKey ? "signed" : "unsigned", function () {
-        for (const { given, inAdditionalParams, entryPoint = config.entryPoint, sent } of cases) {
-          it(`${given} => ${sent.length ? "the one in the entryPoint" : "none"}`, async () => {
+        for (const {
+          given,
+          argument,
+          inAdditionalParams,
+          entryPoint = config.entryPoint,
+          sent,
+        } of cases) {
+          it(`${given} => ${sent.length ? JSON.stringify(sent[0]) : "none"}`, async () => {
             const url = await new SAML({ ...signing, entryPoint, privateKey }).getAuthorizeUrlAsync(
-              "",
+              argument,
               { additionalParams: inAdditionalParams },
             );
 
@@ -317,6 +348,34 @@ describe("Signing algorithms /", function () {
               expect(verifiesAsSent(url)).to.equal(true);
             }
           });
+        }
+
+        const logoutMessages: Array<
+          [string, (saml: SAML, argument: string | undefined) => Promise<string>]
+        > = [
+          ["a logout request", (saml, argument) => saml.getLogoutUrlAsync(user, argument, {})],
+          [
+            "a logout response",
+            (saml, argument) =>
+              saml.getLogoutResponseUrlAsync({ ...user, ID: "_request" }, argument, {}, true),
+          ],
+        ];
+
+        for (const [message, getUrl] of logoutMessages) {
+          for (const [argument, sent] of [
+            ["", []],
+            [undefined, ["fixed"]],
+          ] as Array<[string | undefined, string[]]>) {
+            it(`${message}, ${JSON.stringify(argument) ?? "undefined"} as the argument and one in the logoutUrl => ${sent.length ? JSON.stringify(sent[0]) : "none"}`, async () => {
+              const saml = new SAML({ ...signing, logoutUrl: entryPointWith("fixed"), privateKey });
+              const url = await getUrl(saml, argument);
+
+              expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal(sent);
+              if (privateKey) {
+                expect(verifiesAsSent(url)).to.equal(true);
+              }
+            });
+          }
         }
       });
     }

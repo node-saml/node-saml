@@ -163,6 +163,16 @@ const redirectParameterNames = ["SAMLRequest", "SAMLResponse", "RelayState", "Si
 const hasValue = <T>(value: T | null | undefined): value is T =>
   value != null && String(value) !== "";
 
+// An empty `relayState` argument is an empty RelayState, which on the Redirect binding replaces
+// the endpoint URL's with none. `_getAdditionalParams` leaves it out, as the POST form needs.
+const withEmptyRelayState = (
+  relayState: string | null | undefined,
+  additionalParams: querystring.ParsedUrlQuery,
+): querystring.ParsedUrlQuery =>
+  relayState === "" && !("RelayState" in additionalParams)
+    ? { ...additionalParams, RelayState: "" }
+    : additionalParams;
+
 // As `querystring.parse` decodes a name or a value.
 const decodeQueryComponent = (component: string): string =>
   querystring.unescape(component.replace(/\+/g, " "));
@@ -767,7 +777,7 @@ class SAML {
   }
 
   _getAdditionalParams(
-    relayState: string,
+    relayState: string | null | undefined,
     operation: "authorize" | "logout",
     overrideParams?: querystring.ParsedUrlQuery,
   ): querystring.ParsedUrlQuery {
@@ -795,7 +805,7 @@ class SAML {
    * the override directly, so one written for the old signature receives `options` as `host`.
    */
   async getAuthorizeUrlAsync(
-    RelayState: string,
+    RelayState: string | null | undefined,
     hostOrOptions: string | AuthOptions | undefined,
     legacyOptions?: AuthOptions,
   ): Promise<string> {
@@ -807,7 +817,10 @@ class SAML {
       request,
       null,
       operation,
-      this._getAdditionalParams(RelayState, operation, overrideParams),
+      withEmptyRelayState(
+        RelayState,
+        this._getAdditionalParams(RelayState, operation, overrideParams),
+      ),
     );
   }
 
@@ -819,7 +832,7 @@ class SAML {
    * the override directly, so one written for the old signature receives `options` as `host`.
    */
   async getAuthorizeMessageAsync(
-    RelayState: string,
+    RelayState: string | null | undefined,
     hostOrOptions?: string | AuthOptions,
     legacyOptions?: AuthOptions,
   ): Promise<querystring.ParsedUrlQueryInput> {
@@ -854,7 +867,7 @@ class SAML {
    * the override directly, so one written for the old signature receives `options` as `host`.
    */
   async getAuthorizeFormAsync(
-    RelayState: string,
+    RelayState: string | null | undefined,
     hostOrOptions?: string | AuthOptions,
     legacyOptions?: AuthOptions,
   ): Promise<string> {
@@ -927,7 +940,7 @@ class SAML {
 
   async getLogoutUrlAsync(
     user: Profile,
-    RelayState: string,
+    RelayState: string | null | undefined,
     options: AuthOptions,
   ): Promise<string> {
     const request = await this._generateLogoutRequest(user);
@@ -937,13 +950,16 @@ class SAML {
       request,
       null,
       operation,
-      this._getAdditionalParams(RelayState, operation, overrideParams),
+      withEmptyRelayState(
+        RelayState,
+        this._getAdditionalParams(RelayState, operation, overrideParams),
+      ),
     );
   }
 
   getLogoutResponseUrl(
     samlLogoutRequest: Profile,
-    RelayState: string,
+    RelayState: string | null | undefined,
     options: AuthOptions,
     success: boolean,
     callback: (err: Error | null, url?: string) => void,
@@ -955,7 +971,7 @@ class SAML {
 
   async getLogoutResponseUrlAsync(
     samlLogoutRequest: Profile,
-    RelayState: string,
+    RelayState: string | null | undefined,
     options: AuthOptions,
     success: boolean,
   ): Promise<string> {
@@ -966,7 +982,10 @@ class SAML {
       null,
       response,
       operation,
-      this._getAdditionalParams(RelayState, operation, overrideParams),
+      withEmptyRelayState(
+        RelayState,
+        this._getAdditionalParams(RelayState, operation, overrideParams),
+      ),
     );
   }
 
