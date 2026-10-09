@@ -194,8 +194,8 @@ describe("Signing algorithms /", function () {
       const container = { ...signed, Signature };
       return { container, query: new URLSearchParams(container).toString() };
     };
-    const validate = ({ container, query }: ReturnType<typeof redirectMessage>) =>
-      new SAML({ ...config, idpCert: publicCert }).validateRedirectAsync(container, query);
+    const validate = ({ query }: ReturnType<typeof redirectMessage>) =>
+      new SAML({ ...config, idpCert: publicCert }).validateRedirectAsync(query);
 
     it("accepts a signature made with RSASSA-PSS", async () => {
       const message = redirectMessage(RSA_SHA256_MGF1, (octets) =>
