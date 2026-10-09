@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import { ParsedQs } from "qs";
 import * as querystring from "querystring";
-import { URL } from "url";
+import { URL, URLSearchParams } from "url";
 import * as util from "util";
 import * as zlib from "zlib";
 import * as algorithms from "./algorithms";
@@ -450,25 +450,20 @@ class SAML {
   protected signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
     assertRequired(this.options.privateKey, "privateKey is required");
 
-    const samlMessageToSign: querystring.ParsedUrlQueryInput = {};
     const sigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
     samlMessage.SigAlg = sigAlg;
     const signer = algorithms.findSignatureAlgorithm(sigAlg);
     assertRequired(signer, `${sigAlg} is not supported`);
-    if (samlMessage.SAMLRequest) {
-      samlMessageToSign.SAMLRequest = samlMessage.SAMLRequest;
-    }
-    if (samlMessage.SAMLResponse) {
-      samlMessageToSign.SAMLResponse = samlMessage.SAMLResponse;
-    }
-    if (samlMessage.RelayState) {
-      samlMessageToSign.RelayState = samlMessage.RelayState;
-    }
-    if (samlMessage.SigAlg) {
-      samlMessageToSign.SigAlg = samlMessage.SigAlg;
+    // SAML bindings 3.4.4.1: the signature covers these as `_requestToUrlAsync` serializes them.
+    // https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
+    const signedParameters = new URLSearchParams();
+    for (const name of ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg"]) {
+      if (name in samlMessage) {
+        signedParameters.set(name, samlMessage[name] as string);
+      }
     }
     samlMessage.Signature = signer.getSignature(
-      querystring.stringify(samlMessageToSign),
+      signedParameters.toString(),
       keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
     );
   }
@@ -744,6 +739,12 @@ class SAML {
     if (isValidSamlSigningOptions(this.options)) {
       if (!this.options.entryPoint) {
         throw new Error('"entryPoint" config parameter is required for signed messages');
+      }
+
+      // A RelayState in the endpoint's own URL is sent when the message has none, so it is signed.
+      const endpointRelayState = target.searchParams.get("RelayState");
+      if (endpointRelayState !== null && !("RelayState" in samlMessage)) {
+        samlMessage.RelayState = endpointRelayState;
       }
 
       // sets .SigAlg and .Signature

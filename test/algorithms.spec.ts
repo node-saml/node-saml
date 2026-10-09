@@ -177,6 +177,77 @@ describe("Signing algorithms /", function () {
     });
   });
 
+  describe("HTTP-Redirect: a receiver verifies the Signature over the query string as sent", function () {
+    const signing = {
+      ...config,
+      logoutUrl: "https://idp.example.com/saml/slo",
+      signatureAlgorithm: "sha256" as const,
+    };
+    const user = {
+      issuer: "idp",
+      nameID: "user",
+      nameIDFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
+    };
+    // Every printable ASCII character that `querystring` and a URL's `searchParams` encode
+    // differently.
+    const relayState = "a b!'()~";
+
+    // SAML bindings 3.4.4.1: the signature covers these parameters, URL-encoded as they arrived.
+    const verifiesAsSent = (redirectUrl: string): boolean => {
+      const url = new URL(redirectUrl);
+      const sent = url.search.slice(1).split("&");
+      const signedOctets = ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg"]
+        .map((name) => sent.find((parameter) => parameter.startsWith(`${name}=`)))
+        .filter((parameter) => parameter !== undefined)
+        .join("&");
+      return crypto.verify(
+        "sha256",
+        Buffer.from(signedOctets),
+        publicCert,
+        Buffer.from(url.searchParams.get("Signature") ?? "", "base64"),
+      );
+    };
+
+    const messages: Array<[string, (saml: SAML) => Promise<string>]> = [
+      ["a login request", (saml) => saml.getAuthorizeUrlAsync(relayState, {})],
+      ["a logout request", (saml) => saml.getLogoutUrlAsync(user, relayState, {})],
+      [
+        "a logout response",
+        (saml) => saml.getLogoutResponseUrlAsync({ ...user, ID: "_request" }, relayState, {}, true),
+      ],
+    ];
+
+    for (const [message, getUrl] of messages) {
+      it(`${message} whose RelayState is ${JSON.stringify(relayState)}`, async () => {
+        const url = await getUrl(new SAML(signing));
+
+        expect(new URL(url).searchParams.get("RelayState")).to.equal(relayState);
+        expect(verifiesAsSent(url)).to.equal(true);
+      });
+    }
+
+    for (const inAdditionalParams of ["", ["a", "b"]]) {
+      it(`a RelayState given as ${JSON.stringify(inAdditionalParams)} in additionalParams`, async () => {
+        const url = await new SAML(signing).getAuthorizeUrlAsync("", {
+          additionalParams: { RelayState: inAdditionalParams },
+        });
+
+        expect(new URL(url).searchParams.has("RelayState")).to.equal(true);
+        expect(verifiesAsSent(url)).to.equal(true);
+      });
+    }
+
+    it("a RelayState that the entryPoint carries", async () => {
+      const url = await new SAML({
+        ...signing,
+        entryPoint: `${config.entryPoint}?RelayState=fixed`,
+      }).getAuthorizeUrlAsync("", {});
+
+      expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal(["fixed"]);
+      expect(verifiesAsSent(url)).to.equal(true);
+    });
+  });
+
   describe("HTTP-Redirect: verifying a message the IdP signed", function () {
     const logoutRequest =
       '<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ' +
