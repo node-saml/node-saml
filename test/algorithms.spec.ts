@@ -4,7 +4,7 @@ import * as fs from "fs";
 import { URL } from "url";
 import * as zlib from "zlib";
 import { expect } from "chai";
-import { generateServiceProviderMetadata, SAML, SignatureAlgorithm } from "../src";
+import { AuthOptions, generateServiceProviderMetadata, SAML, SignatureAlgorithm } from "../src";
 import { TEST_CERT } from "./types";
 
 const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
@@ -175,6 +175,210 @@ describe("Signing algorithms /", function () {
         ),
       ).to.equal(true);
     });
+  });
+
+  const signing = {
+    ...config,
+    logoutUrl: "https://idp.example.com/saml/slo",
+    signatureAlgorithm: "sha256" as const,
+  };
+
+  // SAML bindings 3.4.4.1: the signature covers these parameters, URL-encoded as they arrived.
+  const verifiesAsSent = (redirectUrl: string): boolean => {
+    const url = new URL(redirectUrl);
+    const sent = url.search.slice(1).split("&");
+    const signedOctets = ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg"]
+      .map((name) => sent.find((parameter) => parameter.startsWith(`${name}=`)))
+      .filter((parameter) => parameter !== undefined)
+      .join("&");
+    return crypto.verify(
+      "sha256",
+      Buffer.from(signedOctets),
+      publicCert,
+      Buffer.from(url.searchParams.get("Signature") ?? "", "base64"),
+    );
+  };
+
+  // Written as `encodeURIComponent` encodes it, which is not how the URL goes on to send it.
+  const entryPointWith = (relayState: string) =>
+    `${config.entryPoint}?RelayState=${encodeURIComponent(relayState)}`;
+
+  const user = {
+    issuer: "idp",
+    nameID: "user",
+    nameIDFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
+  };
+
+  describe("HTTP-Redirect: a receiver verifies the Signature over the query string as sent", function () {
+    // Every printable ASCII character that `querystring` and a URL's `searchParams` encode
+    // differently.
+    const relayState = "a b!'()~";
+
+    const messages: Array<[string, (saml: SAML) => Promise<string>]> = [
+      ["a login request", (saml) => saml.getAuthorizeUrlAsync(relayState, {})],
+      ["a logout request", (saml) => saml.getLogoutUrlAsync(user, relayState, {})],
+      [
+        "a logout response",
+        (saml) => saml.getLogoutResponseUrlAsync({ ...user, ID: "_request" }, relayState, {}, true),
+      ],
+    ];
+
+    for (const [message, getUrl] of messages) {
+      it(`${message} whose RelayState is ${JSON.stringify(relayState)}`, async () => {
+        const url = await getUrl(new SAML(signing));
+
+        expect(new URL(url).searchParams.get("RelayState")).to.equal(relayState);
+        expect(verifiesAsSent(url)).to.equal(true);
+      });
+    }
+
+    it('a RelayState given as ["a","b"] in additionalParams', async () => {
+      const url = await new SAML(signing).getAuthorizeUrlAsync("", {
+        additionalParams: { RelayState: ["a", "b"] },
+      });
+
+      expect(new URL(url).searchParams.has("RelayState")).to.equal(true);
+      expect(verifiesAsSent(url)).to.equal(true);
+    });
+
+    it("a RelayState that the entryPoint carries", async () => {
+      const url = await new SAML({
+        ...signing,
+        entryPoint: entryPointWith(relayState),
+      }).getAuthorizeUrlAsync(undefined, {});
+
+      expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal([relayState]);
+      expect(verifiesAsSent(url)).to.equal(true);
+    });
+
+    it("a RelayState passed to the call, in place of one the entryPoint carries", async () => {
+      const url = await new SAML({
+        ...signing,
+        entryPoint: entryPointWith("fixed"),
+      }).getAuthorizeUrlAsync(relayState, {});
+
+      expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal([relayState]);
+      expect(verifiesAsSent(url)).to.equal(true);
+    });
+  });
+
+  describe("HTTP-Redirect: the RelayState in the URL", function () {
+    const untyped = (value: null | undefined) => value as unknown as string;
+    const cases: Array<{
+      given: string;
+      argument?: string | null;
+      inAdditionalParams?: AuthOptions["additionalParams"];
+      entryPoint?: string;
+      sent: string[];
+    }> = [
+      { given: '"" as the argument', argument: "", sent: [] },
+      {
+        given: '"" as the argument and one in the entryPoint',
+        argument: "",
+        entryPoint: entryPointWith("fixed"),
+        sent: [],
+      },
+      {
+        given: '"" as the argument and "x" in additionalParams',
+        argument: "",
+        inAdditionalParams: { RelayState: "x" },
+        sent: ["x"],
+      },
+      {
+        given: "null as the argument and one in the entryPoint",
+        argument: null,
+        entryPoint: entryPointWith("fixed"),
+        sent: ["fixed"],
+      },
+      {
+        given: "undefined as the argument and one in the entryPoint",
+        entryPoint: entryPointWith("fixed"),
+        sent: ["fixed"],
+      },
+      { given: '"" in additionalParams', inAdditionalParams: { RelayState: "" }, sent: [] },
+      { given: "[] in additionalParams", inAdditionalParams: { RelayState: [] }, sent: [] },
+      { given: "an empty one in the entryPoint", entryPoint: entryPointWith(""), sent: [] },
+      {
+        given: '"" in additionalParams and one in the entryPoint',
+        inAdditionalParams: { RelayState: "" },
+        entryPoint: entryPointWith("fixed"),
+        sent: [],
+      },
+      {
+        given: "null in additionalParams",
+        inAdditionalParams: { RelayState: untyped(null) },
+        sent: [],
+      },
+      {
+        given: "undefined in additionalParams",
+        inAdditionalParams: { RelayState: untyped(undefined) },
+        sent: [],
+      },
+      {
+        given: "null in additionalParams and one in the entryPoint",
+        inAdditionalParams: { RelayState: untyped(null) },
+        entryPoint: entryPointWith("fixed"),
+        sent: ["fixed"],
+      },
+      {
+        given: "undefined in additionalParams and one in the entryPoint",
+        inAdditionalParams: { RelayState: untyped(undefined) },
+        entryPoint: entryPointWith("fixed"),
+        sent: ["fixed"],
+      },
+    ];
+
+    for (const privateKey of [config.privateKey, undefined]) {
+      describe(privateKey ? "signed" : "unsigned", function () {
+        for (const {
+          given,
+          argument,
+          inAdditionalParams,
+          entryPoint = config.entryPoint,
+          sent,
+        } of cases) {
+          it(`${given} => ${sent.length ? JSON.stringify(sent[0]) : "none"}`, async () => {
+            const url = await new SAML({ ...signing, entryPoint, privateKey }).getAuthorizeUrlAsync(
+              argument,
+              { additionalParams: inAdditionalParams },
+            );
+
+            expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal(sent);
+            if (privateKey) {
+              expect(verifiesAsSent(url)).to.equal(true);
+            }
+          });
+        }
+
+        const logoutMessages: Array<
+          [string, (saml: SAML, argument: string | undefined) => Promise<string>]
+        > = [
+          ["a logout request", (saml, argument) => saml.getLogoutUrlAsync(user, argument, {})],
+          [
+            "a logout response",
+            (saml, argument) =>
+              saml.getLogoutResponseUrlAsync({ ...user, ID: "_request" }, argument, {}, true),
+          ],
+        ];
+
+        for (const [message, getUrl] of logoutMessages) {
+          for (const [argument, sent] of [
+            ["", []],
+            [undefined, ["fixed"]],
+          ] as Array<[string | undefined, string[]]>) {
+            it(`${message}, ${JSON.stringify(argument) ?? "undefined"} as the argument and one in the logoutUrl => ${sent.length ? JSON.stringify(sent[0]) : "none"}`, async () => {
+              const saml = new SAML({ ...signing, logoutUrl: entryPointWith("fixed"), privateKey });
+              const url = await getUrl(saml, argument);
+
+              expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal(sent);
+              if (privateKey) {
+                expect(verifiesAsSent(url)).to.equal(true);
+              }
+            });
+          }
+        }
+      });
+    }
   });
 
   describe("HTTP-Redirect: verifying a message the IdP signed", function () {

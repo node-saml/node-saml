@@ -124,6 +124,11 @@ res.redirect(url);
 `options` is an `AuthOptions`, whose `additionalParams` override anything set by
 `additionalParams`/`additionalAuthorizeParams` in the constructor.
 
+The URL never carries an empty `RelayState`, because identity providers differ on whether a
+signature covers one. A `RelayState` of `""`, as the `relayState` argument or in `additionalParams`,
+means "send none", even when `entryPoint` has one of its own. `null` or `undefined` means none was
+given, and one in `entryPoint` is still sent.
+
 All three of these methods also accept a deprecated `host` argument between `relayState` and
 `options`. It is ignored, and it is removed in the next major version, so pass `options` directly:
 

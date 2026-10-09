@@ -4054,6 +4054,18 @@ describe("node-saml /", function () {
           expect(relayState).to.equal("/home");
         });
 
+        it("returns an empty RelayState that the signature covers", async function () {
+          const { relayState } = await validate(sign(alice, "RelayState=", sigAlg));
+
+          expect(relayState).to.equal("");
+        });
+
+        it("rejects an empty RelayState that the signature does not cover", async function () {
+          await assert.rejects(validate(`${signedForAlice}&RelayState=`), {
+            message: "Invalid query signature",
+          });
+        });
+
         it("accepts a signed query string beside a parameter of the application's own", async function () {
           const { profile } = await validate(`tenant=acme&${signedForAlice}`);
 
