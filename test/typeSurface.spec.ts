@@ -250,15 +250,22 @@ describe("published type surface", function () {
   // The query string was required beside a parsed query, and accepting it alone must not make it
   // optional there.
   it("still requires the query string after a parsed query on validateRedirectAsync", function () {
-    const errors = typeCheck(`
+    const source = `
       import { SAML } from ${packageEntry};
 
       declare const saml: SAML;
       declare const parsed: Record<string, string>;
       void saml.validateRedirectAsync(parsed);
-    `);
+    `;
+    const callLine =
+      source.split("\n").findIndex((line) => line.includes("validateRedirectAsync")) + 1;
 
-    expect(errors).to.contain("error TS");
+    const reported = typeCheck(source)
+      .split("\n")
+      .filter((line) => line.includes("error TS"));
+    expect(reported).to.have.lengthOf(1);
+    expect(reported[0]).to.contain(`consumer.ts(${callLine},`);
+    expect(reported[0]).to.contain("error TS2345");
   });
 
   it("reports an error when the consumer really is wrong", function () {

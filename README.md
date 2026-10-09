@@ -279,8 +279,10 @@ await saml.validatePostRequestAsync(req.body, { _validateSignature }); // deprec
 await saml.validatePostRequestAsync(req.body); // use this
 ```
 
-**Over the Redirect binding.** Redirect-binding signatures are computed over the exact bytes of the
-query string, so hand the raw query string through unchanged, without its leading `?`:
+**Over the Redirect binding.** A Redirect-binding signature covers the `SAMLRequest` or
+`SAMLResponse`, the `RelayState` if there is one, and `SigAlg`, byte for byte as they arrived.
+Nothing else in the query string is signed. Hand the raw query string through unchanged, without
+its leading `?`:
 
 ```javascript
 const originalQuery = req.url.slice(req.url.indexOf("?") + 1);
@@ -312,11 +314,11 @@ of the five parameters in bracket notation, such as `RelayState[]` or `[RelaySta
 > **Note:** the deprecated form still accepts a message with no `Signature` parameter, because the
 > binding makes signing optional. Such a message is accepted with none of its contents
 > authenticated — the issuer and the timestamps are read from the same unsigned bytes, so
-> `idpIssuer` does not constrain it either. Run with `NODE_DEBUG=node-saml` to be told when this
-> happens. Configure your IdP to sign its logout messages before you move to
-> `validateRedirectAsync(originalQuery)`, which rejects unsigned ones, as the next major version
-> does for every call. The POST binding is unaffected: `validatePostRequestAsync` always requires a
-> valid signature.
+> `idpIssuer` only checks a value the sender wrote and does not show who sent it. Run with
+> `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
+> messages before you move to `validateRedirectAsync(originalQuery)`, which rejects unsigned ones,
+> as the next major version does for every call. The POST binding is unaffected:
+> `validatePostRequestAsync` always requires a valid signature.
 
 On the POST binding the profile is built only from the bytes that signature covers. The signature
 has to envelope the message the way
