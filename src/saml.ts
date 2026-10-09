@@ -158,6 +158,11 @@ const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
 const redirectParameterNames = ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg", "Signature"];
 
+// For a parameter a caller supplies: null and undefined mean it was not given, and "" or [] that
+// it is empty.
+const hasValue = <T>(value: T | null | undefined): value is T =>
+  value != null && String(value) !== "";
+
 // As `querystring.parse` decodes a name or a value.
 const decodeQueryComponent = (component: string): string =>
   querystring.unescape(component.replace(/\+/g, " "));
@@ -458,7 +463,7 @@ class SAML {
     // https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
     const signedParameters = new URLSearchParams();
     for (const name of ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg"]) {
-      if (name in samlMessage) {
+      if (hasValue(samlMessage[name])) {
         signedParameters.set(name, samlMessage[name] as string);
       }
     }
@@ -736,21 +741,19 @@ class SAML {
     Object.keys(additionalParameters).forEach((k) => {
       samlMessage[k] = additionalParameters[k];
     });
+    // The caller's RelayState, or else the one in the endpoint's own URL. An empty one is not sent:
+    // SAML bindings 3.4.4.1 signs none when there is no value, and receivers differ on whether a
+    // signature covers an empty one that arrives.
+    const relayState = samlMessage.RelayState ?? target.searchParams.get("RelayState");
+    if (hasValue(relayState)) {
+      samlMessage.RelayState = relayState;
+    } else {
+      delete samlMessage.RelayState;
+      target.searchParams.delete("RelayState");
+    }
     if (isValidSamlSigningOptions(this.options)) {
       if (!this.options.entryPoint) {
         throw new Error('"entryPoint" config parameter is required for signed messages');
-      }
-
-      // A RelayState in the endpoint's own URL is sent when the message has none, so it is signed.
-      const endpointRelayState = target.searchParams.get("RelayState");
-      if (endpointRelayState !== null && !("RelayState" in samlMessage)) {
-        samlMessage.RelayState = endpointRelayState;
-      }
-      // An empty RelayState is not sent: SAML bindings 3.4.4.1 signs none when there is no value,
-      // and receivers differ on whether a signature covers an empty one that arrives.
-      if (String(samlMessage.RelayState) === "") {
-        delete samlMessage.RelayState;
-        target.searchParams.delete("RelayState");
       }
 
       // sets .SigAlg and .Signature
