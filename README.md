@@ -122,7 +122,9 @@ res.redirect(url);
 
 `relayState` is echoed back by the IdP and is omitted from the request when it is an empty string.
 `options` is an `AuthOptions`, whose `additionalParams` override anything set by
-`additionalParams`/`additionalAuthorizeParams` in the constructor.
+`additionalParams`/`additionalAuthorizeParams` in the constructor. A signed URL carries no empty
+`RelayState` at all, whether `additionalParams` or the `entryPoint` supplied it: identity providers
+differ on whether a signature covers an empty one.
 
 All three of these methods also accept a deprecated `host` argument between `relayState` and
 `options`. It is ignored, and it is removed in the next major version, so pass `options` directly:

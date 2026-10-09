@@ -4,7 +4,7 @@ import * as fs from "fs";
 import { URL } from "url";
 import * as zlib from "zlib";
 import { expect } from "chai";
-import { generateServiceProviderMetadata, SAML, SignatureAlgorithm } from "../src";
+import { AuthOptions, generateServiceProviderMetadata, SAML, SignatureAlgorithm } from "../src";
 import { TEST_CERT } from "./types";
 
 const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
@@ -226,26 +226,61 @@ describe("Signing algorithms /", function () {
       });
     }
 
-    for (const inAdditionalParams of ["", ["a", "b"]]) {
-      it(`a RelayState given as ${JSON.stringify(inAdditionalParams)} in additionalParams`, async () => {
-        const url = await new SAML(signing).getAuthorizeUrlAsync("", {
-          additionalParams: { RelayState: inAdditionalParams },
-        });
-
-        expect(new URL(url).searchParams.has("RelayState")).to.equal(true);
-        expect(verifiesAsSent(url)).to.equal(true);
+    it('a RelayState given as ["a","b"] in additionalParams', async () => {
+      const url = await new SAML(signing).getAuthorizeUrlAsync("", {
+        additionalParams: { RelayState: ["a", "b"] },
       });
-    }
+
+      expect(new URL(url).searchParams.has("RelayState")).to.equal(true);
+      expect(verifiesAsSent(url)).to.equal(true);
+    });
+
+    it("a RelayState that a JavaScript caller gives as undefined in additionalParams", async () => {
+      const url = await new SAML(signing).getAuthorizeUrlAsync("", {
+        additionalParams: { RelayState: undefined as unknown as string },
+      });
+
+      expect(verifiesAsSent(url)).to.equal(true);
+    });
+
+    // Written as `encodeURIComponent` encodes it, which is not how the URL goes on to send it.
+    const entryPointWith = (value: string) =>
+      `${config.entryPoint}?RelayState=${encodeURIComponent(value)}`;
 
     it("a RelayState that the entryPoint carries", async () => {
       const url = await new SAML({
         ...signing,
-        entryPoint: `${config.entryPoint}?RelayState=fixed`,
+        entryPoint: entryPointWith(relayState),
       }).getAuthorizeUrlAsync("", {});
 
-      expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal(["fixed"]);
+      expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal([relayState]);
       expect(verifiesAsSent(url)).to.equal(true);
     });
+
+    it("a RelayState passed to the call, in place of one the entryPoint carries", async () => {
+      const url = await new SAML({
+        ...signing,
+        entryPoint: entryPointWith("fixed"),
+      }).getAuthorizeUrlAsync(relayState, {});
+
+      expect(new URL(url).searchParams.getAll("RelayState")).to.deep.equal([relayState]);
+      expect(verifiesAsSent(url)).to.equal(true);
+    });
+
+    const empty: Array<[string, typeof signing, AuthOptions]> = [
+      ['"" in additionalParams', signing, { additionalParams: { RelayState: "" } }],
+      ["[] in additionalParams", signing, { additionalParams: { RelayState: [] } }],
+      ["empty in the entryPoint", { ...signing, entryPoint: entryPointWith("") }, {}],
+    ];
+
+    for (const [given, samlConfig, options] of empty) {
+      it(`no RelayState, where one is ${given}`, async () => {
+        const url = await new SAML(samlConfig).getAuthorizeUrlAsync("", options);
+
+        expect(new URL(url).searchParams.has("RelayState")).to.equal(false);
+        expect(verifiesAsSent(url)).to.equal(true);
+      });
+    }
   });
 
   describe("HTTP-Redirect: verifying a message the IdP signed", function () {

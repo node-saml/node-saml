@@ -746,6 +746,12 @@ class SAML {
       if (endpointRelayState !== null && !("RelayState" in samlMessage)) {
         samlMessage.RelayState = endpointRelayState;
       }
+      // An empty RelayState is not sent: SAML bindings 3.4.4.1 signs none when there is no value,
+      // and receivers differ on whether a signature covers an empty one that arrives.
+      if (String(samlMessage.RelayState) === "") {
+        delete samlMessage.RelayState;
+        target.searchParams.delete("RelayState");
+      }
 
       // sets .SigAlg and .Signature
       this.signRequest(samlMessage);
