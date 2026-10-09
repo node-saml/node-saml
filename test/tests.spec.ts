@@ -3842,7 +3842,9 @@ describe("node-saml /", function () {
         const body = {
           SAMLRequest: "asdf",
         };
-        await assert.rejects(samlObj.validateRedirectAsync(body, "SAMLRequest=asdf"));
+        await assert.rejects(samlObj.validateRedirectAsync(body, "SAMLRequest=asdf"), {
+          message: "unexpected end of file",
+        });
       });
       it("errors if idpIssuer is set and issuer is wrong", async function () {
         samlObj.options.idpIssuer = "foo";
