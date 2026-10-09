@@ -4100,11 +4100,26 @@ describe("node-saml /", function () {
         expect(profile?.nameID).to.equal("alice");
       });
 
+      it("accepts a signed query string beside a parameter of the application's own", async function () {
+        const query = `tenant=acme&${signedForAlice}`;
+
+        const { profile } = await validate(lastValues(query), query);
+        expect(profile?.nameID).to.equal("alice");
+      });
+
       it("rejects a Signature that comes with no SigAlg", async function () {
         const query = `${alice}&${signatureOver(alice, sigAlg)}`;
 
         await assert.rejects(validate(lastValues(query), query), {
           message: "The query string has a Signature parameter but no SigAlg parameter",
+        });
+      });
+
+      it("rejects a signed container whose message is not in the query string", async function () {
+        const container = lastValues(signedForAlice);
+
+        await assert.rejects(validate(container, signedForAlice.replace(`${alice}&`, "")), {
+          message: "The query string has no SAMLRequest or SAMLResponse parameter",
         });
       });
     });
