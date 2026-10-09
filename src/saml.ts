@@ -156,6 +156,57 @@ async function getSubjectInResponseTosAsync(assertionXml: string): Promise<strin
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
+const redirectParameterNames = ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg", "Signature"];
+
+// As `querystring.parse` decodes a name or a value, so this reads what a caller's parser read.
+const decodeQueryComponent = (component: string): string =>
+  querystring.unescape(component.replace(/\+/g, " "));
+
+// SAML bindings 3.4.4.1: the signature covers these parameters as they arrived, still URL-encoded.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
+function readSignedRedirectParameters(originalQuery: string): {
+  samlMessageType: "SAMLRequest" | "SAMLResponse";
+  samlMessage: string;
+  sigAlg: string;
+  signedOctets: string;
+} {
+  const parameters = new Map<string, { token: string; value: string }>();
+  for (const token of originalQuery.split("&")) {
+    const [encodedName] = token.split("=", 1);
+    const name = decodeQueryComponent(encodedName);
+    if (!redirectParameterNames.includes(name)) continue;
+    // Parsers differ on which of two values a caller is handed, so neither is taken as signed.
+    if (parameters.has(name)) {
+      throw new Error(`The query string has more than one ${name} parameter`);
+    }
+    const value = decodeQueryComponent(token.slice(encodedName.length + 1));
+    parameters.set(name, { token, value });
+  }
+
+  const request = parameters.get("SAMLRequest");
+  const response = parameters.get("SAMLResponse");
+  if (request && response) {
+    throw new Error("The query string has both a SAMLRequest and a SAMLResponse parameter");
+  }
+  const message = request ?? response;
+  if (!message) {
+    throw new Error("The query string has no SAMLRequest or SAMLResponse parameter");
+  }
+  const sigAlg = parameters.get("SigAlg");
+  if (!sigAlg) {
+    throw new Error("The query string has a Signature parameter but no SigAlg parameter");
+  }
+  const relayState = parameters.get("RelayState");
+  const signed = relayState ? [message, relayState, sigAlg] : [message, sigAlg];
+
+  return {
+    samlMessageType: request ? "SAMLRequest" : "SAMLResponse",
+    samlMessage: message.value,
+    sigAlg: sigAlg.value,
+    signedOctets: signed.map(({ token }) => token).join("&"),
+  };
+}
+
 const resolveAndParseKeyInfosToPem = async ({
   idpCert,
 }: Pick<SamlOptions, "idpCert">): Promise<string[]> => {
@@ -1102,9 +1153,14 @@ class SAML {
     container: ParsedQs,
     originalQuery: string,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
-    const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
+    const unsignedType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
+    // A signed message is read from the query string its signature is verified over. `container`
+    // is the caller's parse of that string, and can hold a parameter that was not the one signed.
+    const { samlMessageType, samlMessage } = container.Signature
+      ? readSignedRedirectParameters(originalQuery)
+      : { samlMessageType: unsignedType, samlMessage: container[unsignedType] as string };
 
-    const data = Buffer.from(container[samlMessageType] as string, "base64");
+    const data = Buffer.from(samlMessage, "base64");
     const inflated = await inflateRawAsync(data);
 
     const dom = await parseDomFromString(inflated.toString());
@@ -1137,29 +1193,15 @@ class SAML {
     container: ParsedQs,
     originalQuery: string,
   ): Promise<boolean | void> {
-    const tokens = originalQuery.split("&");
-    const getParam = (key: string) => {
-      const exists = tokens.filter((t) => {
-        return new RegExp(key).test(t);
-      });
-      return exists[0];
-    };
-
     if (container.Signature) {
-      let urlString = getParam("SAMLRequest") || getParam("SAMLResponse");
-
-      if (getParam("RelayState")) {
-        urlString += "&" + getParam("RelayState");
-      }
-
-      urlString += "&" + getParam("SigAlg");
+      const { signedOctets, sigAlg } = readSignedRedirectParameters(originalQuery);
 
       const pemFiles = await this.getKeyInfosAsPem();
       const hasValidQuerySignature = pemFiles.some((pemFile) => {
         return this.validateSignatureForRedirect(
-          urlString,
+          signedOctets,
           container.Signature as string,
-          container.SigAlg as string,
+          sigAlg,
           pemFile,
         );
       });

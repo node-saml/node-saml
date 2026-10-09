@@ -288,6 +288,13 @@ const originalQuery = req.url.slice(req.url.indexOf("?") + 1);
 const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, originalQuery);
 ```
 
+When the message carries a `Signature`, the `SAMLRequest` or `SAMLResponse` that is processed is the
+one in `originalQuery`, which is the one the signature was verified over, and not the one in
+`req.query`. A signed query string in which `SAMLRequest`, `SAMLResponse`, `RelayState`, `SigAlg` or
+`Signature` appears more than once, or which has both a `SAMLRequest` and a `SAMLResponse`, is
+rejected: parsers disagree on which of two values to keep, so `req.query` could otherwise hold one
+that was never signed.
+
 > **Note:** on the Redirect binding, a signature is only checked when the message carries a
 > `Signature` query parameter, because the binding makes signing optional. A message arriving
 > without one is accepted with none of its contents authenticated — the issuer and the timestamps

@@ -1,7 +1,9 @@
 "use strict";
 import { SAML } from "../src/saml";
+import * as crypto from "crypto";
 import { URL } from "url";
 import * as querystring from "querystring";
+import * as zlib from "zlib";
 import { parseString, parseStringPromise } from "xml2js";
 import * as fs from "fs";
 import * as sinon from "sinon";
@@ -3980,6 +3982,130 @@ describe("node-saml /", function () {
           this.request.originalQuery,
         );
         expect(loggedOut).to.be.true;
+      });
+    });
+
+    describe("signed parameters", function () {
+      const param = (name: string, value: string) => `${name}=${encodeURIComponent(value)}`;
+      const logoutRequestFor = (nameId: string) =>
+        param(
+          "SAMLRequest",
+          zlib
+            .deflateRawSync(
+              '<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ' +
+                `ID="_logout_request" Version="2.0" IssueInstant="${new Date().toISOString()}">` +
+                `<saml:Issuer>idp</saml:Issuer><saml:NameID>${nameId}</saml:NameID></samlp:LogoutRequest>`,
+            )
+            .toString("base64"),
+        );
+      const privateKey = fs.readFileSync(__dirname + "/static/key.pem", "utf-8");
+      const signatureOver = (...signed: string[]) =>
+        param(
+          "Signature",
+          crypto.sign("sha256", Buffer.from(signed.join("&")), privateKey).toString("base64"),
+        );
+      const sign = (...signed: string[]) => [...signed, signatureOver(...signed)].join("&");
+
+      const alice = logoutRequestFor("alice");
+      const mallory = logoutRequestFor("mallory");
+      const sigAlg = param("SigAlg", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
+      const signedForAlice = sign(alice, sigAlg);
+
+      const firstValues = (query: string) => {
+        const container: Record<string, string> = {};
+        new URLSearchParams(query).forEach((value, name) => {
+          if (!(name in container)) container[name] = value;
+        });
+        return container;
+      };
+      const lastValues = (query: string) => {
+        const container: Record<string, string> = {};
+        new URLSearchParams(query).forEach((value, name) => {
+          container[name] = value;
+        });
+        return container;
+      };
+      const parsers: Record<string, (query: string) => querystring.ParsedUrlQuery> = {
+        "its first value": firstValues,
+        "its last value": lastValues,
+        "all of its values": (query) => querystring.parse(query),
+      };
+
+      const validate = (container: querystring.ParsedUrlQuery, originalQuery: string) =>
+        new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
+          issuer: "onesaml_login",
+        }).validateRedirectAsync(container, originalQuery);
+
+      for (const [values, parse] of Object.entries(parsers)) {
+        for (const [position, query] of [
+          ["after", `${signedForAlice}&${mallory}`],
+          ["before", `${mallory}&${signedForAlice}`],
+        ]) {
+          it(`rejects a forged SAMLRequest ${position} the signed one when a repeated parameter is parsed to ${values}`, async function () {
+            await assert.rejects(validate(parse(query), query), {
+              message: "The query string has more than one SAMLRequest parameter",
+            });
+          });
+        }
+      }
+
+      it("rejects a forged SAMLRequest whose name is percent-encoded", async function () {
+        const query = `${signedForAlice}&${mallory.replace("SAMLRequest", "SAML%52equest")}`;
+
+        await assert.rejects(validate(lastValues(query), query), {
+          message: "The query string has more than one SAMLRequest parameter",
+        });
+      });
+
+      for (const name of ["RelayState", "SigAlg", "Signature"]) {
+        it(`rejects a second ${name}`, async function () {
+          const signed = sign(alice, param("RelayState", "/home"), sigAlg);
+          const query = `${signed}&${param(name, "second")}`;
+
+          await assert.rejects(validate(lastValues(query), query), {
+            message: `The query string has more than one ${name} parameter`,
+          });
+        });
+      }
+
+      it("rejects a SAMLResponse beside the signed SAMLRequest", async function () {
+        const query = `${signedForAlice}&${mallory.replace("SAMLRequest", "SAMLResponse")}`;
+
+        await assert.rejects(validate(lastValues(query), query), {
+          message: "The query string has both a SAMLRequest and a SAMLResponse parameter",
+        });
+      });
+
+      it("returns the profile of the signed SAMLRequest when container holds another", async function () {
+        const container = lastValues(signedForAlice.replace(alice, mallory));
+
+        const { profile } = await validate(container, signedForAlice);
+        expect(profile?.nameID).to.equal("alice");
+      });
+
+      it("verifies under the signed SigAlg when container holds another", async function () {
+        const sha512 = param("SigAlg", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512");
+        const container = lastValues(signedForAlice.replace(sigAlg, sha512));
+
+        const { profile } = await validate(container, signedForAlice);
+        expect(profile?.nameID).to.equal("alice");
+      });
+
+      it("accepts a RelayState that contains the name of another parameter", async function () {
+        const query = sign(alice, param("RelayState", "/reports/SigAlgorithms"), sigAlg);
+
+        const { profile } = await validate(lastValues(query), query);
+        expect(profile?.nameID).to.equal("alice");
+      });
+
+      it("rejects a Signature that comes with no SigAlg", async function () {
+        const query = `${alice}&${signatureOver(alice, sigAlg)}`;
+
+        await assert.rejects(validate(lastValues(query), query), {
+          message: "The query string has a Signature parameter but no SigAlg parameter",
+        });
       });
     });
   });
