@@ -4213,6 +4213,14 @@ describe("node-saml /", function () {
           });
         }
 
+        it("rejects an unsigned SAMLRequest whose [Signature] follows another bracketed parameter", async function () {
+          const query = `${mallory}&RelayState[]=x&[Signature]=x`;
+
+          await assert.rejects(validate(querystring.parse(query), query), {
+            message: "The query string has a RelayState parameter in bracket notation",
+          });
+        });
+
         it("rejects an empty Signature in container when the query string does not hold the message", async function () {
           const container = lastValues(`${mallory}&Signature=`);
 

@@ -237,16 +237,16 @@ function readRedirectParametersBeside(
   originalQuery: string,
 ): RedirectParameters {
   const names = queryParameterNames(originalQuery);
-  const bracketed = names.map(bracketedParameter).find((name) => name !== undefined);
+  const bracketed = names.map(bracketedParameter).filter((name) => name !== undefined);
   const claimsSignature =
-    container.Signature != null || names.includes("Signature") || bracketed === "Signature";
+    container.Signature != null || names.includes("Signature") || bracketed.includes("Signature");
   if (!claimsSignature) {
     const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
     return { samlMessageType, samlMessage: container[samlMessageType] as string };
   }
 
-  if (bracketed) {
-    throw new Error(`The query string has a ${bracketed} parameter in bracket notation`);
+  if (bracketed.length > 0) {
+    throw new Error(`The query string has a ${bracketed[0]} parameter in bracket notation`);
   }
   return readRedirectParameters(originalQuery);
 }
@@ -1232,6 +1232,18 @@ class SAML {
     }
   }
 
+  // An override written against the two-argument signature has to stay assignable to every
+  // signature here, so the one for the query string alone takes the old shape as well. The
+  // deprecated signature comes first, so that a two-argument call resolves to it, and is repeated
+  // last, so that `Parameters<SAML["validateRedirectAsync"]>` is still what it was.
+  /**
+   * @deprecated Call `validateRedirectAsync(originalQuery)` and use the `relayState` it returns: a
+   *   parse of the query string can hold a parameter that the signature does not cover.
+   */
+  validateRedirectAsync(
+    container: ParsedQs,
+    originalQuery: string,
+  ): Promise<{ profile: Profile | null; loggedOut: boolean }>;
   /**
    * Validates a `LogoutRequest` or `LogoutResponse` received over the HTTP-Redirect binding.
    *
@@ -1239,15 +1251,23 @@ class SAML {
    * The message, its `RelayState` and its signature are all read from that string, and the
    * message has to be signed.
    *
-   * Calling it with a parsed query object first and the query string second is deprecated, and
-   * that form is removed in the next major version. It still accepts an unsigned message, and it
-   * returns no `relayState`.
-   *
    * @returns The profile of a `LogoutRequest`, or `null` for a `LogoutResponse`, and the
    *   `RelayState` that was signed with the message.
    * @throws If the signature is missing or does not verify, if the query string has two
    *   candidates for one of the signed parameters, or if the message fails its own checks.
    */
+  validateRedirectAsync(
+    ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
+  ): Promise<{ profile: Profile | null; loggedOut: boolean; relayState?: string | undefined }>;
+  /**
+   * @deprecated Call `validateRedirectAsync(originalQuery)` and use the `relayState` it returns: a
+   *   parse of the query string can hold a parameter that the signature does not cover.
+   */
+  // eslint-disable-next-line @typescript-eslint/unified-signatures -- see the note above
+  validateRedirectAsync(
+    container: ParsedQs,
+    originalQuery: string,
+  ): Promise<{ profile: Profile | null; loggedOut: boolean }>;
   async validateRedirectAsync(
     ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
   ): Promise<{ profile: Profile | null; loggedOut: boolean; relayState?: string | undefined }> {

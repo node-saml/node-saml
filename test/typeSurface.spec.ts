@@ -235,6 +235,16 @@ describe("published type surface", function () {
       void saml.validateRedirectAsync(parsedByQuerystring, originalQuery);
       void saml.validateRedirectAsync(handBuilt, originalQuery);
 
+      // Callers whose own query type is looser than ParsedQs cast to the parameter's type, and
+      // callers that wrap the method take its argument list.
+      declare const loose: Record<string, unknown>;
+      void saml.validateRedirectAsync(
+        loose as Parameters<typeof saml.validateRedirectAsync>[0],
+        originalQuery,
+      );
+      const forwarded: Parameters<SAML["validateRedirectAsync"]> = [handBuilt, originalQuery];
+      void saml.validateRedirectAsync(...forwarded);
+
       async function logout(): Promise<{ profile: Profile | null; relayState: string | undefined }> {
         const { profile, relayState } = await saml.validateRedirectAsync(originalQuery);
         return { profile, relayState };
