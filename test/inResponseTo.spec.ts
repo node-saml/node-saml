@@ -377,10 +377,10 @@ describe("InResponseTo request ID consumption", function () {
     });
 
     it("rejects a signed one presented again on the Redirect binding", async () => {
-      const { container, query } = signedRedirectLogoutResponse(logoutResponseXml());
+      const { query } = signedRedirectLogoutResponse(logoutResponseXml());
 
-      expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal("accepted");
-      expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal(
+      expect(await outcome(saml.validateRedirectAsync(query))).to.equal("accepted");
+      expect(await outcome(saml.validateRedirectAsync(query))).to.equal(
         "InResponseTo is not valid",
       );
     });
@@ -401,10 +401,10 @@ describe("InResponseTo request ID consumption", function () {
       const failed = signedRedirectLogoutResponse(logoutResponseXml({ status: requesterError }));
       const signed = signedRedirectLogoutResponse(logoutResponseXml());
 
-      expect(await outcome(saml.validateRedirectAsync(failed.container, failed.query))).to.equal(
+      expect(await outcome(saml.validateRedirectAsync(failed.query))).to.equal(
         "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester",
       );
-      expect(await outcome(saml.validateRedirectAsync(signed.container, signed.query))).to.equal(
+      expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal(
         "InResponseTo is not valid",
       );
     });
@@ -416,9 +416,7 @@ describe("InResponseTo request ID consumption", function () {
       expect(await outcome(saml.validateRedirectAsync(failed.container, failed.query))).to.equal(
         "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester",
       );
-      expect(await outcome(saml.validateRedirectAsync(signed.container, signed.query))).to.equal(
-        "accepted",
-      );
+      expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
     });
 
     it("leaves the request pending when an unsigned one answers it on the Redirect binding", async () => {
@@ -428,9 +426,7 @@ describe("InResponseTo request ID consumption", function () {
       expect(
         await outcome(saml.validateRedirectAsync(unsigned.container, unsigned.query)),
       ).to.equal("accepted");
-      expect(await outcome(saml.validateRedirectAsync(signed.container, signed.query))).to.equal(
-        "accepted",
-      );
+      expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
     });
 
     // Whether the message was signed must not travel through an overridable method, which an
@@ -451,10 +447,10 @@ describe("InResponseTo request ID consumption", function () {
       });
 
       it("rejects a signed one presented again on the Redirect binding", async () => {
-        const { container, query } = signedRedirectLogoutResponse(logoutResponseXml());
+        const { query } = signedRedirectLogoutResponse(logoutResponseXml());
 
-        await saml.validateRedirectAsync(container, query);
-        expect(await outcome(saml.validateRedirectAsync(container, query))).to.equal(
+        await saml.validateRedirectAsync(query);
+        expect(await outcome(saml.validateRedirectAsync(query))).to.equal(
           "InResponseTo is not valid",
         );
       });
@@ -464,9 +460,7 @@ describe("InResponseTo request ID consumption", function () {
         const signed = signedRedirectLogoutResponse(logoutResponseXml());
 
         await saml.validateRedirectAsync(unsigned.container, unsigned.query);
-        expect(await outcome(saml.validateRedirectAsync(signed.container, signed.query))).to.equal(
-          "accepted",
-        );
+        expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
       });
     });
 

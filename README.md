@@ -280,30 +280,43 @@ await saml.validatePostRequestAsync(req.body); // use this
 ```
 
 **Over the Redirect binding.** Redirect-binding signatures are computed over the exact bytes of the
-query string, so you must hand the raw query string through unchanged — not a re-serialized copy of
-the parsed object:
+query string, so hand the raw query string through unchanged, without its leading `?`:
 
 ```javascript
 const originalQuery = req.url.slice(req.url.indexOf("?") + 1);
-const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, originalQuery);
+const { profile, loggedOut, relayState } = await saml.validateRedirectAsync(originalQuery);
 ```
 
-A message counts as signed when `originalQuery` or `req.query` has a `Signature` parameter, even an
-empty one. Everything that is then verified and processed is read from `originalQuery`: the
-`SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and the `Signature` itself. A signed query
-string is rejected when one of those five parameters appears more than once, when it has both a
-`SAMLRequest` and a `SAMLResponse`, or when it names one of them in bracket notation, such as
-`RelayState[]` or `[RelayState]`, which Express's `qs` parser reads as `RelayState`. Parsers
-disagree on what such a query string holds, so `req.query` could otherwise hand you a value that
-was never signed.
+Node-SAML reads the `SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and `Signature` from
+that string, requires the signature to verify, and returns the `RelayState` that was signed. Use
+that `relayState`, and not the one in a parsed query object such as `req.query`: a query parser can
+read a parameter that the signature does not cover as `RelayState`. A query string with more than
+one of any of those five parameters, or with both a `SAMLRequest` and a `SAMLResponse`, is
+rejected, and so is a message with no `Signature`.
 
-> **Note:** on the Redirect binding, a signature is only checked when the message carries a
-> `Signature` query parameter, because the binding makes signing optional. A message arriving
-> without one is accepted with none of its contents authenticated — the issuer and the timestamps
-> are read from the same unsigned bytes, so `idpIssuer` does not constrain it either. Run with
-> `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
-> messages; a future major version will reject unsigned ones. The POST binding is unaffected:
-> `validatePostRequestAsync` always requires a valid signature.
+`validateRedirectAsync` also accepts a deprecated first argument, the parsed query object, before
+the query string. That form is removed in the next major version, and calling it logs a warning
+under `NODE_DEBUG=node-saml`:
+
+```javascript
+await saml.validateRedirectAsync(req.query, originalQuery); // deprecated
+await saml.validateRedirectAsync(originalQuery); // use this, and the `relayState` it returns
+```
+
+The deprecated form returns no `relayState`. A signed message is read from `originalQuery` there
+too, and is treated as signed when either argument has a `Signature`, even an empty one. Because
+its caller goes on reading the parsed object, it also rejects a signed query string that names one
+of the five parameters in bracket notation, such as `RelayState[]` or `[RelayState]`, which the
+`qs` parser reads as `RelayState`.
+
+> **Note:** the deprecated form still accepts a message with no `Signature` parameter, because the
+> binding makes signing optional. Such a message is accepted with none of its contents
+> authenticated — the issuer and the timestamps are read from the same unsigned bytes, so
+> `idpIssuer` does not constrain it either. Run with `NODE_DEBUG=node-saml` to be told when this
+> happens. Configure your IdP to sign its logout messages before you move to
+> `validateRedirectAsync(originalQuery)`, which rejects unsigned ones, as the next major version
+> does for every call. The POST binding is unaffected: `validatePostRequestAsync` always requires a
+> valid signature.
 
 On the POST binding the profile is built only from the bytes that signature covers. The signature
 has to envelope the message the way
