@@ -1,13 +1,16 @@
 import { SAML } from "./saml";
 import { generateServiceProviderMetadata } from "./metadata";
-import { InMemoryCacheProvider } from "./in-memory-cache-provider";
+import { CacheProviderOptions, InMemoryCacheProvider } from "./in-memory-cache-provider";
 import {
+  AudienceRestrictionXML,
   CacheItem,
   CacheProvider,
+  GenerateServiceProviderMetadataParams,
   MandatorySamlOptions,
   Profile,
   SamlConfig,
   SamlOptions,
+  SamlSigningOptions,
   ValidateInResponseTo,
   RacComparison,
   SamlScopingConfig,
@@ -18,15 +21,22 @@ import {
   AuthOptions,
   SamlStatusError,
   AttributeConsumingService,
+  XMLObject,
+  XMLOutput,
+  XMLValue,
+  XmlJsObject,
 } from "./types";
 
 export {
   SAML,
   generateServiceProviderMetadata,
+  GenerateServiceProviderMetadataParams,
   CacheItem,
   CacheProvider,
+  CacheProviderOptions,
   InMemoryCacheProvider,
   SamlOptions,
+  SamlSigningOptions,
   MandatorySamlOptions,
   Profile,
   SamlConfig,
@@ -40,4 +50,9 @@ export {
   AuthOptions,
   SamlStatusError,
   AttributeConsumingService,
+  AudienceRestrictionXML,
+  XMLObject,
+  XMLOutput,
+  XMLValue,
+  XmlJsObject,
 };

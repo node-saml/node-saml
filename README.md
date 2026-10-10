@@ -103,11 +103,32 @@ option, and so does passing a non-boolean to an option that gates behavior — f
 `"false"`. All of this happens in the constructor, so a misconfiguration surfaces at startup rather
 than in the middle of someone's login.
 
-In TypeScript, the constructor takes a `SamlConfig` and `saml.options` is a `SamlOptions`; both are
-exported from the package root, along with `Profile`, `CacheProvider`, `CacheItem`,
-`InMemoryCacheProvider`, `ValidateInResponseTo`, `RacComparison`, `SignatureAlgorithm`,
+In TypeScript, the constructor takes a `SamlConfig` and `saml.options` is a `SamlOptions`. Both are
+exported from the package root, and so is every other type the package's API uses: `Profile`,
+`CacheProvider`, `CacheItem`, `InMemoryCacheProvider` and its `CacheProviderOptions`,
+`ValidateInResponseTo`, `RacComparison`, `SignatureAlgorithm`, `SamlSigningOptions`,
 `SamlScopingConfig`, `SamlIDPListConfig`, `SamlIDPEntryConfig`, `IdpCertCallback`, `AuthOptions`,
-`MandatorySamlOptions`, and `SamlStatusError`.
+`MandatorySamlOptions`, `SamlStatusError`, `GenerateServiceProviderMetadataParams`, and the XML types
+that `SAML`'s protected methods use: `XMLOutput`, `XmlJsObject`, `AudienceRestrictionXML`,
+`XMLObject`, and `XMLValue`.
+
+Import from the package root only. The compiled modules under `lib/` are internal: nothing there is
+part of the API unless the root exports it. The next major version closes that path, so a deep
+import will fail to load with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Anything the root exports moves over
+unchanged:
+
+```typescript
+// deprecated: fails to load in the next major version
+import { SAML } from "@node-saml/node-saml/lib/saml";
+import type { Profile } from "@node-saml/node-saml/lib/types";
+
+// use this instead
+import { SAML, Profile } from "@node-saml/node-saml";
+```
+
+The root doesn't export the XML helpers under `lib/`, such as `parseDomFromString`, `xpath`,
+`signXml`, and `signSamlPost`. They wrap `@xmldom/xmldom`, `xpath`, and `xml-crypto`, so depend on
+those packages directly instead.
 
 ### Start a login
 
@@ -635,24 +656,21 @@ explain rejections that might otherwise look overly strict:
   (`audience: false`, `acceptedClockSkewMs: -1`) is removing a control, so make that choice
   deliberately.
 
-### Low-level exports
+### Verifying a signature outside `SAML`
 
-Most integrations need only what the package exports at the top level: `SAML`,
-`generateServiceProviderMetadata`, and the types. The compiled modules under `lib/` are reachable
-too, and three of their exports bear on the first property above: `getVerifiedXml()` is what upholds
-it, `validateSignature()` is the shape it replaces, and `parseDomFromString()` is how you read what
-either one was given. All three come from `lib/xml`:
+`lib/xml` exports `getVerifiedXml()`, which upholds the first property above, and the deprecated
+`validateSignature()`, which doesn't. Like everything under `lib/`, neither is part of the API: the
+next major version closes the path to both, and removes `validateSignature()`.
 
-| Export                                              | Behavior                                                                                           |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `getVerifiedXml(fullXml, currentNode, pemFiles)`    | Returns the bytes the signature over `currentNode` covers, or `null` if none of `pemFiles` verify. |
-| `parseDomFromString(xml)`                           | Parses `xml` into a `Document`, rejecting anything that is not a well-formed XML document.         |
-| `validateSignature(fullXml, currentNode, pemFiles)` | **Deprecated.** Returns whether that signature verified, and nothing about what it covered.        |
-
-`validateSignature()` is removed in the next major version. Reporting only that a signature verified
-leaves you to find the signed content somewhere else, and an attacker controls the difference between
-what verified and what you then read — that is an XML signature wrapping attack.
-`getVerifiedXml()` returns the verified bytes, so there is nothing left to go looking for:
+To validate a SAML message, use the `SAML` methods above, which apply every check in this section.
+To verify other signed XML, use `xml-crypto` directly, and read the signed content from
+`getSignedReferences()` rather than from the document you passed in, as its
+[Verifying Xml documents](https://github.com/node-saml/xml-crypto#verifying-xml-documents) section
+shows. `validateSignature()` reports only that a signature verified, which leaves you to find the
+signed content somewhere else, and an attacker controls the difference between what verified and
+what you then read. That is an XML signature wrapping attack. `xml-crypto` doesn't apply the
+SAML-specific checks listed above, such as requiring a signature's reference to point at the
+signature's own parent, so add any your documents need:
 
 ```javascript
 // deprecated: `dom` is the document as received, not the part the signature covered
@@ -661,12 +679,13 @@ if (validateSignature(xml, dom.documentElement, pemFiles)) {
 }
 
 // use this instead
-const verifiedXml = getVerifiedXml(xml, dom.documentElement, pemFiles);
-if (verifiedXml == null) {
+const sig = new SignedXml({ publicCert });
+sig.loadSignature(signatureElement);
+if (!sig.checkSignature(xml)) {
   throw new Error("Invalid signature");
 }
 
-readTheProfileFrom(await parseDomFromString(verifiedXml));
+readTheProfileFrom(new DOMParser().parseFromString(sig.getSignedReferences()[0], "text/xml"));
 ```
 
 ### Configuration option `signatureAlgorithm`
@@ -960,7 +979,8 @@ It keeps a request ID for `keyExpirationPeriodMs`, 8 hours by default. If you ch
 `new InMemoryCacheProvider({ keyExpirationPeriodMs })`. The `SAML` constructor does that for the
 provider it creates, but a cache you supply expires IDs on its own schedule.
 
-`CacheProvider`, `CacheItem`, and `InMemoryCacheProvider` are exported from the package root.
+`CacheProvider`, `CacheItem`, `InMemoryCacheProvider`, and its constructor's `CacheProviderOptions` are
+all exported from the package root.
 
 ## Troubleshooting
 
