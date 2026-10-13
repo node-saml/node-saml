@@ -79,6 +79,14 @@ function loginResponse({
   };
 }
 
+function signedNoPassiveResponse(): Record<string, string> {
+  const xml =
+    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}" InResponseTo="${requestId}">` +
+    `<saml:Issuer>idp</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Responder">` +
+    `<samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:NoPassive"/></samlp:StatusCode></samlp:Status></samlp:Response>`;
+  return { SAMLResponse: Buffer.from(sign(xml, "Response")).toString("base64") };
+}
+
 function logoutResponseXml({ inResponseTo = true, status = success } = {}): string {
   const inResponseToAttribute = inResponseTo ? ` InResponseTo="${requestId}"` : "";
   return (
@@ -325,6 +333,21 @@ describe("InResponseTo request ID consumption", function () {
 
       expect(await outcome(saml.validatePostResponseAsync(expired))).to.equal(
         "No valid subject confirmation found among those available in the SAML assertion",
+      );
+      expect(
+        await outcome(saml.validatePostResponseAsync(loginResponse({ signResponse: true }))),
+      ).to.equal("InResponseTo is not valid");
+    });
+
+    it("retires the request when a signed NoPassive response answers it", async () => {
+      const noPassive = signedNoPassiveResponse();
+
+      expect(await saml.validatePostResponseAsync(noPassive)).to.deep.equal({
+        profile: null,
+        loggedOut: false,
+      });
+      expect(await outcome(saml.validatePostResponseAsync(noPassive))).to.equal(
+        "InResponseTo is not valid",
       );
       expect(
         await outcome(saml.validatePostResponseAsync(loginResponse({ signResponse: true }))),
