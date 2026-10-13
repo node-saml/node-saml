@@ -27,16 +27,15 @@ describe("saml.ts", function () {
   describe("resolveAndParseKeyInfosToPem", function () {
     let getKeyInfosAsPemSpy: sinon.SinonSpy;
 
-    beforeEach(function () {
+    beforeEach(async function () {
+      const emptyRequest = await xml.parseDomFromString("<LogoutRequest/>");
       getKeyInfosAsPemSpy = sinon.spy(SAML.prototype, "getKeyInfosAsPem" as never);
       sinon
         .stub(SAML.prototype, "processValidlySignedPostRequestAsync" as unknown as keyof SAML)
         .resolves(null);
       // The second argument is ignored now, so stub the module: this test only has to reach
       // `getKeyInfosAsPem`, and the empty request would not survive real parsing.
-      sinon
-        .stub(xml, "parseDomFromString")
-        .resolves({ documentElement: null } as unknown as Document);
+      sinon.stub(xml, "parseDomFromString").resolves(emptyRequest);
       sinon.stub(xml, "parseXml2JsFromString").resolves({});
       sinon.stub(xml, "getVerifiedXml").returns("<LogoutRequest/>");
     });
