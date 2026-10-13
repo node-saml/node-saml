@@ -17,7 +17,7 @@ interface CacheProviderOptions {
  * response signed by one can answer a request sent to another.
  */
 export class InMemoryCacheProvider implements CacheProvider {
-  private cacheKeys: Record<string, CacheItem>;
+  private cacheKeys: Record<string, CacheItem & { expiresAt?: number }>;
   private options: CacheProviderOptions;
   private lastPrune = 0;
   private prune: () => void;
@@ -40,7 +40,7 @@ export class InMemoryCacheProvider implements CacheProvider {
         const keys = Object.keys(this.cacheKeys);
         const keysToRemove: (keyof typeof this.cacheKeys)[] = [];
         keys.forEach((key) => {
-          if (nowMs >= this.cacheKeys[key].createdAt + this.options.keyExpirationPeriodMs) {
+          if (nowMs >= this.expiresAt(this.cacheKeys[key])) {
             keysToRemove.push(key);
           }
         });
@@ -52,10 +52,7 @@ export class InMemoryCacheProvider implements CacheProvider {
     };
 
     this.removeKeyIfExpired = async (key: keyof typeof this.cacheKeys, nowMs: number) => {
-      if (
-        this.cacheKeys[key] &&
-        nowMs >= this.cacheKeys[key].createdAt + this.options.keyExpirationPeriodMs
-      ) {
+      if (this.cacheKeys[key] && nowMs >= this.expiresAt(this.cacheKeys[key])) {
         await this.removeAsync(key);
       }
     };
@@ -113,7 +110,28 @@ export class InMemoryCacheProvider implements CacheProvider {
 
     delete this.cacheKeys[key];
     const nowMs = new Date().getTime();
-    return nowMs < item.createdAt + this.options.keyExpirationPeriodMs ? item.value : null;
+    return nowMs < this.expiresAt(item) ? item.value : null;
+  }
+
+  /**
+   * Stores an item under a key that is absent or expired, and keeps it until `expiresAtMs`.
+   * Returns whether it stored the item.
+   */
+  async saveIfAbsentAsync(key: string, value: string, expiresAtMs: number): Promise<boolean> {
+    this.prune();
+
+    const nowMs = new Date().getTime();
+    await this.removeKeyIfExpired(key, nowMs);
+
+    if (this.cacheKeys[key]) {
+      return false;
+    }
+    this.cacheKeys[key] = { createdAt: nowMs, value, expiresAt: expiresAtMs };
+    return true;
+  }
+
+  private expiresAt(item: CacheItem & { expiresAt?: number }): number {
+    return item.expiresAt ?? item.createdAt + this.options.keyExpirationPeriodMs;
   }
 
   /**
