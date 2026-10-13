@@ -1290,27 +1290,21 @@ describe("node-saml /", function () {
           );
         });
 
-        const signedErrorResponse = () =>
-          signXmlResponse(errorResponse, {
+        it("rejects a signed one with a SamlStatusError whose xmlStatus is the Status element", async () => {
+          const signed = signXmlResponse(errorResponse, {
             privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
             signatureAlgorithm: "sha256",
             digestAlgorithm: "sha256",
           });
-        const statusErrorFor = async (xml: string): Promise<SamlStatusError> => {
+
           const rejection: unknown = await samlObj()
-            .validatePostResponseAsync({ SAMLResponse: Buffer.from(xml).toString("base64") })
+            .validatePostResponseAsync({ SAMLResponse: Buffer.from(signed).toString("base64") })
             .then(
               () => assert.fail("a non-Success status must be rejected"),
               (err: unknown) => err,
             );
 
           assert.ok(rejection instanceof SamlStatusError);
-          return rejection;
-        };
-
-        it("rejects a signed one with a SamlStatusError whose xmlStatus is the Status element", async () => {
-          const rejection = await statusErrorFor(signedErrorResponse());
-
           expect(rejection.message).to.equal(
             "SAML provider returned Responder error: Required NameID format not supported",
           );
@@ -1333,13 +1327,21 @@ describe("node-saml /", function () {
         // adding one leaves the signature valid: https://www.w3.org/TR/xml-exc-c14n/#sec-Specification
         it("leaves a namespace declaration that the signature does not cover out of xmlStatus", async () => {
           const added = 'xmlns:added="urn:example:not-signed"';
-          const received = signedErrorResponse().replace(
-            "<saml2p:Status>",
-            `<saml2p:Status ${added}>`,
-          );
-
-          const rejection = await statusErrorFor(received);
+          const received = signXmlResponse(errorResponse, {
+            privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
+            signatureAlgorithm: "sha256",
+            digestAlgorithm: "sha256",
+          }).replace("<saml2p:Status>", `<saml2p:Status ${added}>`);
           expect(received).to.contain(added);
+
+          const rejection: unknown = await samlObj()
+            .validatePostResponseAsync({ SAMLResponse: Buffer.from(received).toString("base64") })
+            .then(
+              () => assert.fail("a non-Success status must be rejected"),
+              (err: unknown) => err,
+            );
+
+          assert.ok(rejection instanceof SamlStatusError);
           expect(rejection.xmlStatus).to.not.contain("not-signed");
         });
       });
