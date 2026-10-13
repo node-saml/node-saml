@@ -635,6 +635,34 @@ explain rejections that might otherwise look overly strict:
   (`audience: false`, `acceptedClockSkewMs: -1`) is removing a control, so make that choice
   deliberately.
 
+### Subclassing `SAML`
+
+Overriding a `protected` method of `SAML` that validates an incoming message is deprecated, and the
+next major version makes those methods private: an override can switch off a check that the
+properties above depend on. That is every `protected` method except `signRequest` and
+`generateAuthorizeRequestAsync`. Check what the public method returns instead, and relax a check
+only through its option under [Response validation](#response-validation):
+
+```javascript
+// deprecated
+class TenantSaml extends SAML {
+  async processValidlySignedAssertionAsync(...args) {
+    const result = await super.processValidlySignedAssertionAsync(...args);
+    assertKnownTenant(result.profile);
+    return result;
+  }
+}
+
+// use this instead
+const { profile } = await saml.validatePostResponseAsync(req.body);
+if (profile) {
+  assertKnownTenant(profile);
+}
+```
+
+To choose the certificates a signature is verified with at run time, pass a function as
+[`idpCert`](#configuration-option-idpcert) rather than overriding `getKeyInfosAsPem`.
+
 ### Low-level exports
 
 Most integrations need only what the package exports at the top level: `SAML`,
