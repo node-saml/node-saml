@@ -1149,7 +1149,10 @@ class SAML {
         return result;
       }
 
-      const xmljsDoc = (await parseXml2JsFromString(xml)) as SamlResponseXmlJs;
+      // With no signature on the root nothing here was verified, and every path below rejects.
+      const xmljsDoc = (await parseXml2JsFromString(
+        responseVerifiedXml ?? xml,
+      )) as SamlResponseXmlJs;
       const response = xmljsDoc.Response;
       if (response) {
         if (!("Assertion" in response)) {

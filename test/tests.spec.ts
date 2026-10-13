@@ -1322,6 +1322,28 @@ describe("node-saml /", function () {
             },
           });
         });
+
+        // A namespace declaration that nothing uses is not in the exclusive canonical form, so
+        // adding one leaves the signature valid: https://www.w3.org/TR/xml-exc-c14n/#sec-Specification
+        it("leaves a namespace declaration that the signature does not cover out of xmlStatus", async () => {
+          const added = 'xmlns:added="urn:example:not-signed"';
+          const received = signXmlResponse(errorResponse, {
+            privateKey: fs.readFileSync(__dirname + "/static/key.pem"),
+            signatureAlgorithm: "sha256",
+            digestAlgorithm: "sha256",
+          }).replace("<saml2p:Status>", `<saml2p:Status ${added}>`);
+          expect(received).to.contain(added);
+
+          const rejection: unknown = await samlObj()
+            .validatePostResponseAsync({ SAMLResponse: Buffer.from(received).toString("base64") })
+            .then(
+              () => assert.fail("a non-Success status must be rejected"),
+              (err: unknown) => err,
+            );
+
+          assert.ok(rejection instanceof SamlStatusError);
+          expect(rejection.xmlStatus).to.not.contain("not-signed");
+        });
       });
 
       it("accept response with an attributeStatement element without attributeValue", async () => {
