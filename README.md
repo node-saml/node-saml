@@ -124,6 +124,13 @@ res.redirect(url);
 `options` is an `AuthOptions`, whose `additionalParams` override anything set by
 `additionalParams`/`additionalAuthorizeParams` in the constructor.
 
+The URL never carries an empty `RelayState`, because identity providers differ on whether a
+signature covers one. A `RelayState` of `""` in `additionalParams` means "send none", even when
+`entryPoint` has one of its own. From JavaScript, where the types do not stop it, `null` or
+`undefined` there means none was given, like an empty `relayState` argument, and one in `entryPoint`
+is still sent. The next major version reads an empty `relayState` argument as "send none" too, and
+takes `null` or `undefined` to mean none was given.
+
 All three of these methods also accept a deprecated `host` argument between `relayState` and
 `options`. It is ignored, and it is removed in the next major version, so pass `options` directly:
 
@@ -279,21 +286,45 @@ await saml.validatePostRequestAsync(req.body, { _validateSignature }); // deprec
 await saml.validatePostRequestAsync(req.body); // use this
 ```
 
-**Over the Redirect binding.** Redirect-binding signatures are computed over the exact bytes of the
-query string, so you must hand the raw query string through unchanged — not a re-serialized copy of
-the parsed object:
+**Over the Redirect binding.** A Redirect-binding signature covers the `SAMLRequest` or
+`SAMLResponse`, the `RelayState` if there is one, and `SigAlg`, byte for byte as they arrived.
+Nothing else in the query string is signed. Hand the raw query string through unchanged, without
+its leading `?`:
 
 ```javascript
 const originalQuery = req.url.slice(req.url.indexOf("?") + 1);
-const { profile, loggedOut } = await saml.validateRedirectAsync(req.query, originalQuery);
+const { profile, loggedOut, relayState } = await saml.validateRedirectAsync(originalQuery);
 ```
 
-> **Note:** on the Redirect binding, a signature is only checked when the message carries a
-> `Signature` query parameter, because the binding makes signing optional. A message arriving
-> without one is accepted with none of its contents authenticated — the issuer and the timestamps
-> are read from the same unsigned bytes, so `idpIssuer` does not constrain it either. Run with
+Node-SAML reads the `SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and `Signature` from
+that string, requires the signature to verify, and returns the `RelayState` that was signed. Use
+that `relayState`, and not the one in a parsed query object such as `req.query`: a query parser can
+read a parameter that the signature does not cover as `RelayState`. A query string with more than
+one of any of those five parameters, or with both a `SAMLRequest` and a `SAMLResponse`, is
+rejected, and so is a message with no `Signature`.
+
+`validateRedirectAsync` also accepts a deprecated first argument, the parsed query object, before
+the query string. That form is removed in the next major version, and calling it logs a warning
+under `NODE_DEBUG=node-saml`:
+
+```javascript
+await saml.validateRedirectAsync(req.query, originalQuery); // deprecated
+await saml.validateRedirectAsync(originalQuery); // use this, and the `relayState` it returns
+```
+
+The deprecated form returns no `relayState`. A signed message is read from `originalQuery` there
+too, and is treated as signed when either argument has a `Signature`, even an empty one. Because
+its caller goes on reading the parsed object, it also rejects a signed query string that names one
+of the five parameters in bracket notation, such as `RelayState[]` or `[RelayState]`, which the
+`qs` parser reads as `RelayState`.
+
+> **Note:** the deprecated form still accepts a message with no `Signature` parameter, because the
+> binding makes signing optional. Such a message is accepted with none of its contents
+> authenticated — the issuer and the timestamps are read from the same unsigned bytes, so
+> `idpIssuer` only checks a value the sender wrote and does not show who sent it. Run with
 > `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
-> messages; a future major version will reject unsigned ones. The POST binding is unaffected:
+> messages before you move to `validateRedirectAsync(originalQuery)`, which rejects unsigned ones,
+> as the next major version does for every call. The POST binding is unaffected:
 > `validatePostRequestAsync` always requires a valid signature.
 
 On the POST binding the profile is built only from the bytes that signature covers. The signature
@@ -344,9 +375,9 @@ It accepts `issuer` and `callbackUrl` plus the metadata-relevant options from th
 
 Called directly, it signs the metadata when `signMetadata` is `true` and `privateKey` is set. Choose
 both algorithms when it does: `signatureAlgorithm` has no default here, so omitting it is an error,
-while an omitted `digestAlgorithm` selects `sha1`. The note under
-[`signatureAlgorithm`](#configuration-option-signaturealgorithm) applies to this function too, and
-it logs the same warnings under `NODE_DEBUG=node-saml`.
+while an omitted `digestAlgorithm` selects `sha1`, or is an error too when `signatureAlgorithm` is
+`"sha256-mgf1"`. The note under [`signatureAlgorithm`](#configuration-option-signaturealgorithm)
+applies to this function too, and it logs the same warnings under `NODE_DEBUG=node-saml`.
 
 ## Config parameter details
 
@@ -360,17 +391,17 @@ it logs the same warnings under `NODE_DEBUG=node-saml`.
 
 ### Core
 
-| Option                   | Default                        | Description                                                                                                                                                                       |
-| ------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `entryPoint`             | —                              | The IdP's SSO endpoint. Required to generate any authentication request, and required by the specification when the request is signed.                                            |
-| `audience`               | `issuer`                       | Expected `Audience` in the response. Set to `false` to skip the check — which removes a security control; see the note under [Security and signatures](#security-and-signatures). |
-| `privateKey`             | —                              | SP private key in PEM format, used to sign outgoing messages. See [Security and signatures](#security-and-signatures).                                                            |
-| `publicCert`             | —                              | SP public signing certificate, embedded in the `AuthnRequest` so the IdP can verify it. Must match `privateKey`.                                                                  |
-| `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers. See [Configuration option `decryptionPvk`](#configuration-option-decryptionpvk).                 |
-| `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, or `"sha512"`. **Set this explicitly** if you set `privateKey`; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm).  |
-| `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above.                                                                           |
-| `xmlSignatureTransforms` | enveloped-signature + exc-c14n | Signature transforms used in HTTP-POST signatures. The default is `["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"]`.         |
-| `generateUniqueId`       | built-in                       | Function returning the unique IDs used for outgoing SAML messages.                                                                                                                |
+| Option                   | Default                        | Description                                                                                                                                                                                       |
+| ------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entryPoint`             | —                              | The IdP's SSO endpoint. Required to generate any authentication request, and required by the specification when the request is signed.                                                            |
+| `audience`               | `issuer`                       | Expected `Audience` in the response. Set to `false` to skip the check — which removes a security control; see the note under [Security and signatures](#security-and-signatures).                 |
+| `privateKey`             | —                              | SP private key in PEM format, used to sign outgoing messages. See [Security and signatures](#security-and-signatures).                                                                            |
+| `publicCert`             | —                              | SP public signing certificate, embedded in the `AuthnRequest` so the IdP can verify it. Must match `privateKey`.                                                                                  |
+| `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers. See [Configuration option `decryptionPvk`](#configuration-option-decryptionpvk).                                 |
+| `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, `"sha256-mgf1"`, or `"sha512"`. **Set this explicitly** if you set `privateKey`; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm). |
+| `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above. Required with `"sha256-mgf1"`.                                                            |
+| `xmlSignatureTransforms` | enveloped-signature + exc-c14n | Signature transforms used in HTTP-POST signatures. The default is `["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"]`.                         |
+| `generateUniqueId`       | built-in                       | Function returning the unique IDs used for outgoing SAML messages.                                                                                                                                |
 
 ### Response validation
 
@@ -475,7 +506,7 @@ metadataContactPerson: [
   {
     "@contactType": "support", // "technical" | "support" | "administrative" | "billing" | "other"
     GivenName: "test",
-    EmailAddress: ["test@node-saml"], // note: an array
+    EmailAddress: ["mailto:test@node-saml"], // an array of `mailto:` URIs
   },
 ],
 metadataOrganization: {
@@ -507,6 +538,27 @@ metadataAttributeConsumingServices: [
 ],
 ```
 
+`Extensions`, on a contact or on the organization, takes namespace-qualified elements as an
+xmlbuilder object, like the options under [Extensions](#extensions) below. A string there cannot
+produce valid metadata. Both also take namespace-qualified attributes, each written with its
+prefix next to the `@xmlns:` declaration of that prefix. The elements and the attributes come from
+a namespace that SAML does not define: not the SAML 2.0 metadata, assertion or protocol namespace.
+A REFEDS security contact is marked that way:
+
+```javascript
+metadataContactPerson: [
+  {
+    "@contactType": "other",
+    "@xmlns:remd": "http://refeds.org/metadata",
+    "@remd:contactType": "http://refeds.org/metadata/contactType/security",
+    EmailAddress: ["mailto:security@example.com"],
+  },
+],
+```
+
+The `SamlOptions` types do not declare such attributes until the next major version. In TypeScript,
+build the entry outside the config literal, or cast it.
+
 Each `metadataAttributeConsumingServices` entry needs an `@index` from `"0"` to `"65535"` that no
 other entry uses, at least one `ServiceName` and at least one `RequestedAttribute`, and at most one
 entry may set `@isDefault` to `true`. An entry that breaks these rules, carries a key not shown
@@ -515,21 +567,27 @@ with a `TypeError` when the `SAML` is constructed or the metadata is generated.
 Set `attributeConsumingServiceIndex` to have an `AuthnRequest` select one of them by its `@index`.
 
 The full shapes are in the `SamlOptions` type definitions, which your editor will complete for you.
+`metadataContactPerson` and `metadataOrganization` are not rejected yet: either one in any other
+shape is still written into the metadata as given, which can leave the metadata invalid. Run with
+`NODE_DEBUG=node-saml` to be told when that happens. The next major version rejects it.
 
 ### Extensions
 
 `samlAuthnRequestExtensions` and `samlLogoutRequestExtensions` add an `Extensions` element to the
 generated `AuthnRequest` and `LogoutRequest`. They are useful for things like the
 [requested attributes protocol extension](https://docs.oasis-open.org/security/saml-protoc-req-attr-req/v1.0/saml-protoc-req-attr-req-v1.0.html),
-and accept any [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object, so any element is
-expressible.
+and take an [xmlbuilder](https://www.npmjs.com/package/xmlbuilder) object of namespace-qualified
+elements.
 
 ```javascript
 samlAuthnRequestExtensions: {
-  "md:RequestedAttribute": {
-    "@isRequired": "true",
-    "@Name": "LastName",
-    "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
+  "req-attr:RequestedAttributes": {
+    "@xmlns:req-attr": "urn:oasis:names:tc:SAML:protocol:ext:req-attr",
+    "md:RequestedAttribute": {
+      "@xmlns:md": "urn:oasis:names:tc:SAML:2.0:metadata",
+      "@isRequired": "true",
+      "@Name": "LastName",
+    },
   },
   vetuma: {
     "@xmlns": "urn:vetuma:SAML:2.0:extensions",
@@ -544,6 +602,12 @@ samlLogoutRequestExtensions: {
   },
 },
 ```
+
+Each element directly inside `Extensions` comes from a namespace that SAML does not define: not the
+SAML 2.0 assertion, protocol or metadata namespace. That is why the requested attributes above sit
+inside the extension's own `RequestedAttributes` element, and not directly in `Extensions`. Neither
+option is rejected yet: one in any other shape is still written into the request as given. Run with
+`NODE_DEBUG=node-saml` to be told when that happens. The next major version rejects it.
 
 ## Security and signatures
 
@@ -612,19 +676,49 @@ Requests sent by Node-SAML can be signed using RSA with SHA-1, SHA-256, or SHA-5
 ```javascript
 signatureAlgorithm: "sha256"; // preferred — your IdP should support it; if not, consider upgrading the IdP
 signatureAlgorithm: "sha512"; // strongest — check that your IdP supports it
+signatureAlgorithm: "sha256-mgf1"; // SHA-256 with RSASSA-PSS padding — only if your IdP asks for it
 signatureAlgorithm: "sha1"; // legacy; SHA-1 is no longer considered collision-resistant
 ```
 
-`digestAlgorithm` takes the same three values and controls the digest over the signed data object.
+`"sha1"`, `"sha256"` and `"sha512"` sign with PKCS #1 v1.5 padding, which is what most IdPs expect.
+`"sha256-mgf1"` signs with RSASSA-PSS instead and names itself
+`http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1`
+([RFC 9231 §2.3.10](https://www.rfc-editor.org/rfc/rfc9231#section-2.3.10)), with a salt the
+length of the digest. Choose it when your IdP requires PSS signatures; an IdP that does not know the
+identifier will reject the request. It applies to everything Node-SAML signs: Redirect-binding
+requests and logout responses, POST-binding `AuthnRequest`s, and metadata.
+
+What your IdP signs is a separate matter and needs no option: a message it signs with
+`sha256-rsa-MGF1` is verified on both bindings.
+
+On the Redirect binding, the next major version verifies a signature only when `SigAlg` is exactly
+one of these identifiers:
+
+- `http://www.w3.org/2000/09/xmldsig#rsa-sha1`
+- `http://www.w3.org/2001/04/xmldsig-more#rsa-sha256`
+- `http://www.w3.org/2001/04/xmldsig-more#rsa-sha384`
+- `http://www.w3.org/2001/04/xmldsig-more#rsa-sha512`
+- `http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1`
+
+Other values that verify today, such as `http://www.w3.org/2001/04/xmldsig-more#rsa-sha224` or a
+bare `RSA-SHA256`, are rejected then. Run with `NODE_DEBUG=node-saml` to be told when your IdP sends
+one.
+
+`digestAlgorithm` takes `"sha1"`, `"sha256"`, or `"sha512"` and controls the digest over the signed
+data object. It does not take `"sha256-mgf1"`, which names a signature padding rather than a digest;
+pair that with `digestAlgorithm: "sha256"`.
 
 > **Set both explicitly if you sign, and check the spelling.** With `privateKey` set, leaving
 > `signatureAlgorithm` or `digestAlgorithm` unset selects `sha1`, which is no longer considered safe
 > for signatures; the next major version requires both whenever `privateKey` is set. A value that is
-> not one of the three above — including a casing difference such as `"SHA256"` — is not an error
+> not one of those listed above — including a casing difference such as `"SHA256"` — is not an error
 > today either: it falls through to SHA-1, so a typo silently downgrades the signature you asked
 > for. The next major version rejects it instead. `digestAlgorithm` is typed as a plain string, so
 > TypeScript does not catch a typo in it. Run with `NODE_DEBUG=node-saml` to be told when any of
 > this happens, whether the options go to `SAML` or straight to `generateServiceProviderMetadata`.
+>
+> The exception is `signatureAlgorithm: "sha256-mgf1"`: with it, a `digestAlgorithm` that is unset
+> or not one of those listed is already an error.
 
 ### Configuration option `privateKey`
 
