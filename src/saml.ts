@@ -1415,7 +1415,7 @@ class SAML {
   }
 
   protected async verifyLogoutResponse(doc: XMLOutput): Promise<void> {
-    const statusCode = doc.LogoutResponse.Status?.[0]?.StatusCode?.[0]?.$?.Value;
+    const statusCode = doc.LogoutResponse.Status?.[0].StatusCode?.[0].$?.Value;
     if (statusCode !== "urn:oasis:names:tc:SAML:2.0:status:Success")
       throw new Error("Bad status code: " + statusCode);
 
