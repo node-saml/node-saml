@@ -1,15 +1,20 @@
 import * as crypto from "crypto";
 import { ParsedQs } from "qs";
 import * as querystring from "querystring";
-import { URL } from "url";
+import { URL, URLSearchParams } from "url";
 import * as util from "util";
 import * as zlib from "zlib";
 import * as algorithms from "./algorithms";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
 import { generateUniqueId, keyInfoToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
+import { warnIfRequestExtensionsInvalid } from "./extensions";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
-import { assertValidAttributeConsumingServices, buildServiceProviderMetadata } from "./metadata";
+import {
+  assertValidAttributeConsumingServices,
+  buildServiceProviderMetadata,
+  warnIfContactOrOrganizationInvalid,
+} from "./metadata";
 import { signAuthnRequestPost } from "./saml-post-signing";
 import {
   AudienceRestrictionXML,
@@ -151,6 +156,145 @@ async function getSubjectInResponseTosAsync(assertionXml: string): Promise<strin
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
+const redirectParameterNames = ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg", "Signature"];
+
+// For a parameter a caller supplies: null and undefined mean it was not given, and "" or [] that
+// it is empty.
+const hasValue = <T>(value: T | null | undefined): value is T =>
+  value != null && String(value) !== "";
+
+// As `querystring.parse` decodes a name or a value.
+const decodeQueryComponent = (component: string): string =>
+  querystring.unescape(component.replace(/\+/g, " "));
+
+const queryParameterNames = (originalQuery: string): string[] =>
+  originalQuery.split("&").map((token) => decodeQueryComponent(token.split("=", 1)[0]));
+
+interface RedirectParameters {
+  samlMessageType: "SAMLRequest" | "SAMLResponse";
+  samlMessage: string;
+  relayState?: string | undefined;
+  signed?: { octets: string; signature: string; sigAlg: string };
+}
+
+// SAML bindings 3.4.4.1: the signature covers these parameters as they arrived, still URL-encoded.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
+function readRedirectParameters(originalQuery: string): RedirectParameters {
+  const parameters = new Map<string, { token: string; value: string }>();
+  for (const token of originalQuery.split("&")) {
+    const [encodedName] = token.split("=", 1);
+    const name = decodeQueryComponent(encodedName);
+    if (!redirectParameterNames.includes(name)) continue;
+    // The signature covers one parameter of each name, and nothing says which of two that is.
+    if (parameters.has(name)) {
+      throw new Error(`The query string has more than one ${name} parameter`);
+    }
+    const value = decodeQueryComponent(token.slice(encodedName.length + 1));
+    parameters.set(name, { token, value });
+  }
+
+  const request = parameters.get("SAMLRequest");
+  const response = parameters.get("SAMLResponse");
+  if (request && response) {
+    throw new Error("The query string has both a SAMLRequest and a SAMLResponse parameter");
+  }
+  const message = request ?? response;
+  if (!message) {
+    throw new Error("The query string has no SAMLRequest or SAMLResponse parameter");
+  }
+  const relayState = parameters.get("RelayState");
+  const signature = parameters.get("Signature");
+  const sigAlg = parameters.get("SigAlg");
+
+  let signed: RedirectParameters["signed"];
+  if (signature) {
+    if (!sigAlg) {
+      throw new Error("The query string has a Signature parameter but no SigAlg parameter");
+    }
+    const covered = relayState ? [message, relayState, sigAlg] : [message, sigAlg];
+    signed = {
+      octets: covered.map(({ token }) => token).join("&"),
+      signature: signature.value,
+      sigAlg: sigAlg.value,
+    };
+  }
+
+  return {
+    samlMessageType: request ? "SAMLRequest" : "SAMLResponse",
+    samlMessage: message.value,
+    relayState: relayState?.value,
+    signed,
+  };
+}
+
+// `container` is typed as a `qs` parse, and `qs` reads `RelayState[]` and `[RelayState]` as
+// RelayState.
+const bracketedParameter = (name: string): string | undefined =>
+  redirectParameterNames.find(
+    (reserved) => name.startsWith(`${reserved}[`) || name.startsWith(`[${reserved}]`),
+  );
+
+// A caller who passes `container`, its own parse of the query string, goes on reading it. So a
+// signed query string must not let that parse hold a parameter that was not verified, and what
+// `container` says about a Signature counts. An unsigned message is still read from it.
+function readRedirectParametersBeside(
+  container: ParsedQs,
+  originalQuery: string,
+): RedirectParameters {
+  const names = queryParameterNames(originalQuery);
+  const bracketed = names.map(bracketedParameter).filter((name) => name !== undefined);
+  const claimsSignature =
+    container.Signature != null || names.includes("Signature") || bracketed.includes("Signature");
+  if (!claimsSignature) {
+    const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
+    return { samlMessageType, samlMessage: container[samlMessageType] as string };
+  }
+
+  if (bracketed.length > 0) {
+    throw new Error(`The query string has a ${bracketed[0]} parameter in bracket notation`);
+  }
+  return readRedirectParameters(originalQuery);
+}
+
+// `container` is a second reading of the query string, by a parser this library does not choose.
+// Accepting both shapes lets callers move to the query string alone before the next major version
+// removes the other. Module-level so it adds nothing to the `SAML` class surface.
+function resolveRedirectArguments(
+  originalQueryOrContainer: string | ParsedQs,
+  legacyOriginalQuery: string | undefined,
+): { container: ParsedQs; originalQuery: string; parameters: RedirectParameters; legacy: boolean } {
+  if (typeof originalQueryOrContainer === "string") {
+    const parameters = readRedirectParameters(originalQueryOrContainer);
+    const { samlMessageType, samlMessage, relayState, signed } = parameters;
+    // No caller of this shape relies on unsigned messages, so it does not accept them. Checked
+    // here and not in `hasValidSignatureForRedirect`, which an override can replace.
+    if (!signed) {
+      throw new Error("The query string has no Signature parameter");
+    }
+    // An override of `hasValidSignatureForRedirect` is still handed a parse to read.
+    const container: ParsedQs = {
+      [samlMessageType]: samlMessage,
+      SigAlg: signed.sigAlg,
+      Signature: signed.signature,
+    };
+    if (relayState !== undefined) container.RelayState = relayState;
+    return { container, originalQuery: originalQueryOrContainer, parameters, legacy: false };
+  }
+
+  if (typeof legacyOriginalQuery !== "string") {
+    throw new TypeError("originalQuery is required");
+  }
+  debugLog(
+    "validateRedirectAsync was called with a parsed query object. That argument is removed in the next major version; call validateRedirectAsync(originalQuery) and use the relayState it returns in place of your own parse.",
+  );
+  return {
+    container: originalQueryOrContainer,
+    originalQuery: legacyOriginalQuery,
+    parameters: readRedirectParametersBeside(originalQueryOrContainer, legacyOriginalQuery),
+    legacy: true,
+  };
+}
+
 const resolveAndParseKeyInfosToPem = async ({
   idpCert,
 }: Pick<SamlOptions, "idpCert">): Promise<string[]> => {
@@ -209,6 +353,12 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
     assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
+    if (isValidSamlSigningOptions(ctorOptions)) {
+      algorithms.assertDigestAlgorithmChosen(
+        ctorOptions.signatureAlgorithm,
+        ctorOptions.digestAlgorithm,
+      );
+    }
 
     const options: SamlOptions = {
       ...ctorOptions,
@@ -245,7 +395,7 @@ class SAML {
           keyExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs,
         }),
       logoutUrl: ctorOptions.logoutUrl ?? ctorOptions.entryPoint ?? "", // Default to Entry Point
-      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1", // sha1, sha256, or sha512
+      signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1",
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
       generateUniqueId: ctorOptions.generateUniqueId ?? generateUniqueId,
       signMetadata: ctorOptions.signMetadata ?? false,
@@ -285,6 +435,9 @@ class SAML {
       algorithms.warnIfAlgorithmNotRecognized(option, ctorOptions[option]);
     }
 
+    warnIfContactOrOrganizationInvalid(ctorOptions);
+    warnIfRequestExtensionsInvalid(ctorOptions);
+
     /**
      * List of possible values:
      * - exact : Assertion context must exactly match a context in the list
@@ -302,25 +455,21 @@ class SAML {
   protected signRequest(samlMessage: querystring.ParsedUrlQueryInput): void {
     assertRequired(this.options.privateKey, "privateKey is required");
 
-    const samlMessageToSign: querystring.ParsedUrlQueryInput = {};
-    samlMessage.SigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
-    const signer = algorithms.getSigner(this.options.signatureAlgorithm);
-    if (samlMessage.SAMLRequest) {
-      samlMessageToSign.SAMLRequest = samlMessage.SAMLRequest;
+    const sigAlg = algorithms.getSigningAlgorithm(this.options.signatureAlgorithm);
+    samlMessage.SigAlg = sigAlg;
+    const signer = algorithms.findSignatureAlgorithm(sigAlg);
+    assertRequired(signer, `${sigAlg} is not supported`);
+    // SAML bindings 3.4.4.1: the signature covers these as `_requestToUrlAsync` serializes them.
+    // https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
+    const signedParameters = new URLSearchParams();
+    for (const name of ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg"]) {
+      if (hasValue(samlMessage[name])) {
+        signedParameters.set(name, samlMessage[name] as string);
+      }
     }
-    if (samlMessage.SAMLResponse) {
-      samlMessageToSign.SAMLResponse = samlMessage.SAMLResponse;
-    }
-    if (samlMessage.RelayState) {
-      samlMessageToSign.RelayState = samlMessage.RelayState;
-    }
-    if (samlMessage.SigAlg) {
-      samlMessageToSign.SigAlg = samlMessage.SigAlg;
-    }
-    signer.update(querystring.stringify(samlMessageToSign));
-    samlMessage.Signature = signer.sign(
+    samlMessage.Signature = signer.getSignature(
+      signedParameters.toString(),
       keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
-      "base64",
     );
   }
 
@@ -592,6 +741,16 @@ class SAML {
     Object.keys(additionalParameters).forEach((k) => {
       samlMessage[k] = additionalParameters[k];
     });
+    // The caller's RelayState, or else the one in the endpoint's own URL. An empty one is not sent:
+    // SAML bindings 3.4.4.1 signs none when there is no value, and receivers differ on whether a
+    // signature covers an empty one that arrives.
+    const relayState = samlMessage.RelayState ?? target.searchParams.get("RelayState");
+    if (hasValue(relayState)) {
+      samlMessage.RelayState = relayState;
+    } else {
+      delete samlMessage.RelayState;
+      target.searchParams.delete("RelayState");
+    }
     if (isValidSamlSigningOptions(this.options)) {
       if (!this.options.entryPoint) {
         throw new Error('"entryPoint" config parameter is required for signed messages');
@@ -990,7 +1149,10 @@ class SAML {
         return result;
       }
 
-      const xmljsDoc = (await parseXml2JsFromString(xml)) as SamlResponseXmlJs;
+      // With no signature on the root nothing here was verified, and every path below rejects.
+      const xmljsDoc = (await parseXml2JsFromString(
+        responseVerifiedXml ?? xml,
+      )) as SamlResponseXmlJs;
       const response = xmljsDoc.Response;
       if (response) {
         if (!("Assertion" in response)) {
@@ -1008,6 +1170,9 @@ class SAML {
               ) {
                 if (!validSignature) {
                   throw new Error("Invalid signature: NoPassive");
+                }
+                if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
+                  await consumeInResponseToAsync(this.cacheProvider, verifiedInResponseTo);
                 }
                 return { profile: null, loggedOut: false };
               }
@@ -1083,13 +1248,53 @@ class SAML {
     }
   }
 
-  async validateRedirectAsync(
+  // An override written against the two-argument signature has to stay assignable to every
+  // signature here, so the one for the query string alone takes the old shape as well. The
+  // deprecated signature comes first, so that a two-argument call resolves to it, and is repeated
+  // last, so that `Parameters<SAML["validateRedirectAsync"]>` is still what it was.
+  /**
+   * @deprecated Call `validateRedirectAsync(originalQuery)` and use the `relayState` it returns: a
+   *   parse of the query string can hold a parameter that the signature does not cover.
+   */
+  validateRedirectAsync(
     container: ParsedQs,
     originalQuery: string,
-  ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
-    const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
+  ): Promise<{ profile: Profile | null; loggedOut: boolean }>;
+  /**
+   * Validates a `LogoutRequest` or `LogoutResponse` received over the HTTP-Redirect binding.
+   *
+   * Call it with the raw query string of the request: still URL-encoded, without the leading `?`.
+   * The message, its `RelayState` and its signature are all read from that string, and the
+   * message has to be signed.
+   *
+   * @returns The profile of a `LogoutRequest`, or `null` for a `LogoutResponse`, and the
+   *   `RelayState` that was signed with the message.
+   * @throws If the signature is missing or does not verify, if the query string has two
+   *   candidates for one of the signed parameters, or if the message fails its own checks.
+   */
+  validateRedirectAsync(
+    ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
+  ): Promise<{ profile: Profile | null; loggedOut: boolean; relayState?: string | undefined }>;
+  /**
+   * @deprecated Call `validateRedirectAsync(originalQuery)` and use the `relayState` it returns: a
+   *   parse of the query string can hold a parameter that the signature does not cover.
+   */
+  // eslint-disable-next-line @typescript-eslint/unified-signatures -- see the note above
+  validateRedirectAsync(
+    container: ParsedQs,
+    originalQuery: string,
+  ): Promise<{ profile: Profile | null; loggedOut: boolean }>;
+  async validateRedirectAsync(
+    ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
+  ): Promise<{ profile: Profile | null; loggedOut: boolean; relayState?: string | undefined }> {
+    const [originalQueryOrContainer, legacyOriginalQuery] = args;
+    const { container, originalQuery, parameters, legacy } = resolveRedirectArguments(
+      originalQueryOrContainer,
+      legacyOriginalQuery,
+    );
+    const { samlMessageType, samlMessage, signed } = parameters;
 
-    const data = Buffer.from(container[samlMessageType] as string, "base64");
+    const data = Buffer.from(samlMessage, "base64");
     const inflated = await inflateRawAsync(data);
 
     const dom = await parseDomFromString(inflated.toString());
@@ -1101,7 +1306,7 @@ class SAML {
     } else {
       // Retired here, not in the overridable processing method, so an override can't lose track of
       // whether the message was signed. An unsigned one can name anyone's pending request.
-      const signedInResponseTo = container.Signature ? doc.LogoutResponse.$.InResponseTo : null;
+      const signedInResponseTo = signed ? doc.LogoutResponse.$.InResponseTo : null;
       const retire = signedInResponseTo != null && this.mustValidateInResponseTo(true);
       try {
         await this.verifyLogoutResponse(doc);
@@ -1115,36 +1320,28 @@ class SAML {
         await consumeInResponseToAsync(this.cacheProvider, signedInResponseTo);
       }
     }
-    return await this.processValidlySignedSamlLogoutAsync(doc, dom);
+    const result = await this.processValidlySignedSamlLogoutAsync(doc, dom);
+    return legacy ? result : { ...result, relayState: parameters.relayState };
   }
 
   protected async hasValidSignatureForRedirect(
     container: ParsedQs,
     originalQuery: string,
   ): Promise<boolean | void> {
-    const tokens = originalQuery.split("&");
-    const getParam = (key: string) => {
-      const exists = tokens.filter((t) => {
-        return new RegExp(key).test(t);
-      });
-      return exists[0];
-    };
-
-    if (container.Signature) {
-      let urlString = getParam("SAMLRequest") || getParam("SAMLResponse");
-
-      if (getParam("RelayState")) {
-        urlString += "&" + getParam("RelayState");
+    // A parse can lose a Signature that the query string has, and one can be present and empty.
+    // Either way the message claims a signature.
+    if (container.Signature != null || queryParameterNames(originalQuery).includes("Signature")) {
+      const { signed } = readRedirectParameters(originalQuery);
+      if (!signed) {
+        throw new Error("The query string has no Signature parameter");
       }
-
-      urlString += "&" + getParam("SigAlg");
 
       const pemFiles = await this.getKeyInfosAsPem();
       const hasValidQuerySignature = pemFiles.some((pemFile) => {
         return this.validateSignatureForRedirect(
-          urlString,
-          container.Signature as string,
-          container.SigAlg as string,
+          signed.octets,
+          signed.signature,
+          signed.sigAlg,
           pemFile,
         );
       });
@@ -1168,7 +1365,14 @@ class SAML {
     alg: string,
     pemFile: string,
   ): boolean {
-    // See if we support a matching algorithm, case-insensitive. Otherwise, throw error.
+    // xml-crypto types the signed octets as a string, which is what this library passes.
+    const signatureAlgorithm = algorithms.findSignatureAlgorithm(alg);
+    if (signatureAlgorithm && typeof urlString === "string") {
+      return signatureAlgorithm.verifySignature(urlString, pemFile, signature);
+    }
+
+    // An identifier xml-crypto does not implement, such as rsa-sha384, is looked up among
+    // OpenSSL's digest names, case-insensitive.
     function hasMatch(ourAlgo: string) {
       // The incoming algorithm is forwarded as a URL.
       // We trim everything before the last # get something we can compare to the Node.js list
@@ -1186,7 +1390,19 @@ class SAML {
     const verifier = crypto.createVerify(matchingAlgo);
     verifier.update(urlString);
 
-    return verifier.verify(pemFile, signature, "base64");
+    const verified = verifier.verify(pemFile, signature, "base64");
+    // The next major version still verifies rsa-sha384, so it gets no warning.
+    if (
+      verified &&
+      !signatureAlgorithm &&
+      alg !== "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384"
+    ) {
+      debugLog(
+        "A Redirect-binding signature was verified under the `SigAlg` %s, which the next major version rejects. Configure the identity provider to sign with rsa-sha256, rsa-sha384 or rsa-sha512, and to name it by its XML Signature identifier, such as http://www.w3.org/2001/04/xmldsig-more#rsa-sha256.",
+        alg,
+      );
+    }
+    return verified;
   }
 
   protected verifyLogoutRequest(doc: XMLOutput): void {
