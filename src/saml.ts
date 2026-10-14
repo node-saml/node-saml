@@ -1631,7 +1631,7 @@ class SAML {
           if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
             if (attribute.$?.Name != null) {
               debugLog(
-                'The SAML attribute "%s" has no AttributeValue, so it is left out of the profile and cannot be told apart from an attribute the identity provider did not send. The next major version keeps it with a null value.',
+                'The SAML attribute "%s" has no AttributeValue, so it is left out of the profile and cannot be told apart from an attribute the identity provider did not send. The next major version keeps it with a null value. Code that tests the attribute with `== null`, which is true of both `undefined` and null, works with both versions.',
                 attribute.$.Name,
               );
             }
@@ -1654,13 +1654,13 @@ class SAML {
           );
           if (nulls.length > 0) {
             debugLog(
-              'The SAML attribute "%s" has an AttributeValue marked xsi:nil, which reaches the profile as `undefined`. The next major version represents it as null.',
+              'The SAML attribute "%s" has an AttributeValue marked xsi:nil, which reaches the profile as `undefined`. The next major version represents it as null. Code that tests each value with `== null`, which is true of both `undefined` and null, works with both versions.',
               name,
             );
           }
           if (unset.length > nulls.length) {
             debugLog(
-              'The SAML attribute "%s" has an empty AttributeValue, which reaches the profile as `undefined`. The next major version represents it as an empty string.',
+              'The SAML attribute "%s" has an empty AttributeValue, which reaches the profile as `undefined`. The next major version represents it as an empty string. Code that reads each value with `?? ""`, which turns `undefined` into an empty string, works with both versions.',
               name,
             );
           }

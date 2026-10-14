@@ -249,6 +249,25 @@ as the empty string and one marked `xsi:nil` as `null`, which is what they mean 
 [SAML core §2.7.3.1.1](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf). Run
 with `NODE_DEBUG=node-saml` to be told which attributes in a response you received are affected.
 
+Code that tests for a missing value with `== null`, and reads a value that may be empty with
+`?? ""`, works with both versions:
+
+```javascript
+// an attribute with no AttributeValue, or one marked xsi:nil, is undefined now and null in the
+// next major version, so this test stops matching it
+if (profile.roles === undefined) {
+  /* ... */
+}
+
+// this test matches it in both
+if (profile.roles == null) {
+  /* ... */
+}
+
+// an empty AttributeValue is undefined now and "" in the next major version; `team` is "" in both
+const team = profile.team ?? "";
+```
+
 ### Single logout (SLO)
 
 Node-SAML supports SP-initiated and IdP-initiated logout, over both the `Redirect` and `POST`
@@ -628,7 +647,9 @@ explain rejections that might otherwise look overly strict:
   One case is not refused yet: a signature with more than one reference is ignored, so its element
   counts as unsigned. That matters only for a `Response` under `wantAuthnResponseSigned: false`,
   which is then accepted on the strength of its separately signed assertion. The next major version
-  rejects such a message; until then it logs a warning under `NODE_DEBUG=node-saml`.
+  rejects such a message; until then it logs a warning under `NODE_DEBUG=node-saml`. Configure the
+  identity provider to sign with a single reference, to the element signed, as
+  [SAML core §5.4.2](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf) requires.
 - **Validation fails closed.** Decrypted content is not trusted content: an `EncryptedAssertion` is
   decrypted and then still has to have its signature verified. Timestamps, audience, issuer, and
   `InResponseTo` are security controls rather than conveniences — an option that switches one off
