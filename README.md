@@ -413,6 +413,16 @@ applies to this function too, and it logs the same warnings under `NODE_DEBUG=no
 | `issuer`      | `string`                                | The issuer string identifying this service provider to the IdP.                                                                                   |
 | `idpCert`     | `string \| string[] \| IdpCertCallback` | The IdP's signing certificate(s) or public key(s), used to validate incoming signatures. See [Security and signatures](#security-and-signatures). |
 
+The next major version checks received responses against `callbackUrl`: an assertion has to carry a
+bearer `SubjectConfirmation` whose `Recipient` is `callbackUrl`
+([SAML profiles §4.1.4.3](https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf)),
+and a signed `Response` has to carry a `Destination` that is `callbackUrl`
+([SAML bindings §3.5.5.2](https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf)).
+URLs are compared after parsing, so the case of the scheme and host and an explicit default port
+don't count, but the path does, trailing slash included. Until then a response that fails either
+check is accepted. Run with `NODE_DEBUG=node-saml` to be told when one arrives, and set
+`callbackUrl` to the URL your IdP actually posts to.
+
 ### Core
 
 | Option                   | Default                        | Description                                                                                                                                                                                       |
@@ -515,6 +525,11 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 | `logoutUrl`              | `entryPoint` | Address to send logout requests to.                                                               |
 | `additionalLogoutParams` | `{}`         | Query parameters added to logout requests only.                                                   |
 | `logoutCallbackUrl`      | —            | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata. |
+
+The next major version also compares the `Destination` of a signed `LogoutRequest` or
+`LogoutResponse` with `logoutCallbackUrl`, in the same way as for `callbackUrl` above. Until then
+such a message is accepted. With `logoutCallbackUrl` set, run with `NODE_DEBUG=node-saml` to be told
+when a `Destination` differs from it or is missing.
 
 ### Metadata
 

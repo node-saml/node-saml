@@ -135,12 +135,77 @@ function assertResponseInResponseToCanAnswer(
   }
 }
 
-async function getInResponseToAsync(xml: string): Promise<string | null> {
-  const inResponseToNodes = xpath.selectAttributes(
-    await parseDomFromString(xml),
-    "/*/@InResponseTo",
-  );
-  return inResponseToNodes.length ? inResponseToNodes[0].nodeValue : null;
+function getRootAttribute(dom: Document, name: string): string | null {
+  const nodes = xpath.selectAttributes(dom, `/*/@${name}`);
+  return nodes.length ? nodes[0].nodeValue : null;
+}
+
+// Compared as parsed URLs, so the case of the scheme and host and an explicit default port don't
+// count, while the path does, trailing slash included.
+function isSameUrl(received: string, expected: string): boolean {
+  try {
+    return new URL(received).href === new URL(expected).href;
+  } catch {
+    return received === expected;
+  }
+}
+
+// SAML core §3.2.2, and SAML bindings §3.4.5.2 and §3.5.5.2, which require it of a signed message:
+// https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
+function warnIfDestinationIsNot(
+  endpointOption: "callbackUrl" | "logoutCallbackUrl",
+  endpoint: string | undefined,
+  messageName: string,
+  destination: string | null | undefined,
+): void {
+  if (endpoint == null) {
+    return;
+  }
+  if (destination == null) {
+    debugLog(
+      'The signed %s has no Destination, where `%s` ("%s") was expected. SAML bindings require one on a signed message, and the next major version rejects it. Configure the identity provider to include the Destination in the messages it signs.',
+      messageName,
+      endpointOption,
+      endpoint,
+    );
+  } else if (!isSameUrl(destination, endpoint)) {
+    debugLog(
+      'The %s has the Destination "%s", where `%s` ("%s") was expected. The next major version rejects it. If that Destination is the URL of this endpoint, set `%s` to it; otherwise, configure the identity provider to send it to `%s`.',
+      messageName,
+      destination,
+      endpointOption,
+      endpoint,
+      endpointOption,
+      endpointOption,
+    );
+  }
+}
+
+// SAML profiles §4.1.4.2 and §4.1.4.3: an assertion is delivered through a bearer confirmation whose
+// Recipient is the assertion consumer service.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf
+function warnIfNoBearerConfirmationNames(
+  callbackUrl: string,
+  confirmationMethods: string[],
+  timelyBearerRecipients: (string | undefined)[],
+): void {
+  if (timelyBearerRecipients.length === 0) {
+    debugLog(
+      'The assertion has no bearer SubjectConfirmation that is valid now; received: %s. The next major version accepts an assertion only through a bearer SubjectConfirmation whose Recipient is `callbackUrl` ("%s"), and rejects this one. Configure the identity provider to send one that is valid when the assertion arrives.',
+      confirmationMethods.length > 0 ? confirmationMethods.join(", ") : "none",
+      callbackUrl,
+    );
+  } else if (
+    !timelyBearerRecipients.some(
+      (recipient) => recipient != null && isSameUrl(recipient, callbackUrl),
+    )
+  ) {
+    debugLog(
+      'No bearer SubjectConfirmationData in the assertion has the Recipient `callbackUrl` ("%s"); received: %s. The next major version rejects the assertion. Configure the identity provider to send `callbackUrl` as the Recipient, or, if a Recipient received is the URL of this endpoint, set `callbackUrl` to it.',
+      callbackUrl,
+      timelyBearerRecipients.map((recipient) => recipient ?? "no Recipient").join(", "),
+    );
+  }
 }
 
 async function getSubjectInResponseTosAsync(assertionXml: string): Promise<string[]> {
@@ -1048,6 +1113,7 @@ class SAML {
     let doc: Document;
     let inResponseTo: string | null = null;
     let verifiedInResponseTo: string | null = null;
+    let verifiedDestination: string | null = null;
     let verifiedAssertionXml: string | null = null;
 
     try {
@@ -1074,7 +1140,9 @@ class SAML {
 
       if (responseVerifiedXml) {
         validSignature = true;
-        verifiedInResponseTo = await getInResponseToAsync(responseVerifiedXml);
+        const verifiedDom = await parseDomFromString(responseVerifiedXml);
+        verifiedInResponseTo = getRootAttribute(verifiedDom, "InResponseTo");
+        verifiedDestination = getRootAttribute(verifiedDom, "Destination");
       }
 
       if (this.options.wantAuthnResponseSigned === true && validSignature === false) {
@@ -1161,6 +1229,15 @@ class SAML {
               );
           await consumeInResponseToAsync(this.cacheProvider, answeredRequestId ?? null);
         }
+        // An unsigned Response's Destination is not verified, so it is not read.
+        if (responseVerifiedXml) {
+          warnIfDestinationIsNot(
+            "callbackUrl",
+            this.options.callbackUrl,
+            "Response",
+            verifiedDestination,
+          );
+        }
         return result;
       }
 
@@ -1189,6 +1266,12 @@ class SAML {
                 if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
                   await consumeInResponseToAsync(this.cacheProvider, verifiedInResponseTo);
                 }
+                warnIfDestinationIsNot(
+                  "callbackUrl",
+                  this.options.callbackUrl,
+                  "Response",
+                  verifiedDestination,
+                );
                 return { profile: null, loggedOut: false };
               }
             }
@@ -1225,6 +1308,12 @@ class SAML {
           if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
             await consumeInResponseToAsync(this.cacheProvider, verifiedInResponseTo);
           }
+          warnIfDestinationIsNot(
+            "logoutCallbackUrl",
+            this.options.logoutCallbackUrl,
+            "LogoutResponse",
+            verifiedDestination,
+          );
           return { profile: null, loggedOut: true };
         } else {
           throw new Error("Unknown SAML response message");
@@ -1342,6 +1431,15 @@ class SAML {
       }
     }
     const result = await this.processValidlySignedSamlLogoutAsync(doc, dom);
+    if (signed) {
+      const messageName = samlMessageType === "SAMLRequest" ? "LogoutRequest" : "LogoutResponse";
+      warnIfDestinationIsNot(
+        "logoutCallbackUrl",
+        this.options.logoutCallbackUrl,
+        messageName,
+        getRootAttribute(dom, "Destination"),
+      );
+    }
     return legacy ? result : { ...result, relayState: parameters.relayState };
   }
 
@@ -1506,6 +1604,8 @@ class SAML {
     let msg;
     const nowMs = new Date().getTime();
     const profile = {} as Profile;
+    let confirmationMethods: string[] = [];
+    let timelyBearerRecipients: (string | undefined)[] = [];
     const doc: XMLOutput = await parseXml2JsFromString(xml);
     const parsedAssertion: XMLOutput = doc;
     const assertion: XMLOutput = doc.Assertion;
@@ -1568,6 +1668,24 @@ class SAML {
           );
         }
         subjectConfirmation ??= subjectConfirmations?.find(isTimely);
+        // For the warning only, which must not change the outcome: selection above stops at the
+        // first match, so a later confirmation's timestamps may be malformed and throw here.
+        const isTimelyForWarning = (_subjectConfirmation: XMLOutput) => {
+          try {
+            return isTimely(_subjectConfirmation);
+          } catch {
+            return false;
+          }
+        };
+        confirmationMethods = (subjectConfirmations ?? []).map(
+          (sc) => sc.$?.Method ?? "a SubjectConfirmation with no Method",
+        );
+        timelyBearerRecipients = (subjectConfirmations ?? [])
+          .filter(
+            (sc) =>
+              sc.$?.Method === "urn:oasis:names:tc:SAML:2.0:cm:bearer" && isTimelyForWarning(sc),
+          )
+          .map((sc) => sc.SubjectConfirmationData[0].$.Recipient);
 
         if (subjectConfirmation != null) {
           confirmData = subjectConfirmation.SubjectConfirmationData[0];
@@ -1755,6 +1873,11 @@ class SAML {
       return samlResponseXml;
     };
 
+    warnIfNoBearerConfirmationNames(
+      this.options.callbackUrl,
+      confirmationMethods,
+      timelyBearerRecipients,
+    );
     return { profile, loggedOut: false };
   }
 
@@ -1847,7 +1970,14 @@ class SAML {
     }
     const verifiedDom = await parseDomFromString(verifiedXml);
     const verifiedDoc = await parseXml2JsFromString(verifiedXml);
-    return await this.processValidlySignedPostRequestAsync(verifiedDoc, verifiedDom);
+    const result = await this.processValidlySignedPostRequestAsync(verifiedDoc, verifiedDom);
+    warnIfDestinationIsNot(
+      "logoutCallbackUrl",
+      this.options.logoutCallbackUrl,
+      "LogoutRequest",
+      getRootAttribute(verifiedDom, "Destination"),
+    );
+    return result;
   }
 
   /**
