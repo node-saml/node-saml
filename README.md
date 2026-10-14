@@ -123,7 +123,7 @@ import { SAML } from "@node-saml/node-saml/lib/saml";
 import type { Profile } from "@node-saml/node-saml/lib/types";
 
 // use this instead
-import { SAML, Profile } from "@node-saml/node-saml";
+import { SAML, type Profile } from "@node-saml/node-saml";
 ```
 
 The root doesn't export the XML helpers under `lib/`, such as `parseDomFromString`, `xpath`,
