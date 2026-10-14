@@ -232,13 +232,23 @@ describe("Signatures", function () {
         idpCert: publicKey,
       }),
     );
+    const base64PublicKey = publicKey.replace(/-----[^-]+-----|\s/g, "");
     it(
       "R1A - public key given as Base64 => error saying Base64 must be a certificate",
       testOneResponse(
         "/valid/response.root-signed.assertion-signed.xml",
         "idpCert is neither valid PEM nor a valid Base64 certificate: Invalid PEM format.",
         0,
-        { idpCert: publicKey.replace(/-----[^-]+-----|\s/g, "") },
+        { idpCert: base64PublicKey },
+      ),
+    );
+    it(
+      "R1A - public key given as Base64 among several => error naming that one",
+      testOneResponse(
+        "/valid/response.root-signed.assertion-signed.xml",
+        "idpCert[1] is neither valid PEM nor a valid Base64 certificate: Invalid PEM format.",
+        0,
+        { idpCert: [idpCert, base64PublicKey] },
       ),
     );
     it(
