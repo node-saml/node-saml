@@ -326,7 +326,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   wantAssertionsSigned: boolean;
   wantAuthnResponseSigned: boolean;
   maxAssertionAgeMs: number;
-  rejectReplayedAssertions: boolean;
+  rejectReplayedAssertions?: boolean;
   generateUniqueId: () => string;
   signMetadata: boolean;
 
