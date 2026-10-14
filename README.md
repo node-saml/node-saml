@@ -182,15 +182,16 @@ Two cases resolve without a `profile`:
 
 - The IdP returned a `LogoutResponse` rather than an authentication response:
   `{ profile: null, loggedOut: true }`. One whose status is not `Success`, or whose `Issuer` is not
-  `idpIssuer` when that is set, is rejected, as it is over the Redirect binding.
+  `idpIssuer` when that is set, is rejected with an `Error`, such as `Bad status code: …`, as it is
+  over the Redirect binding.
 - A `passive` request could not be satisfied without user interaction (a `NoPassive` status on a
   validly signed response): `{ profile: null, loggedOut: false }`.
 
-When the IdP reports a non-`Success` status, the rejection is a `SamlStatusError` whose `xmlStatus`
-property carries the `Status` element as XML, so you can surface the IdP's own reason to the user.
-Be aware that the signature requirement is applied first: many identity providers do not sign their
-error responses, and under the default `wantAuthnResponseSigned: true` such a response is rejected
-for the missing signature before its status is read.
+When the IdP reports a non-`Success` status in a `Response`, the rejection is a `SamlStatusError`
+whose `xmlStatus` property carries the `Status` element as XML, so you can surface the IdP's own
+reason to the user. Be aware that the signature requirement is applied first: many identity
+providers do not sign their error responses, and under the default `wantAuthnResponseSigned: true`
+such a response is rejected for the missing signature before its status is read.
 
 ### The profile
 
