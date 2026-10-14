@@ -335,7 +335,10 @@ The deprecated form returns no `relayState`. A signed message is read from `orig
 too, and is treated as signed when either argument has a `Signature`, even an empty one. Because
 its caller goes on reading the parsed object, it also rejects a signed query string that names one
 of the five parameters in bracket notation, such as `RelayState[]` or `[RelayState]`, which the
-`qs` parser reads as `RelayState`.
+`qs` parser reads as `RelayState`. It rejects a signed message, too, when the parsed object holds a
+`RelayState` that is not the one in `originalQuery`, as it does when the parser splits or nests the
+query string by other rules: one that also splits on `;` reads `x=1;RelayState=...` as a
+`RelayState`.
 
 > **Note:** the deprecated form still accepts a message with no `Signature` parameter, because the
 > binding makes signing optional. Such a message is accepted with none of its contents

@@ -4391,6 +4391,37 @@ describe("node-saml /", function () {
             message: "The query string has no SAMLRequest or SAMLResponse parameter",
           });
         });
+
+        describe("when the parser is set to read the query string another way", function () {
+          const evil = "https://evil.example";
+          const splittingOnSemicolons = (query: string) => lastValues(query.replace(/;/g, "&"));
+          const unsignedRelayState = {
+            message: "The parsed query has a RelayState that the query string does not",
+          };
+
+          it("rejects a RelayState that only a parser splitting on semicolons reads", async function () {
+            const query = `${signedForAlice}&x=1;${param("RelayState", evil)}`;
+
+            await assert.rejects(validate(splittingOnSemicolons(query), query), unsignedRelayState);
+          });
+
+          it("rejects a RelayState that such a parser reads in place of the signed one", async function () {
+            const signed = sign(alice, param("RelayState", "/home"), sigAlg);
+            const query = `${signed}&x=1;${param("RelayState", evil)}`;
+
+            await assert.rejects(validate(splittingOnSemicolons(query), query), unsignedRelayState);
+          });
+
+          it("rejects a RelayState that a parser nests from a dotted name", async function () {
+            const query = `${signedForAlice}&${param("RelayState.next", evil)}`;
+            const container = { ...lastValues(signedForAlice), RelayState: { next: evil } };
+
+            await assert.rejects(
+              validate(container as unknown as querystring.ParsedUrlQuery, query),
+              unsignedRelayState,
+            );
+          });
+        });
       });
     });
   });

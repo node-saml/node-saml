@@ -253,7 +253,13 @@ function readRedirectParametersBeside(
   if (bracketed.length > 0) {
     throw new Error(`The query string has a ${bracketed[0]} parameter in bracket notation`);
   }
-  return readRedirectParameters(originalQuery);
+  const parameters = readRedirectParameters(originalQuery);
+  // This form returns no RelayState, so the caller's is the one in `container`, and how its
+  // parser was set to split or nest the query string is not known here.
+  if (container.RelayState != null && container.RelayState !== parameters.relayState) {
+    throw new Error("The parsed query has a RelayState that the query string does not");
+  }
+  return parameters;
 }
 
 // `container` is a second reading of the query string, by a parser this library does not choose.
