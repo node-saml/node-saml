@@ -309,14 +309,10 @@ const resolveAndParseKeyInfosToPem = async ({
           })
       : idpCert;
 
-  // toPem() passes a PEM public key through, but Base64 needs a label and gets CERTIFICATE.
-  const expected = "a valid PEM certificate or public key, nor a valid Base64 certificate";
   if (Array.isArray(certs)) {
-    return certs.map((cert, index) =>
-      keyInfoToPem(cert, "CERTIFICATE", `idpCert[${index}]`, expected),
-    );
+    return certs.map((cert, index) => keyInfoToPem(cert, "CERTIFICATE", `idpCert[${index}]`));
   } else {
-    return [keyInfoToPem(certs, "CERTIFICATE", `idpCert`, expected)];
+    return [keyInfoToPem(certs, "CERTIFICATE", `idpCert`)];
   }
 };
 

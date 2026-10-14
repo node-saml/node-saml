@@ -3,20 +3,10 @@ import { pemCertificates, toPem } from "xml-crypto";
 import { assertRequired } from "./utility";
 import { PemLabel } from "./types";
 
-const pemLabelContents: Record<PemLabel, string> = {
-  CERTIFICATE: "certificate",
-  "PUBLIC KEY": "public key",
-  "PRIVATE KEY": "private key",
-  "RSA PRIVATE KEY": "private key",
-};
-
-// toPem() gives one message both for malformed text and for well-formed data of the wrong kind,
-// so the error states what the option must hold, which is true of either.
 export const keyInfoToPem = (
   keyInfo: string | Buffer,
   pemLabel: PemLabel,
   optionName = "keyInfo",
-  expected = `a valid PEM or Base64 ${pemLabelContents[pemLabel]}`,
 ): string => {
   assertRequired(keyInfo, `${optionName} is not provided`);
   assertRequired(
@@ -32,7 +22,17 @@ export const keyInfoToPem = (
   try {
     return toPem(keyData, pemLabel);
   } catch (error) {
-    throw new TypeError(`${optionName} is not ${expected}: ${(error as Error).message}`);
+    // toPem() gives one message for malformed text and for data its label doesn't fit, so name
+    // both ways the value was read rather than guess which one failed.
+    const base64Contents: Record<PemLabel, string> = {
+      CERTIFICATE: "certificate",
+      "PUBLIC KEY": "public key",
+      "PRIVATE KEY": "private key",
+      "RSA PRIVATE KEY": "private key",
+    };
+    throw new TypeError(
+      `${optionName} is neither valid PEM nor a valid Base64 ${base64Contents[pemLabel]}: ${(error as Error).message}`,
+    );
   }
 };
 

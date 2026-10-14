@@ -30,11 +30,11 @@ const keyFormats = (pkcs1Pem: string): Record<string, string | Buffer> => ({
 const notPrivateKeys: Record<string, [unknown, RegExp]> = {
   "a certificate as Base64": [
     singleLine(readStatic("cert.pem")),
-    /^decryptionPvk is not a valid PEM or Base64 private key: /,
+    /^decryptionPvk is neither valid PEM nor a valid Base64 private key: /,
   ],
   "neither PEM nor Base64": [
     "not a key",
-    /^decryptionPvk is not a valid PEM or Base64 private key: /,
+    /^decryptionPvk is neither valid PEM nor a valid Base64 private key: /,
   ],
   "a number": [42, /^decryptionPvk is not a string or a Buffer$/],
 };
