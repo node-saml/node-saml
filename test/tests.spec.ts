@@ -1346,6 +1346,24 @@ describe("node-saml /", function () {
         });
       });
 
+      it("rejects a signed message that is neither a Response nor a LogoutResponse", async () => {
+        const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
+          issuer: "onesaml_login",
+        });
+        const container = {
+          SAMLResponse: fs.readFileSync(
+            __dirname + "/static/logout_request_with_good_signature.xml",
+            "base64",
+          ),
+        };
+
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message: "Unknown SAML response message",
+        });
+      });
+
       it("accept response with an attributeStatement element without attributeValue", async () => {
         fakeClock = sinon.useFakeTimers({
           now: Date.parse("2015-08-31T08:55:00+00:00"),

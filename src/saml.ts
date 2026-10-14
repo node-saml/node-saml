@@ -1221,6 +1221,7 @@ class SAML {
         }
         const logoutResponse = xmljsDoc.LogoutResponse;
         if (logoutResponse) {
+          await this.verifyLogoutResponse(xmljsDoc);
           if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
             await consumeInResponseToAsync(this.cacheProvider, verifiedInResponseTo);
           }
@@ -1460,7 +1461,7 @@ class SAML {
    *   validation of an incoming message, so the next major version makes this method private.
    */
   protected async verifyLogoutResponse(doc: XMLOutput): Promise<void> {
-    const statusCode = doc.LogoutResponse.Status[0].StatusCode[0].$.Value;
+    const statusCode = doc.LogoutResponse.Status?.[0].StatusCode?.[0].$?.Value;
     if (statusCode !== "urn:oasis:names:tc:SAML:2.0:status:Success")
       throw new Error("Bad status code: " + statusCode);
 
