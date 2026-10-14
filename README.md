@@ -397,7 +397,7 @@ applies to this function too, and it logs the same warnings under `NODE_DEBUG=no
 | `audience`               | `issuer`                       | Expected `Audience` in the response. Set to `false` to skip the check — which removes a security control; see the note under [Security and signatures](#security-and-signatures).                 |
 | `privateKey`             | —                              | SP private key in PEM format, used to sign outgoing messages. See [Security and signatures](#security-and-signatures).                                                                            |
 | `publicCert`             | —                              | SP public signing certificate, embedded in the `AuthnRequest` so the IdP can verify it. Must match `privateKey`.                                                                                  |
-| `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers.                                                                                                                  |
+| `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers. See [Configuration option `decryptionPvk`](#configuration-option-decryptionpvk).                                 |
 | `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, `"sha256-mgf1"`, or `"sha512"`. **Set this explicitly** if you set `privateKey`; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm). |
 | `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above. Required with `"sha256-mgf1"`.                                                            |
 | `xmlSignatureTransforms` | enveloped-signature + exc-c14n | Signature transforms used in HTTP-POST signatures. The default is `["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"]`.                         |
@@ -745,6 +745,8 @@ It rejects, with an error naming the option and giving the reason:
   than decoding as much of it as it can;
 - a message whose `-----BEGIN` and `-----END` labels disagree;
 - a `CERTIFICATE` whose data is not exactly one X.509 certificate;
+- a `PRIVATE KEY` or `RSA PRIVATE KEY` whose data Node cannot read as a private key under that
+  label, such as PKCS #1 data labelled `PRIVATE KEY`;
 - text before, after or between the messages, and a boundary sharing its line with other text.
 
 xml-crypto documents the complete rules under
@@ -773,7 +775,30 @@ Accepted formats:
    ```
 
 2. A single-line or multi-line private key in Base64, without the delimiter lines. See the
-   [single-line private key](test/static/single_line_acme_tools_com.key) used in the tests.
+   [single-line private key](test/static/single_line_acme_tools_com.key) used in the tests. Base64
+   carries no label, so it is read as a PKCS #8 key (`PRIVATE KEY`) or, failing that, as a PKCS #1
+   RSA key (`RSA PRIVATE KEY`). Base64 that is neither, such as a certificate or a public key, is
+   refused with an error naming `privateKey`.
+
+### Configuration option `decryptionPvk`
+
+To decrypt encrypted assertions and encrypted name identifiers, provide the SP's private key via
+`decryptionPvk`. Its certificate is `decryptionCert`, which the IdP encrypts to; see
+[Service provider metadata](#service-provider-metadata).
+
+```javascript
+decryptionPvk: "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXJP47MTKaFpkU ... ==";
+```
+
+Accepted formats:
+
+1. PEM, handed to Node's crypto as given. That is how `decryptionPvk` has always been read, so
+   Node's rules apply rather than the ones listed under [`privateKey`](#configuration-option-privatekey).
+   In particular, text before or after the message, such as the `Bag Attributes` lines that
+   `openssl pkcs12` writes, is passed over rather than refused.
+2. A single-line or multi-line private key in Base64, without the delimiter lines, read exactly as
+   for `privateKey`: PKCS #8 or PKCS #1, whichever the data holds. Base64 that is neither is
+   refused with an error naming `decryptionPvk`, before any decryption is attempted.
 
 ### Configuration option `idpCert`
 
