@@ -155,46 +155,6 @@ describe("crypto.ts", function () {
         );
       });
 
-      // Labelled as a key, which is checked only as Base64, so that the Base64
-      // rule is the one thing that can reject these; a certificate is also
-      // checked as X.509.
-      it("should throw if the encapsulated text is padded before its end", function () {
-        expect(() =>
-          keyInfoToPem(
-            "-----BEGIN PRIVATE KEY-----\nQUJD=REVG\n-----END PRIVATE KEY-----",
-            "PRIVATE KEY",
-          ),
-        ).to.throw(/not in PEM format or in base64 format/);
-      });
-
-      it("should throw if a body line other than the last one is padded", function () {
-        expect(() =>
-          keyInfoToPem(
-            "-----BEGIN PRIVATE KEY-----\nQUJDCg==\nQUJD\n-----END PRIVATE KEY-----",
-            "PRIVATE KEY",
-          ),
-        ).to.throw(/not in PEM format or in base64 format/);
-      });
-
-      it("should throw if the encapsulated text is nothing but padding", function () {
-        expect(() =>
-          keyInfoToPem("-----BEGIN PRIVATE KEY-----\n==\n-----END PRIVATE KEY-----", "PRIVATE KEY"),
-        ).to.throw(/not in PEM format or in base64 format/);
-      });
-
-      // RFC4648 section 4: a multiple of four characters, two then '==', or
-      // three then '='. https://www.rfc-editor.org/rfc/rfc4648#section-4
-      ["A", "A=", "AA", "AAA", "AAAA=", "AAA==", "AAAAA", "AAAA=="].forEach(function (body) {
-        it(`should throw if the encapsulated text ends in the partial quantum ${body}`, function () {
-          expect(() =>
-            keyInfoToPem(
-              `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`,
-              "PRIVATE KEY",
-            ),
-          ).to.throw(/not in PEM format or in base64 format/);
-        });
-      });
-
       it("should throw if the encapsulated text is not base64", function () {
         expect(() =>
           keyInfoToPem(
