@@ -110,7 +110,7 @@ describe("crypto.ts", function () {
       it("should reject a malformed CRLF certificate rather than accept it", function () {
         const malformed = `-----BEGIN CERTIFICATE-----\r\n${"AAAA\r\n".repeat(26)}!`;
         expect(() => keyInfoToPem(malformed, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
+          /^keyInfo is not a valid PEM or Base64 certificate: /,
         );
       });
 
@@ -121,13 +121,13 @@ describe("crypto.ts", function () {
             `-----BEGIN CERTIFICATE-----\n${firstLine}\n\n${rest.join("\n")}\n-----END CERTIFICATE-----`,
             "CERTIFICATE",
           ),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is not a valid PEM or Base64 certificate: /);
       });
 
       it("should throw if the encapsulated text is empty", function () {
         expect(() =>
           keyInfoToPem("-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----", "CERTIFICATE"),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is not a valid PEM or Base64 certificate: /);
       });
 
       it("should throw if the labels of a message disagree", function () {
@@ -136,12 +136,12 @@ describe("crypto.ts", function () {
             `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END PUBLIC KEY-----`,
             "CERTIFICATE",
           ),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is not a valid PEM or Base64 certificate: /);
       });
 
       it("should throw if Base64 given as a certificate is not one", function () {
         expect(() => keyInfoToPem(FAKE_CERT, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
+          /^keyInfo is not a valid PEM or Base64 certificate: /,
         );
       });
 
@@ -151,7 +151,7 @@ describe("crypto.ts", function () {
           Buffer.from([0]),
         ]).toString("base64");
         expect(() => keyInfoToPem(trailing, "CERTIFICATE", "idpCert")).to.throw(
-          /^idpCert is not in PEM format or in base64 format: Expected a single certificate/,
+          /^idpCert is not a valid PEM or Base64 certificate: Expected a single certificate/,
         );
       });
 
@@ -161,14 +161,14 @@ describe("crypto.ts", function () {
             "-----BEGIN CERTIFICATE-----\nI'm not base64\n-----END CERTIFICATE-----",
             "CERTIFICATE",
           ),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is not a valid PEM or Base64 certificate: /);
       });
 
       it("should throw if concatenated certificates are separated by other text", function () {
         const certificate = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`;
         expect(() =>
           keyInfoToPem(`${certificate}\nBag Attributes\n${certificate}`, "CERTIFICATE"),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is not a valid PEM or Base64 certificate: /);
       });
     });
 

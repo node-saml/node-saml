@@ -593,7 +593,7 @@ describe("SAML request", function () {
     it("should throw if privateKey is a certificate given as Base64, naming it", async function () {
       const base64 = readStatic("acme_tools_com_without_header_and_footer.cert");
       await assert.rejects(signedRequest({ privateKey: base64 }), {
-        message: /^privateKey is not in PEM format or in base64 format: /,
+        message: /^privateKey is not a valid PEM or Base64 private key: /,
       });
     });
 
@@ -605,7 +605,7 @@ describe("SAML request", function () {
 
     it("should throw if publicCert is neither PEM nor Base64, naming it", async function () {
       await assert.rejects(signedRequest({ privateKey, publicCert: "not a certificate" }), {
-        message: /^publicCert is not in PEM format or in base64 format: /,
+        message: /^publicCert is not a valid PEM or Base64 certificate: /,
       });
     });
 
@@ -651,7 +651,7 @@ describe("SAML request", function () {
         "utf-8",
       );
       await assert.rejects(signature(base64), {
-        message: /^privateKey is not in PEM format or in base64 format: /,
+        message: /^privateKey is not a valid PEM or Base64 private key: /,
       });
     });
   });

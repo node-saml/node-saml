@@ -1177,7 +1177,7 @@ describe("node-saml /", function () {
 
         it("should throw if decryptionCert is not a certificate, naming the option", function () {
           expect(() => encryptionMetadata(FAKE_CERT)).to.throw(
-            /^decryptionCert is not in PEM format or in base64 format: /,
+            /^decryptionCert is not a valid PEM or Base64 certificate: /,
           );
         });
       });
@@ -3822,7 +3822,7 @@ describe("node-saml /", function () {
       '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
 
     await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-      message: "privateKey is not in PEM format or in base64 format: Invalid PEM format.",
+      message: "privateKey is not a valid PEM or Base64 private key: Invalid PEM format.",
     });
   });
 
