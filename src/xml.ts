@@ -95,9 +95,10 @@ export const getVerifiedXml = (
 
     if (refs.length !== 1) {
       debugLog(
-        "The signature on the %s element has %d references, so it is ignored and the element is treated as unsigned. A signature must have exactly one reference. The next major version rejects the message.",
+        "The signature on the %s element has %d references, so it is ignored and the element is treated as unsigned. SAML requires exactly one, to the element signed (SAML core §5.4.2), and the next major version rejects the message. Configure the identity provider to sign the %s with a single reference.",
         currentNode.localName,
         refs.length,
+        currentNode.localName,
       );
       return null;
     }
