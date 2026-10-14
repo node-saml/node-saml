@@ -274,22 +274,16 @@ describe("rejectReplayedAssertions", function () {
     ).to.equal("accepted");
   });
 
-  it("rejects a second copy with a cache provider that has no saveIfAbsentAsync", async () => {
-    const store = new Map<string, string>();
+  it("requires a cache provider with saveIfAbsentAsync", () => {
     const cacheProvider: CacheProvider = {
-      saveAsync: async (key, value) => {
-        store.set(key, value);
-        return { value, createdAt: Date.now() };
-      },
-      getAsync: async (key) => store.get(key) ?? null,
-      removeAsync: async (key) => (key != null && store.delete(key) ? key : null),
+      saveAsync: async () => null,
+      getAsync: async () => null,
+      removeAsync: async () => null,
     };
-    const saml = newSaml({ cacheProvider });
-    const copy = response();
 
-    expect(await outcome(saml.validatePostResponseAsync(copy))).to.equal("accepted");
-    expect(await outcome(saml.validatePostResponseAsync(copy))).to.equal(
-      "The assertion _assertion has already been received",
+    expect(() => newSaml({ cacheProvider })).to.throw(
+      TypeError,
+      "rejectReplayedAssertions requires a cacheProvider with saveIfAbsentAsync, which saves a key with an expiry only if it is absent, in one step",
     );
   });
 

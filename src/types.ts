@@ -42,8 +42,8 @@ export interface CacheProvider {
   /**
    * Saves `value` under `key` unless `key` is already present, as one atomic operation, and keeps it
    * until `expiresAtMs`. Resolves `true` if it saved the key and `false` if the key was present.
-   * When present, it is used to remember accepted assertion IDs, so that of two concurrent copies of
-   * an assertion only one is accepted.
+   * `rejectReplayedAssertions` requires it, and uses it to remember accepted assertion IDs, so that
+   * of two concurrent copies of an assertion only one is accepted.
    */
   saveIfAbsentAsync?(key: string, value: string, expiresAtMs: number): Promise<boolean>;
 }

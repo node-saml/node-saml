@@ -929,7 +929,8 @@ your application started.
   ([SAML profiles §4.1.4.2](https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf)).
   For the same reason the option cannot be combined with `acceptedClockSkewMs: -1`.
 - **Across servers or processes** this needs a shared cache provider, and within one process the
-  same `InMemoryCacheProvider` for every `SAML` instance, as described below.
+  same `InMemoryCacheProvider` for every `SAML` instance, as described below. Either way, the
+  provider has to implement `saveIfAbsentAsync`.
 
 It is off by default in this version, because it rejects responses that were accepted before and
 writes to the cache provider on every login. Leaving it unset logs a warning under
@@ -957,7 +958,7 @@ interface CacheProvider {
   removeAsync(key: string | null): Promise<string | null>;
   /** Optional. Removes the key and returns its value, or null if it was absent, atomically. */
   consumeAsync?(key: string): Promise<string | null>;
-  /** Optional. Saves the key, kept until expiresAtMs, only if it is absent, atomically. */
+  /** Needed by rejectReplayedAssertions. Saves the key until expiresAtMs, if absent, atomically. */
   saveIfAbsentAsync?(key: string, value: string, expiresAtMs: number): Promise<boolean>;
 }
 ```
@@ -973,10 +974,9 @@ Implement `saveIfAbsentAsync` with your store's single-step insert-if-absent wit
 Redis `SET key value NX PXAT expiresAtMs` or SQL `INSERT … ON CONFLICT DO NOTHING`. It resolves
 `true` if it saved the key and `false` if the key was already there. Node-SAML records assertion IDs
 with it when `rejectReplayedAssertions` is set, so of two copies of one assertion validated at the
-same moment, only one is accepted. Without it, Node-SAML looks the ID up and saves it in separate
-calls, both copies can be accepted, the ID is kept only as long as `saveAsync` keeps keys, and a
-warning is logged under `NODE_DEBUG=node-saml`. The next major version requires it. The built-in
-provider implements it.
+same moment, only one is accepted. That option requires it: the constructor throws a `TypeError`
+when the option is on and the provider has no `saveIfAbsentAsync`. The built-in provider implements
+it.
 
 Give each identity provider its own cache. In a shared store, that means a provider for each
 identity provider that prefixes every key with its name. Request IDs are looked up by ID alone, so

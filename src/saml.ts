@@ -210,18 +210,9 @@ async function recordAssertionAsync(assertionXml: string, options: SamlOptions):
 
   // Kept apart from request IDs, which are stored as they are, and from other identity providers'.
   const key = JSON.stringify(["assertion", assertion.Issuer?.[0]._ ?? "", id]);
-  const value = generateInstant();
-  const { cacheProvider } = options;
-  let saved: boolean;
-  if (cacheProvider.saveIfAbsentAsync != null) {
-    saved = await cacheProvider.saveIfAbsentAsync(key, value, acceptedUntilMs);
-  } else {
-    saved = (await cacheProvider.getAsync(key)) == null;
-    if (saved) {
-      await cacheProvider.saveAsync(key, value);
-    }
-  }
-  if (!saved) {
+  // The constructor refuses a cacheProvider without saveIfAbsentAsync while this option is on.
+  const cacheProvider = options.cacheProvider as Required<Pick<CacheProvider, "saveIfAbsentAsync">>;
+  if (!(await cacheProvider.saveIfAbsentAsync(key, generateInstant(), acceptedUntilMs))) {
     throw new Error(`The assertion ${id} has already been received`);
   }
 }
@@ -502,8 +493,8 @@ class SAML {
         );
       }
       if (options.cacheProvider.saveIfAbsentAsync == null) {
-        debugLog(
-          "`cacheProvider` has no `saveIfAbsentAsync`, so an assertion ID is looked up and then saved in separate calls, and two copies of one assertion validated at the same moment can both be accepted. Each ID is also kept only as long as `saveAsync` keeps keys, which can be shorter than the assertion is valid. The next major version requires it; implement it to save a key only if it is absent, with an expiry, in one step.",
+        throw new TypeError(
+          "rejectReplayedAssertions requires a cacheProvider with saveIfAbsentAsync, which saves a key with an expiry only if it is absent, in one step",
         );
       }
     }

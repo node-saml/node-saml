@@ -201,4 +201,15 @@ describe("Cache tests /", () => {
     await fakeClock.tickAsync(30000);
     expect(await cacheProvider.saveIfAbsentAsync("key", "value", 120000)).to.equal(true);
   });
+
+  it("prunes a key saved with saveIfAbsentAsync once its expiry passes", async () => {
+    const cacheProvider = new InMemoryCacheProvider();
+    const cacheRemoveSpy = sinon.spy(cacheProvider, "removeAsync");
+
+    await cacheProvider.saveIfAbsentAsync("assertion", "value", 60000);
+    await fakeClock.tickAsync(60000);
+    await cacheProvider.saveIfAbsentAsync("another assertion", "value", 120000);
+
+    expect(cacheRemoveSpy.calledWith("assertion")).to.be.true;
+  });
 });

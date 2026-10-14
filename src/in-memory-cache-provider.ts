@@ -19,7 +19,7 @@ interface CacheProviderOptions {
 export class InMemoryCacheProvider implements CacheProvider {
   private cacheKeys: Record<string, CacheItem & { expiresAt?: number }>;
   private options: CacheProviderOptions;
-  private lastPrune = 0;
+  private nextPruneMs = 0;
   private prune: () => void;
   private removeKeyIfExpired: (key: keyof typeof this.cacheKeys, nowMs: number) => Promise<void>;
 
@@ -36,7 +36,7 @@ export class InMemoryCacheProvider implements CacheProvider {
       const nowMs = new Date().getTime();
 
       // Don't call this function more than is needed in high-load environments
-      if (nowMs > this.lastPrune + this.options.keyExpirationPeriodMs) {
+      if (nowMs >= this.nextPruneMs) {
         const keys = Object.keys(this.cacheKeys);
         const keysToRemove: (keyof typeof this.cacheKeys)[] = [];
         keys.forEach((key) => {
@@ -47,7 +47,7 @@ export class InMemoryCacheProvider implements CacheProvider {
 
         // No need to await this because we don't care when it gets done
         keysToRemove.forEach((key) => this.removeAsync(key));
-        this.lastPrune = nowMs;
+        this.nextPruneMs = nowMs + this.options.keyExpirationPeriodMs;
       }
     };
 
@@ -127,6 +127,8 @@ export class InMemoryCacheProvider implements CacheProvider {
       return false;
     }
     this.cacheKeys[key] = { createdAt: nowMs, value, expiresAt: expiresAtMs };
+    // So a key with a short expiry leaves memory soon after it, not a keyExpirationPeriodMs later.
+    this.nextPruneMs = Math.min(this.nextPruneMs, expiresAtMs);
     return true;
   }
 
