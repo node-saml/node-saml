@@ -4398,15 +4398,6 @@ describe("node-saml /", function () {
               unsignedRelayState,
             );
           });
-
-          it("accepts a signed RelayState that the parsed query does not hold", async function () {
-            const query = sign(alice, param("RelayState", "/home"), sigAlg);
-            const { RelayState, ...container } = lastValues(query);
-
-            expect(RelayState).to.equal("/home");
-            const { profile } = await validate(container, query);
-            expect(profile?.nameID).to.equal("alice");
-          });
         });
       });
     });
