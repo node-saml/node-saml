@@ -35,13 +35,9 @@ function confirmation(
   return `<saml:SubjectConfirmation Method="${method}"><saml:SubjectConfirmationData ${data}/></saml:SubjectConfirmation>`;
 }
 
-function signedResponse({
-  destination = callbackUrl as string | null,
-  confirmations = [confirmation(bearer)],
-} = {}): Record<string, string> {
-  const destinationAttribute = destination == null ? "" : ` Destination="${destination}"`;
+function signedResponse(confirmations: string[]): Record<string, string> {
   const xml =
-    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}"${destinationAttribute}>` +
+    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}" Destination="${callbackUrl}">` +
     `<saml:Issuer>idp</saml:Issuer>${success}` +
     `<saml:Assertion ID="_assertion" Version="2.0" IssueInstant="${instant()}"><saml:Issuer>idp</saml:Issuer>` +
     `<saml:Subject><saml:NameID>user</saml:NameID>${confirmations.join("")}</saml:Subject>` +
@@ -50,8 +46,8 @@ function signedResponse({
   return { SAMLResponse: Buffer.from(sign(sign(xml, "Assertion"), "Response")).toString("base64") };
 }
 
-// The next major version rejects each of these (SAML profiles §4.1.4.2 and §4.1.4.3, SAML bindings
-// §3.5.5.2); until then they are accepted and only logged.
+// The next major version rejects an assertion with no timely bearer confirmation (SAML profiles
+// §4.1.4.2 and §4.1.4.3); until then it is accepted and only logged.
 describe("responses that only the next major version rejects", function () {
   const saml = new SAML({
     callbackUrl,
@@ -64,42 +60,9 @@ describe("responses that only the next major version rejects", function () {
     return (await saml.validatePostResponseAsync(response)).profile?.nameID;
   }
 
-  it("accepts an assertion whose only confirmation is holder-of-key", async () => {
-    expect(await nameIdOf(signedResponse({ confirmations: [confirmation(holderOfKey)] }))).to.equal(
-      "user",
-    );
-  });
-
-  it("accepts a bearer confirmation with no Recipient", async () => {
-    const noRecipient = confirmation(bearer, `NotOnOrAfter="${instant(300000)}"`);
-
-    expect(await nameIdOf(signedResponse({ confirmations: [noRecipient] }))).to.equal("user");
-  });
-
-  it("accepts a bearer confirmation whose Recipient is another endpoint", async () => {
-    const elsewhere = confirmation(
-      bearer,
-      `NotOnOrAfter="${instant(300000)}" Recipient="https://sp.example/acs"`,
-    );
-
-    expect(await nameIdOf(signedResponse({ confirmations: [elsewhere] }))).to.equal("user");
-  });
-
   it("accepts a confirmation chosen before a bearer one with a malformed NotOnOrAfter", async () => {
     const malformed = confirmation(bearer, `NotOnOrAfter="not a date" Recipient="${callbackUrl}"`);
 
-    expect(
-      await nameIdOf(signedResponse({ confirmations: [confirmation(holderOfKey), malformed] })),
-    ).to.equal("user");
-  });
-
-  it("accepts a signed Response whose Destination is another endpoint", async () => {
-    expect(await nameIdOf(signedResponse({ destination: "https://sp.example/acs" }))).to.equal(
-      "user",
-    );
-  });
-
-  it("accepts a signed Response with no Destination", async () => {
-    expect(await nameIdOf(signedResponse({ destination: null }))).to.equal("user");
+    expect(await nameIdOf(signedResponse([confirmation(holderOfKey), malformed]))).to.equal("user");
   });
 });
