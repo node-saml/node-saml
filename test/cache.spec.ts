@@ -202,7 +202,7 @@ describe("Cache tests /", () => {
     expect(await cacheProvider.saveIfAbsentAsync("key", "value", 120000)).to.equal(true);
   });
 
-  it("prunes a key saved with saveIfAbsentAsync once its expiry passes", async () => {
+  it("sweeps by the expiry given to saveIfAbsentAsync, not a keyExpirationPeriodMs later", async () => {
     const cacheProvider = new InMemoryCacheProvider();
     const cacheRemoveSpy = sinon.spy(cacheProvider, "removeAsync");
 

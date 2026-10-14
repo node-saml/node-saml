@@ -127,7 +127,8 @@ export class InMemoryCacheProvider implements CacheProvider {
       return false;
     }
     this.cacheKeys[key] = { createdAt: nowMs, value, expiresAt: expiresAtMs };
-    // So a key with a short expiry leaves memory soon after it, not a keyExpirationPeriodMs later.
+    // While keys keep arriving with short expiries, the cache is then swept about that often,
+    // rather than once per keyExpirationPeriodMs.
     this.nextPruneMs = Math.min(this.nextPruneMs, expiresAtMs);
     return true;
   }
