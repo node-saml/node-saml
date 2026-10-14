@@ -163,16 +163,20 @@ function warnIfDestinationIsNot(
   }
   if (destination == null) {
     debugLog(
-      "The signed %s has no Destination, which SAML bindings require of a signed message. The next major version rejects it.",
+      'The signed %s has no Destination, where `%s` ("%s") was expected. SAML bindings require one on a signed message, and the next major version rejects it. Configure the identity provider to include the Destination in the messages it signs.',
       messageName,
+      endpointOption,
+      endpoint,
     );
   } else if (!isSameUrl(destination, endpoint)) {
     debugLog(
-      'The %s has the Destination "%s", which is not `%s` ("%s"). The next major version rejects it.',
+      'The %s has the Destination "%s", where `%s` ("%s") was expected. The next major version rejects it. If that Destination is the URL of this endpoint, set `%s` to it; otherwise, configure the identity provider to send it to `%s`.',
       messageName,
       destination,
       endpointOption,
       endpoint,
+      endpointOption,
+      endpointOption,
     );
   }
 }
@@ -182,11 +186,14 @@ function warnIfDestinationIsNot(
 // https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf
 function warnIfNoBearerConfirmationNames(
   callbackUrl: string,
+  confirmationMethods: string[],
   timelyBearerRecipients: (string | undefined)[],
 ): void {
   if (timelyBearerRecipients.length === 0) {
     debugLog(
-      "The assertion has no bearer SubjectConfirmation within its time window. The next major version accepts an assertion only through one, and rejects this one.",
+      'The assertion has no bearer SubjectConfirmation that is valid now; received: %s. The next major version accepts an assertion only through a bearer SubjectConfirmation whose Recipient is `callbackUrl` ("%s"), and rejects this one. Configure the identity provider to send one that is valid when the assertion arrives.',
+      confirmationMethods.length > 0 ? confirmationMethods.join(", ") : "none",
+      callbackUrl,
     );
   } else if (
     !timelyBearerRecipients.some(
@@ -194,9 +201,9 @@ function warnIfNoBearerConfirmationNames(
     )
   ) {
     debugLog(
-      'No bearer SubjectConfirmationData in the assertion has a Recipient matching `callbackUrl` ("%s"); received: %s. The next major version rejects the assertion.',
+      'No bearer SubjectConfirmationData in the assertion has the Recipient `callbackUrl` ("%s"); received: %s. The next major version rejects the assertion. Configure the identity provider to send `callbackUrl` as the Recipient, or, if a Recipient received is the URL of this endpoint, set `callbackUrl` to it.',
       callbackUrl,
-      timelyBearerRecipients.map((recipient) => recipient ?? "none").join(", "),
+      timelyBearerRecipients.map((recipient) => recipient ?? "no Recipient").join(", "),
     );
   }
 }
@@ -1546,6 +1553,7 @@ class SAML {
     let msg;
     const nowMs = new Date().getTime();
     const profile = {} as Profile;
+    let confirmationMethods: string[] = [];
     let timelyBearerRecipients: (string | undefined)[] = [];
     const doc: XMLOutput = await parseXml2JsFromString(xml);
     const parsedAssertion: XMLOutput = doc;
@@ -1618,6 +1626,9 @@ class SAML {
             return false;
           }
         };
+        confirmationMethods = (subjectConfirmations ?? []).map(
+          (sc) => sc.$?.Method ?? "a SubjectConfirmation with no Method",
+        );
         timelyBearerRecipients = (subjectConfirmations ?? [])
           .filter(
             (sc) =>
@@ -1811,7 +1822,11 @@ class SAML {
       return samlResponseXml;
     };
 
-    warnIfNoBearerConfirmationNames(this.options.callbackUrl, timelyBearerRecipients);
+    warnIfNoBearerConfirmationNames(
+      this.options.callbackUrl,
+      confirmationMethods,
+      timelyBearerRecipients,
+    );
     return { profile, loggedOut: false };
   }
 
