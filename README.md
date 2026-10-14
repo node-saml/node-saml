@@ -661,7 +661,10 @@ if (profile) {
 ```
 
 To choose the certificates a signature is verified with at run time, pass a function as
-[`idpCert`](#configuration-option-idpcert) rather than overriding `getKeyInfosAsPem`.
+[`idpCert`](#configuration-option-idpcert) rather than overriding `getKeyInfosAsPem`. To check the
+`Issuer` of a logout message, set [`idpIssuer`](#response-validation) rather than overriding
+`verifyIssuer`: a `LogoutResponse` resolves with `profile: null`, so its result has no issuer to
+check.
 
 ### Low-level exports
 
