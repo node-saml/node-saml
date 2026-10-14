@@ -970,6 +970,10 @@ class SAML {
     );
   }
 
+  /**
+   * @deprecated Pass a function as `idpCert` instead of overriding this: an override can change
+   *   the keys a signature is verified with, so the next major version makes this method private.
+   */
   protected async getKeyInfosAsPem(): Promise<string[]> {
     if (typeof this.options.idpCert === "function") {
       // Do not cache
@@ -985,6 +989,11 @@ class SAML {
   }
 
   // given actually signed XML, try to get the actual assertion used
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async getSignedAssertion(signedXml: string): Promise<string | null> {
     // case 1: Response signed
     const verifiedDoc = await parseDomFromString(signedXml);
@@ -1236,6 +1245,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async validateInResponseTo(inResponseTo: string | null): Promise<void> {
     if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
       if (inResponseTo) {
@@ -1324,6 +1338,11 @@ class SAML {
     return legacy ? result : { ...result, relayState: parameters.relayState };
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async hasValidSignatureForRedirect(
     container: ParsedQs,
     originalQuery: string,
@@ -1359,6 +1378,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected validateSignatureForRedirect(
     urlString: crypto.BinaryLike,
     signature: string,
@@ -1405,6 +1429,11 @@ class SAML {
     return verified;
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected verifyLogoutRequest(doc: XMLOutput): void {
     this.verifyIssuer(doc.LogoutRequest);
     const nowMs = new Date().getTime();
@@ -1419,6 +1448,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async verifyLogoutResponse(doc: XMLOutput): Promise<void> {
     const statusCode = doc.LogoutResponse.Status[0].StatusCode[0].$.Value;
     if (statusCode !== "urn:oasis:names:tc:SAML:2.0:status:Success")
@@ -1428,6 +1462,11 @@ class SAML {
     return this.validateInResponseTo(doc.LogoutResponse.$.InResponseTo ?? null);
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected verifyIssuer(samlMessage: XMLOutput): void {
     if (this.options.idpIssuer != null) {
       const issuer = samlMessage.Issuer;
@@ -1445,6 +1484,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async processValidlySignedAssertionAsync(
     this: SAML,
     xml: string, // assertion XML
@@ -1707,6 +1751,11 @@ class SAML {
     return { profile, loggedOut: false };
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected checkTimestampsValidityError(
     nowMs: number,
     notBefore: string,
@@ -1733,6 +1782,11 @@ class SAML {
     return null;
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected checkAudienceValidityError(
     expectedAudience: string,
     audienceRestrictions: AudienceRestrictionXML[],
@@ -1789,6 +1843,11 @@ class SAML {
     return await this.processValidlySignedPostRequestAsync(verifiedDoc, verifiedDom);
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async processValidlySignedPostRequestAsync(
     this: SAML,
     doc: XMLOutput,
@@ -1828,6 +1887,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async processValidlySignedSamlLogoutAsync(
     this: SAML,
     doc: XMLOutput,
@@ -1861,6 +1925,10 @@ class SAML {
    * @param notOnOrAfter Expiration provided in response.
    * @param issueInstant Time when response was issued.
    * @returns {*} The expiration time to be used, in Ms.
+   *
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
    */
   protected calcMaxAgeAssertionTime(
     maxAssertionAgeMs: number,
@@ -1878,6 +1946,11 @@ class SAML {
     return maxAssertionTimeMs < notOnOrAfterMs ? maxAssertionTimeMs : notOnOrAfterMs;
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected mustValidateInResponseTo(hasInResponseTo: boolean): boolean {
     return (
       this.options.validateInResponseTo === ValidateInResponseTo.always ||
