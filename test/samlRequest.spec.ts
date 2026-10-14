@@ -590,9 +590,10 @@ describe("SAML request", function () {
       assert.ok(getVerifiedXml(request, dom.documentElement, [certificate]));
     });
 
-    it("should throw if privateKey is not a private key, naming it", async function () {
-      await assert.rejects(signedRequest({ privateKey: readStatic("pub.pem") }), {
-        message: /^privateKey is not a private key: /,
+    it("should throw if privateKey is a certificate given as Base64, naming it", async function () {
+      const base64 = readStatic("acme_tools_com_without_header_and_footer.cert");
+      await assert.rejects(signedRequest({ privateKey: base64 }), {
+        message: /^privateKey is not in PEM format or in base64 format: /,
       });
     });
 
@@ -644,9 +645,14 @@ describe("SAML request", function () {
       expect(await signature(pkcs1Base64(privateKey))).to.equal(await signature(privateKey));
     });
 
-    it("should throw if privateKey is not a private key, naming it", async function () {
-      const publicKey = fs.readFileSync(`${__dirname}/static/pub.pem`, "utf-8");
-      await assert.rejects(signature(publicKey), { message: /^privateKey is not a private key: / });
+    it("should throw if privateKey is a certificate given as Base64, naming it", async function () {
+      const base64 = fs.readFileSync(
+        `${__dirname}/static/acme_tools_com_without_header_and_footer.cert`,
+        "utf-8",
+      );
+      await assert.rejects(signature(base64), {
+        message: /^privateKey is not in PEM format or in base64 format: /,
+      });
     });
   });
 });

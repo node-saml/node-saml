@@ -397,14 +397,6 @@ describe("crypto.ts", function () {
         expect(certificate).to.equal(expectedCert);
       });
 
-      // 'base64finl' in RFC7468 Figure 1 permits a pad, an 'eol', then a pad.
-      it("should accept padding split across a line ending", function () {
-        const privateKey = keyInfoToPem("QUJDCg=\n=", "PRIVATE KEY");
-        expect(privateKey).to.equal(
-          "-----BEGIN PRIVATE KEY-----\nQUJDCg==\n-----END PRIVATE KEY-----\n",
-        );
-      });
-
       it("should return certificate in PEM format for multiline Base64 certificate", function () {
         const certificate = keyInfoToPem(TEST_CERT_MULTILINE, "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);

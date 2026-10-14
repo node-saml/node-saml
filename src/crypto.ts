@@ -28,35 +28,14 @@ export const keyInfoToPem = (
   }
 };
 
-const assertPrivateKey = (key: string | Buffer, optionName: string): void => {
-  try {
-    crypto.createPrivateKey(key);
-  } catch (error) {
-    throw new TypeError(`${optionName} is not a private key: ${(error as Error).message}`);
-  }
-};
-
-const isPrivateKey = (pem: string): boolean => {
-  try {
-    crypto.createPrivateKey(pem);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
+// Base64 carries no label, so it may be PKCS #8 or PKCS #1. Some Node versions read PKCS #8 under
+// either label, so trying PKCS #8 first keeps each key under its own label on every version.
 export const privateKeyToPem = (keyInfo: string | Buffer, optionName: string): string => {
-  const pem = keyInfoToPem(keyInfo, "PRIVATE KEY", optionName);
-  if (isPrivateKey(pem)) {
-    return pem;
+  try {
+    return keyInfoToPem(keyInfo, "PRIVATE KEY", optionName);
+  } catch {
+    return keyInfoToPem(keyInfo, "RSA PRIVATE KEY", optionName);
   }
-
-  // Base64 carries no label, and an RSA key is as often PKCS #1 as PKCS #8. OpenSSL reads PKCS #8
-  // under either label but PKCS #1 only under its own, so trying PKCS #8 first keeps each key's own
-  // label. toPem() keeps a PEM's own label, so only base64 is relabelled here.
-  const rsaPem = keyInfoToPem(keyInfo, "RSA PRIVATE KEY", optionName);
-  assertPrivateKey(rsaPem, optionName);
-  return rsaPem;
 };
 
 // Node's crypto has always read a PEM decryptionPvk as given, and it passes over text around the
@@ -65,7 +44,6 @@ export const privateKeyToPem = (keyInfo: string | Buffer, optionName: string): s
 export const decryptionPvkToPem = (decryptionPvk: string | Buffer): string | Buffer => {
   const text = Buffer.isBuffer(decryptionPvk) ? decryptionPvk.toString("latin1") : decryptionPvk;
   if (typeof text === "string" && text.includes("-----BEGIN")) {
-    assertPrivateKey(decryptionPvk, "decryptionPvk");
     return decryptionPvk;
   }
 

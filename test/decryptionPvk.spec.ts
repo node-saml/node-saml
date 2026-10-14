@@ -28,10 +28,9 @@ const keyFormats = (pkcs1Pem: string): Record<string, string | Buffer> => ({
 });
 
 const notPrivateKeys: Record<string, [unknown, RegExp]> = {
-  "a PEM certificate": [readStatic("cert.pem"), /^decryptionPvk is not a private key: /],
   "a certificate as Base64": [
     singleLine(readStatic("cert.pem")),
-    /^decryptionPvk is not a private key: /,
+    /^decryptionPvk is not in PEM format or in base64 format: /,
   ],
   "neither PEM nor Base64": [
     "not a key",

@@ -745,6 +745,8 @@ It rejects, with an error naming the option and giving the reason:
   than decoding as much of it as it can;
 - a message whose `-----BEGIN` and `-----END` labels disagree;
 - a `CERTIFICATE` whose data is not exactly one X.509 certificate;
+- a `PRIVATE KEY` or `RSA PRIVATE KEY` whose data Node cannot read as a private key under that
+  label, such as PKCS #1 data labelled `PRIVATE KEY`;
 - text before, after or between the messages, and a boundary sharing its line with other text.
 
 xml-crypto documents the complete rules under
@@ -774,11 +776,9 @@ Accepted formats:
 
 2. A single-line or multi-line private key in Base64, without the delimiter lines. See the
    [single-line private key](test/static/single_line_acme_tools_com.key) used in the tests. Base64
-   carries no label, so whether it holds a PKCS #8 key (`PRIVATE KEY`) or a PKCS #1 RSA key
-   (`RSA PRIVATE KEY`) is read from the data.
-
-A value that holds no private key, such as a certificate or a public key, is refused with an error
-naming `privateKey`.
+   carries no label, so it is read as a PKCS #8 key (`PRIVATE KEY`) or, failing that, as a PKCS #1
+   RSA key (`RSA PRIVATE KEY`). Base64 that is neither, such as a certificate or a public key, is
+   refused with an error naming `privateKey`.
 
 ### Configuration option `decryptionPvk`
 
@@ -797,10 +797,8 @@ Accepted formats:
    In particular, text before or after the message, such as the `Bag Attributes` lines that
    `openssl pkcs12` writes, is passed over rather than refused.
 2. A single-line or multi-line private key in Base64, without the delimiter lines, read exactly as
-   for `privateKey`: PKCS #8 or PKCS #1, whichever the data holds.
-
-A value that holds no private key is refused with an error naming `decryptionPvk`, before any
-decryption is attempted.
+   for `privateKey`: PKCS #8 or PKCS #1, whichever the data holds. Base64 that is neither is
+   refused with an error naming `decryptionPvk`, before any decryption is attempted.
 
 ### Configuration option `idpCert`
 
