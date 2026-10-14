@@ -253,17 +253,18 @@ Code that tests for a missing value with `== null`, and reads a value that may b
 `?? ""`, works with both versions:
 
 ```javascript
-// stops matching in the next major version, where the value is null
+// an attribute with no AttributeValue, or one marked xsi:nil, is undefined now and null in the
+// next major version, so this test stops matching it
 if (profile.roles === undefined) {
   /* ... */
 }
 
-// matches undefined now and null in the next major version
+// this test matches it in both
 if (profile.roles == null) {
   /* ... */
 }
 
-// an empty AttributeValue: "" now and in the next major version
+// an empty AttributeValue is undefined now and "" in the next major version; `team` is "" in both
 const team = profile.team ?? "";
 ```
 
