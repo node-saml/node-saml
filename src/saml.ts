@@ -1813,7 +1813,7 @@ class SAML {
       if (nowMs - this.options.acceptedClockSkewMs >= notOnOrAfterMs)
         return new Error("SAML assertion expired: clocks skewed too much");
     }
-    if (maxTimeLimitMs) {
+    if (maxTimeLimitMs != null) {
       if (nowMs - this.options.acceptedClockSkewMs >= maxTimeLimitMs)
         return new Error("SAML assertion expired: assertion too old");
     }

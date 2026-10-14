@@ -180,6 +180,31 @@ describe("rejectReplayedAssertions", function () {
     expect(cacheProvider.expiries).to.deep.equal([Date.parse(issueInstant) + 60000]);
   });
 
+  describe("when maxAssertionAgeMs ends acceptance at the epoch", function () {
+    const issueInstant = new Date(-60000).toISOString();
+
+    it("rejects the assertion through its Conditions", async () => {
+      const saml = newSaml({ maxAssertionAgeMs: 60000 });
+      const copy = response({ issueInstant, confirmations: [] });
+
+      expect(await outcome(saml.validatePostResponseAsync(copy))).to.equal(
+        "SAML assertion expired: assertion too old",
+      );
+    });
+
+    it("rejects the assertion through its SubjectConfirmation", async () => {
+      const saml = newSaml({ maxAssertionAgeMs: 60000 });
+      const copy = response({
+        issueInstant,
+        conditions: `<saml:Conditions>${audienceRestriction}</saml:Conditions>`,
+      });
+
+      expect(await outcome(saml.validatePostResponseAsync(copy))).to.equal(
+        "No valid subject confirmation found among those available in the SAML assertion",
+      );
+    });
+  });
+
   it("rejects an assertion whose acceptance nothing ends", async () => {
     const saml = newSaml({ audience: false });
 
