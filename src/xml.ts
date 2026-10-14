@@ -16,7 +16,7 @@ import {
   XmlSignatureLocation,
 } from "./types";
 import { assertRequired } from "./utility";
-import { keyInfoToPem } from "./crypto";
+import { decryptionPvkToPem, keyInfoToPem, privateKeyToPem } from "./crypto";
 
 const debugLog = util.debuglog("node-saml");
 
@@ -45,8 +45,8 @@ export const xpath = {
     selectXPath(elementsXPathTypeGuard, node, xpath),
 };
 
-export const decryptXml = async (xml: string, decryptionKey: string | Buffer) =>
-  util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionKey });
+export const decryptXml = async (xml: string, decryptionPvk: string | Buffer) =>
+  util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionPvkToPem(decryptionPvk) });
 
 /**
  * // modeled after the current validateSignature method, to maintain consistency for unit tests
@@ -95,9 +95,10 @@ export const getVerifiedXml = (
 
     if (refs.length !== 1) {
       debugLog(
-        "The signature on the %s element has %d references, so it is ignored and the element is treated as unsigned. A signature must have exactly one reference. The next major version rejects the message.",
+        "The signature on the %s element has %d references, so it is ignored and the element is treated as unsigned. SAML requires exactly one, to the element signed (SAML core §5.4.2), and the next major version rejects the message. Configure the identity provider to sign the %s with a single reference.",
         currentNode.localName,
         refs.length,
+        currentNode.localName,
       );
       return null;
     }
@@ -267,7 +268,7 @@ export const signXml = (
     transforms,
     digestAlgorithm: algorithms.getDigestAlgorithm(options.digestAlgorithm),
   });
-  sig.privateKey = keyInfoToPem(options.privateKey, "PRIVATE KEY", "privateKey");
+  sig.privateKey = privateKeyToPem(options.privateKey, "privateKey");
   if (options.publicCert != null) {
     const publicCert = keyInfoToPem(options.publicCert, "CERTIFICATE", "publicCert");
     // toPem() keeps a PEM's own label, and xml-crypto omits KeyInfo when it finds no certificate.

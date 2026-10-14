@@ -6,7 +6,7 @@ import * as util from "util";
 import * as zlib from "zlib";
 import * as algorithms from "./algorithms";
 import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
-import { generateUniqueId, keyInfoToPem } from "./crypto";
+import { generateUniqueId, keyInfoToPem, privateKeyToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { warnIfRequestExtensionsInvalid } from "./extensions";
 import { InMemoryCacheProvider } from "./in-memory-cache-provider";
@@ -253,7 +253,13 @@ function readRedirectParametersBeside(
   if (bracketed.length > 0) {
     throw new Error(`The query string has a ${bracketed[0]} parameter in bracket notation`);
   }
-  return readRedirectParameters(originalQuery);
+  const parameters = readRedirectParameters(originalQuery);
+  // This form returns no RelayState, so the caller's is the one in `container`, and how its
+  // parser was set to split or nest the query string is not known here.
+  if (container.RelayState != null && container.RelayState !== parameters.relayState) {
+    throw new Error("The parsed query has a RelayState that the query string does not");
+  }
+  return parameters;
 }
 
 // `container` is a second reading of the query string, by a parser this library does not choose.
@@ -469,7 +475,7 @@ class SAML {
     }
     samlMessage.Signature = signer.getSignature(
       signedParameters.toString(),
-      keyInfoToPem(this.options.privateKey, "PRIVATE KEY", "privateKey"),
+      privateKeyToPem(this.options.privateKey, "privateKey"),
     );
   }
 
@@ -970,6 +976,10 @@ class SAML {
     );
   }
 
+  /**
+   * @deprecated Pass a function as `idpCert` instead of overriding this: an override can change
+   *   the keys a signature is verified with, so the next major version makes this method private.
+   */
   protected async getKeyInfosAsPem(): Promise<string[]> {
     if (typeof this.options.idpCert === "function") {
       // Do not cache
@@ -985,6 +995,11 @@ class SAML {
   }
 
   // given actually signed XML, try to get the actual assertion used
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async getSignedAssertion(signedXml: string): Promise<string | null> {
     // case 1: Response signed
     const verifiedDoc = await parseDomFromString(signedXml);
@@ -1206,6 +1221,7 @@ class SAML {
         }
         const logoutResponse = xmljsDoc.LogoutResponse;
         if (logoutResponse) {
+          await this.verifyLogoutResponse(xmljsDoc);
           if (this.mustValidateInResponseTo(Boolean(verifiedInResponseTo))) {
             await consumeInResponseToAsync(this.cacheProvider, verifiedInResponseTo);
           }
@@ -1236,6 +1252,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async validateInResponseTo(inResponseTo: string | null): Promise<void> {
     if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
       if (inResponseTo) {
@@ -1324,6 +1345,11 @@ class SAML {
     return legacy ? result : { ...result, relayState: parameters.relayState };
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async hasValidSignatureForRedirect(
     container: ParsedQs,
     originalQuery: string,
@@ -1359,6 +1385,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected validateSignatureForRedirect(
     urlString: crypto.BinaryLike,
     signature: string,
@@ -1405,6 +1436,11 @@ class SAML {
     return verified;
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected verifyLogoutRequest(doc: XMLOutput): void {
     this.verifyIssuer(doc.LogoutRequest);
     const nowMs = new Date().getTime();
@@ -1419,8 +1455,13 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async verifyLogoutResponse(doc: XMLOutput): Promise<void> {
-    const statusCode = doc.LogoutResponse.Status[0].StatusCode[0].$.Value;
+    const statusCode = doc.LogoutResponse.Status?.[0].StatusCode?.[0].$?.Value;
     if (statusCode !== "urn:oasis:names:tc:SAML:2.0:status:Success")
       throw new Error("Bad status code: " + statusCode);
 
@@ -1428,6 +1469,11 @@ class SAML {
     return this.validateInResponseTo(doc.LogoutResponse.$.InResponseTo ?? null);
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected verifyIssuer(samlMessage: XMLOutput): void {
     if (this.options.idpIssuer != null) {
       const issuer = samlMessage.Issuer;
@@ -1445,6 +1491,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async processValidlySignedAssertionAsync(
     this: SAML,
     xml: string, // assertion XML
@@ -1631,7 +1682,7 @@ class SAML {
           if (!Object.prototype.hasOwnProperty.call(attribute, "AttributeValue")) {
             if (attribute.$?.Name != null) {
               debugLog(
-                'The SAML attribute "%s" has no AttributeValue, so it is left out of the profile and cannot be told apart from an attribute the identity provider did not send. The next major version keeps it with a null value.',
+                'The SAML attribute "%s" has no AttributeValue, so it is left out of the profile and cannot be told apart from an attribute the identity provider did not send. The next major version keeps it with a null value. Code that tests the attribute with `== null`, which is true of both `undefined` and null, works with both versions.',
                 attribute.$.Name,
               );
             }
@@ -1654,13 +1705,13 @@ class SAML {
           );
           if (nulls.length > 0) {
             debugLog(
-              'The SAML attribute "%s" has an AttributeValue marked xsi:nil, which reaches the profile as `undefined`. The next major version represents it as null.',
+              'The SAML attribute "%s" has an AttributeValue marked xsi:nil, which reaches the profile as `undefined`. The next major version represents it as null. Code that tests each value with `== null`, which is true of both `undefined` and null, works with both versions.',
               name,
             );
           }
           if (unset.length > nulls.length) {
             debugLog(
-              'The SAML attribute "%s" has an empty AttributeValue, which reaches the profile as `undefined`. The next major version represents it as an empty string.',
+              'The SAML attribute "%s" has an empty AttributeValue, which reaches the profile as `undefined`. The next major version represents it as an empty string. Code that reads each value with `?? ""`, which turns `undefined` into an empty string, works with both versions.',
               name,
             );
           }
@@ -1707,6 +1758,11 @@ class SAML {
     return { profile, loggedOut: false };
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected checkTimestampsValidityError(
     nowMs: number,
     notBefore: string,
@@ -1733,6 +1789,11 @@ class SAML {
     return null;
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected checkAudienceValidityError(
     expectedAudience: string,
     audienceRestrictions: AudienceRestrictionXML[],
@@ -1789,6 +1850,11 @@ class SAML {
     return await this.processValidlySignedPostRequestAsync(verifiedDoc, verifiedDom);
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async processValidlySignedPostRequestAsync(
     this: SAML,
     doc: XMLOutput,
@@ -1828,6 +1894,11 @@ class SAML {
     }
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected async processValidlySignedSamlLogoutAsync(
     this: SAML,
     doc: XMLOutput,
@@ -1861,6 +1932,10 @@ class SAML {
    * @param notOnOrAfter Expiration provided in response.
    * @param issueInstant Time when response was issued.
    * @returns {*} The expiration time to be used, in Ms.
+   *
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
    */
   protected calcMaxAgeAssertionTime(
     maxAssertionAgeMs: number,
@@ -1878,6 +1953,11 @@ class SAML {
     return maxAssertionTimeMs < notOnOrAfterMs ? maxAssertionTimeMs : notOnOrAfterMs;
   }
 
+  /**
+   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
+   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
+   *   validation of an incoming message, so the next major version makes this method private.
+   */
   protected mustValidateInResponseTo(hasInResponseTo: boolean): boolean {
     return (
       this.options.validateInResponseTo === ValidateInResponseTo.always ||

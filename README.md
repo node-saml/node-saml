@@ -202,15 +202,17 @@ logged; see [Troubleshooting](#troubleshooting).
 Two cases resolve without a `profile`:
 
 - The IdP returned a `LogoutResponse` rather than an authentication response:
-  `{ profile: null, loggedOut: true }`.
+  `{ profile: null, loggedOut: true }`. One whose status is not `Success`, or whose `Issuer` is not
+  `idpIssuer` when that is set, is rejected with an `Error`, such as `Bad status code: …`, as it is
+  over the Redirect binding.
 - A `passive` request could not be satisfied without user interaction (a `NoPassive` status on a
   validly signed response): `{ profile: null, loggedOut: false }`.
 
-When the IdP reports a non-`Success` status, the rejection is a `SamlStatusError` whose `xmlStatus`
-property carries the `Status` element as XML, so you can surface the IdP's own reason to the user.
-Be aware that the signature requirement is applied first: many identity providers do not sign their
-error responses, and under the default `wantAuthnResponseSigned: true` such a response is rejected
-for the missing signature before its status is read.
+When the IdP reports a non-`Success` status in a `Response`, the rejection is a `SamlStatusError`
+whose `xmlStatus` property carries the `Status` element as XML, so you can surface the IdP's own
+reason to the user. Be aware that the signature requirement is applied first: many identity
+providers do not sign their error responses, and under the default `wantAuthnResponseSigned: true`
+such a response is rejected for the missing signature before its status is read.
 
 ### The profile
 
@@ -269,6 +271,25 @@ The next major version keeps the first with a `null` value, and represents an em
 as the empty string and one marked `xsi:nil` as `null`, which is what they mean in
 [SAML core §2.7.3.1.1](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf). Run
 with `NODE_DEBUG=node-saml` to be told which attributes in a response you received are affected.
+
+Code that tests for a missing value with `== null`, and reads a value that may be empty with
+`?? ""`, works with both versions:
+
+```javascript
+// an attribute with no AttributeValue, or one marked xsi:nil, is undefined now and null in the
+// next major version, so this test stops matching it
+if (profile.roles === undefined) {
+  /* ... */
+}
+
+// this test matches it in both
+if (profile.roles == null) {
+  /* ... */
+}
+
+// an empty AttributeValue is undefined now and "" in the next major version; `team` is "" in both
+const team = profile.team ?? "";
+```
 
 ### Single logout (SLO)
 
@@ -337,7 +358,10 @@ The deprecated form returns no `relayState`. A signed message is read from `orig
 too, and is treated as signed when either argument has a `Signature`, even an empty one. Because
 its caller goes on reading the parsed object, it also rejects a signed query string that names one
 of the five parameters in bracket notation, such as `RelayState[]` or `[RelayState]`, which the
-`qs` parser reads as `RelayState`.
+`qs` parser reads as `RelayState`. It rejects a signed message, too, when the parsed object holds a
+`RelayState` that is not the one in `originalQuery`, as it does when the parser splits or nests the
+query string by other rules: one that also splits on `;` reads `x=1;RelayState=...` as a
+`RelayState`.
 
 > **Note:** the deprecated form still accepts a message with no `Signature` parameter, because the
 > binding makes signing optional. Such a message is accepted with none of its contents
@@ -418,7 +442,7 @@ applies to this function too, and it logs the same warnings under `NODE_DEBUG=no
 | `audience`               | `issuer`                       | Expected `Audience` in the response. Set to `false` to skip the check — which removes a security control; see the note under [Security and signatures](#security-and-signatures).                 |
 | `privateKey`             | —                              | SP private key in PEM format, used to sign outgoing messages. See [Security and signatures](#security-and-signatures).                                                                            |
 | `publicCert`             | —                              | SP public signing certificate, embedded in the `AuthnRequest` so the IdP can verify it. Must match `privateKey`.                                                                                  |
-| `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers.                                                                                                                  |
+| `decryptionPvk`          | —                              | Private key used to decrypt encrypted assertions and encrypted name identifiers. See [Configuration option `decryptionPvk`](#configuration-option-decryptionpvk).                                 |
 | `signatureAlgorithm`     | `"sha1"`                       | `"sha1"`, `"sha256"`, `"sha256-mgf1"`, or `"sha512"`. **Set this explicitly** if you set `privateKey`; see [Configuration option `signatureAlgorithm`](#configuration-option-signaturealgorithm). |
 | `digestAlgorithm`        | `"sha1"`                       | Digest algorithm for the signed data object: `"sha1"`, `"sha256"`, or `"sha512"`. Same advice as above. Required with `"sha256-mgf1"`.                                                            |
 | `xmlSignatureTransforms` | enveloped-signature + exc-c14n | Signature transforms used in HTTP-POST signatures. The default is `["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"]`.                         |
@@ -649,12 +673,45 @@ explain rejections that might otherwise look overly strict:
   One case is not refused yet: a signature with more than one reference is ignored, so its element
   counts as unsigned. That matters only for a `Response` under `wantAuthnResponseSigned: false`,
   which is then accepted on the strength of its separately signed assertion. The next major version
-  rejects such a message; until then it logs a warning under `NODE_DEBUG=node-saml`.
+  rejects such a message; until then it logs a warning under `NODE_DEBUG=node-saml`. Configure the
+  identity provider to sign with a single reference, to the element signed, as
+  [SAML core §5.4.2](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf) requires.
 - **Validation fails closed.** Decrypted content is not trusted content: an `EncryptedAssertion` is
   decrypted and then still has to have its signature verified. Timestamps, audience, issuer, and
   `InResponseTo` are security controls rather than conveniences — an option that switches one off
   (`audience: false`, `acceptedClockSkewMs: -1`) is removing a control, so make that choice
   deliberately.
+
+### Subclassing `SAML`
+
+Overriding a `protected` method of `SAML` that validates an incoming message is deprecated, and the
+next major version makes those methods private: an override can switch off a check that the
+properties above depend on. That is every `protected` method except `signRequest` and
+`generateAuthorizeRequestAsync`. Check what the public method returns instead, and relax a check
+only through its option under [Response validation](#response-validation):
+
+```javascript
+// deprecated
+class TenantSaml extends SAML {
+  async processValidlySignedAssertionAsync(...args) {
+    const result = await super.processValidlySignedAssertionAsync(...args);
+    assertKnownTenant(result.profile);
+    return result;
+  }
+}
+
+// use this instead
+const { profile } = await saml.validatePostResponseAsync(req.body);
+if (profile) {
+  assertKnownTenant(profile);
+}
+```
+
+To choose the certificates a signature is verified with at run time, pass a function as
+[`idpCert`](#configuration-option-idpcert) rather than overriding `getKeyInfosAsPem`. To check the
+`Issuer` of a logout message, set [`idpIssuer`](#response-validation) rather than overriding
+`verifyIssuer`: a `LogoutResponse` resolves with `profile: null`, so its result has no issuer to
+check.
 
 ### Verifying a signature outside `SAML`
 
@@ -764,6 +821,8 @@ It rejects, with an error naming the option and giving the reason:
   than decoding as much of it as it can;
 - a message whose `-----BEGIN` and `-----END` labels disagree;
 - a `CERTIFICATE` whose data is not exactly one X.509 certificate;
+- a `PRIVATE KEY` or `RSA PRIVATE KEY` whose data Node cannot read as a private key under that
+  label, such as PKCS #1 data labelled `PRIVATE KEY`;
 - text before, after or between the messages, and a boundary sharing its line with other text.
 
 xml-crypto documents the complete rules under
@@ -792,7 +851,30 @@ Accepted formats:
    ```
 
 2. A single-line or multi-line private key in Base64, without the delimiter lines. See the
-   [single-line private key](test/static/single_line_acme_tools_com.key) used in the tests.
+   [single-line private key](test/static/single_line_acme_tools_com.key) used in the tests. Base64
+   carries no label, so it is read as a PKCS #8 key (`PRIVATE KEY`) or, failing that, as a PKCS #1
+   RSA key (`RSA PRIVATE KEY`). Base64 that is neither, such as a certificate or a public key, is
+   refused with an error naming `privateKey`.
+
+### Configuration option `decryptionPvk`
+
+To decrypt encrypted assertions and encrypted name identifiers, provide the SP's private key via
+`decryptionPvk`. Its certificate is `decryptionCert`, which the IdP encrypts to; see
+[Service provider metadata](#service-provider-metadata).
+
+```javascript
+decryptionPvk: "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXJP47MTKaFpkU ... ==";
+```
+
+Accepted formats:
+
+1. PEM, handed to Node's crypto as given. That is how `decryptionPvk` has always been read, so
+   Node's rules apply rather than the ones listed under [`privateKey`](#configuration-option-privatekey).
+   In particular, text before or after the message, such as the `Bag Attributes` lines that
+   `openssl pkcs12` writes, is passed over rather than refused.
+2. A single-line or multi-line private key in Base64, without the delimiter lines, read exactly as
+   for `privateKey`: PKCS #8 or PKCS #1, whichever the data holds. Base64 that is neither is
+   refused with an error naming `decryptionPvk`, before any decryption is attempted.
 
 ### Configuration option `idpCert`
 

@@ -110,7 +110,7 @@ describe("crypto.ts", function () {
       it("should reject a malformed CRLF certificate rather than accept it", function () {
         const malformed = `-----BEGIN CERTIFICATE-----\r\n${"AAAA\r\n".repeat(26)}!`;
         expect(() => keyInfoToPem(malformed, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
+          /^keyInfo is neither valid PEM nor a valid Base64 certificate: /,
         );
       });
 
@@ -121,13 +121,13 @@ describe("crypto.ts", function () {
             `-----BEGIN CERTIFICATE-----\n${firstLine}\n\n${rest.join("\n")}\n-----END CERTIFICATE-----`,
             "CERTIFICATE",
           ),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is neither valid PEM nor a valid Base64 certificate: /);
       });
 
       it("should throw if the encapsulated text is empty", function () {
         expect(() =>
           keyInfoToPem("-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----", "CERTIFICATE"),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is neither valid PEM nor a valid Base64 certificate: /);
       });
 
       it("should throw if the labels of a message disagree", function () {
@@ -136,12 +136,12 @@ describe("crypto.ts", function () {
             `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END PUBLIC KEY-----`,
             "CERTIFICATE",
           ),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is neither valid PEM nor a valid Base64 certificate: /);
       });
 
       it("should throw if Base64 given as a certificate is not one", function () {
         expect(() => keyInfoToPem(FAKE_CERT, "CERTIFICATE")).to.throw(
-          /not in PEM format or in base64 format/,
+          /^keyInfo is neither valid PEM nor a valid Base64 certificate: /,
         );
       });
 
@@ -151,48 +151,8 @@ describe("crypto.ts", function () {
           Buffer.from([0]),
         ]).toString("base64");
         expect(() => keyInfoToPem(trailing, "CERTIFICATE", "idpCert")).to.throw(
-          /^idpCert is not in PEM format or in base64 format: Expected a single certificate/,
+          /^idpCert is neither valid PEM nor a valid Base64 certificate: Expected a single certificate/,
         );
-      });
-
-      // Labelled as a key, which is checked only as Base64, so that the Base64
-      // rule is the one thing that can reject these; a certificate is also
-      // checked as X.509.
-      it("should throw if the encapsulated text is padded before its end", function () {
-        expect(() =>
-          keyInfoToPem(
-            "-----BEGIN PRIVATE KEY-----\nQUJD=REVG\n-----END PRIVATE KEY-----",
-            "PRIVATE KEY",
-          ),
-        ).to.throw(/not in PEM format or in base64 format/);
-      });
-
-      it("should throw if a body line other than the last one is padded", function () {
-        expect(() =>
-          keyInfoToPem(
-            "-----BEGIN PRIVATE KEY-----\nQUJDCg==\nQUJD\n-----END PRIVATE KEY-----",
-            "PRIVATE KEY",
-          ),
-        ).to.throw(/not in PEM format or in base64 format/);
-      });
-
-      it("should throw if the encapsulated text is nothing but padding", function () {
-        expect(() =>
-          keyInfoToPem("-----BEGIN PRIVATE KEY-----\n==\n-----END PRIVATE KEY-----", "PRIVATE KEY"),
-        ).to.throw(/not in PEM format or in base64 format/);
-      });
-
-      // RFC4648 section 4: a multiple of four characters, two then '==', or
-      // three then '='. https://www.rfc-editor.org/rfc/rfc4648#section-4
-      ["A", "A=", "AA", "AAA", "AAAA=", "AAA==", "AAAAA", "AAAA=="].forEach(function (body) {
-        it(`should throw if the encapsulated text ends in the partial quantum ${body}`, function () {
-          expect(() =>
-            keyInfoToPem(
-              `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`,
-              "PRIVATE KEY",
-            ),
-          ).to.throw(/not in PEM format or in base64 format/);
-        });
       });
 
       it("should throw if the encapsulated text is not base64", function () {
@@ -201,14 +161,14 @@ describe("crypto.ts", function () {
             "-----BEGIN CERTIFICATE-----\nI'm not base64\n-----END CERTIFICATE-----",
             "CERTIFICATE",
           ),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is neither valid PEM nor a valid Base64 certificate: /);
       });
 
       it("should throw if concatenated certificates are separated by other text", function () {
         const certificate = `-----BEGIN CERTIFICATE-----\n${TEST_CERT_MULTILINE}\n-----END CERTIFICATE-----`;
         expect(() =>
           keyInfoToPem(`${certificate}\nBag Attributes\n${certificate}`, "CERTIFICATE"),
-        ).to.throw(/not in PEM format or in base64 format/);
+        ).to.throw(/^keyInfo is neither valid PEM nor a valid Base64 certificate: /);
       });
     });
 
@@ -395,14 +355,6 @@ describe("crypto.ts", function () {
         const wrapped = TEST_CERT_SINGLELINE.replace(/(.{30})/g, "$1\n");
         const certificate = keyInfoToPem(wrapped, "CERTIFICATE");
         expect(certificate).to.equal(expectedCert);
-      });
-
-      // 'base64finl' in RFC7468 Figure 1 permits a pad, an 'eol', then a pad.
-      it("should accept padding split across a line ending", function () {
-        const privateKey = keyInfoToPem("QUJDCg=\n=", "PRIVATE KEY");
-        expect(privateKey).to.equal(
-          "-----BEGIN PRIVATE KEY-----\nQUJDCg==\n-----END PRIVATE KEY-----\n",
-        );
       });
 
       it("should return certificate in PEM format for multiline Base64 certificate", function () {

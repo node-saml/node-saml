@@ -116,10 +116,8 @@ function signedRedirectLogoutResponse(xml: string): {
   return { container, query: new URLSearchParams(container).toString() };
 }
 
-function signedPostLogoutResponse(): Record<string, string> {
-  return {
-    SAMLResponse: Buffer.from(sign(logoutResponseXml(), "LogoutResponse")).toString("base64"),
-  };
+function signedPostLogoutResponse(xml = logoutResponseXml()): Record<string, string> {
+  return { SAMLResponse: Buffer.from(sign(xml, "LogoutResponse")).toString("base64") };
 }
 
 function newSaml(config: Partial<SamlConfig> = {}, Saml: typeof SAML = SAML): SAML {
@@ -499,6 +497,64 @@ describe("InResponseTo request ID consumption", function () {
 
       await saml.validatePostResponseAsync(response);
       expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "InResponseTo is not valid",
+      );
+    });
+
+    it("rejects one that reports a failure over POST as over the Redirect binding", async () => {
+      const failed = logoutResponseXml({ status: requesterError });
+      const rejection = "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester";
+
+      expect(
+        await outcome(saml.validatePostResponseAsync(signedPostLogoutResponse(failed))),
+      ).to.equal(rejection);
+      expect(
+        await outcome(saml.validateRedirectAsync(signedRedirectLogoutResponse(failed).query)),
+      ).to.equal(rejection);
+    });
+
+    it("rejects one from an issuer other than idpIssuer over POST as over the Redirect binding", async () => {
+      saml = newSaml({ wantAuthnResponseSigned: true, idpIssuer: "another-idp" });
+      await saml.getLogoutUrlAsync(user, "", {});
+      const xml = logoutResponseXml();
+      const rejection = "Unknown SAML issuer. Expected: another-idp Received: idp";
+
+      expect(await outcome(saml.validatePostResponseAsync(signedPostLogoutResponse(xml)))).to.equal(
+        rejection,
+      );
+      expect(
+        await outcome(saml.validateRedirectAsync(signedRedirectLogoutResponse(xml).query)),
+      ).to.equal(rejection);
+    });
+
+    it("rejects one with no status over POST", async () => {
+      const response = signedPostLogoutResponse(logoutResponseXml({ status: "" }));
+
+      expect(await outcome(saml.validatePostResponseAsync(response))).to.equal(
+        "Bad status code: undefined",
+      );
+    });
+
+    it("rejects an unsigned one over POST and leaves the request pending", async () => {
+      saml = newSaml({ wantAuthnResponseSigned: false });
+      await saml.getLogoutUrlAsync(user, "", {});
+      const unsigned = { SAMLResponse: Buffer.from(logoutResponseXml()).toString("base64") };
+
+      expect(await outcome(saml.validatePostResponseAsync(unsigned))).to.equal(
+        "Invalid signature: No response found",
+      );
+      expect(await outcome(saml.validatePostResponseAsync(signedPostLogoutResponse()))).to.equal(
+        "accepted",
+      );
+    });
+
+    it("retires the request when a signed one answering it fails over POST", async () => {
+      const failed = signedPostLogoutResponse(logoutResponseXml({ status: requesterError }));
+
+      expect(await outcome(saml.validatePostResponseAsync(failed))).to.equal(
+        "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester",
+      );
+      expect(await outcome(saml.validatePostResponseAsync(signedPostLogoutResponse()))).to.equal(
         "InResponseTo is not valid",
       );
     });

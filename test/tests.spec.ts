@@ -1177,7 +1177,7 @@ describe("node-saml /", function () {
 
         it("should throw if decryptionCert is not a certificate, naming the option", function () {
           expect(() => encryptionMetadata(FAKE_CERT)).to.throw(
-            /^decryptionCert is not in PEM format or in base64 format: /,
+            /^decryptionCert is neither valid PEM nor a valid Base64 certificate: /,
           );
         });
       });
@@ -1343,6 +1343,24 @@ describe("node-saml /", function () {
 
           assert.ok(rejection instanceof SamlStatusError);
           expect(rejection.xmlStatus).to.not.contain("not-signed");
+        });
+      });
+
+      it("rejects a signed message that is neither a Response nor a LogoutResponse", async () => {
+        const samlObj = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
+          issuer: "onesaml_login",
+        });
+        const container = {
+          SAMLResponse: fs.readFileSync(
+            __dirname + "/static/logout_request_with_good_signature.xml",
+            "base64",
+          ),
+        };
+
+        await assert.rejects(samlObj.validatePostResponseAsync(container), {
+          message: "Unknown SAML response message",
         });
       });
 
@@ -3822,7 +3840,8 @@ describe("node-saml /", function () {
       '<?xml version=\\"1.0\\"?><samlp:AuthnRequest xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" ID=\\"_ea40a8ab177df048d645\\" Version=\\"2.0\\" IssueInstant=\\"2017-08-22T19:30:01.363Z\\" ProtocolBinding=\\"urn:oasis:names$tc:SAML:2.0:bindings:HTTP-POST\\" AssertionConsumerServiceURL=\\"https://example.com/login/callback\\" Destination=\\"https://www.example.com\\"><saml:Issuer xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">onelogin_saml</saml:Issuer><s$mlp:NameIDPolicy xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protocol\\" Format=\\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\\" AllowCreate=\\"true\\"/><samlp:RequestedAuthnContext xmlns:samlp=\\"urn:oasis:names:tc:SAML:2.0:protoc$l\\" Comparison=\\"exact\\"><saml:AuthnContextClassRef xmlns:saml=\\"urn:oasis:names:tc:SAML:2.0:assertion\\">urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></samlp:RequestedAuthnContext></samlp$AuthnRequest>';
 
     await assert.rejects(samlObj._requestToUrlAsync(request, null, "authorize", {}), {
-      message: "privateKey is not in PEM format or in base64 format: Invalid PEM format.",
+      message:
+        "privateKey is neither valid PEM nor a valid Base64 private key: Invalid PEM format.",
     });
   });
 
@@ -4388,6 +4407,37 @@ describe("node-saml /", function () {
 
           await assert.rejects(validate(container, signedForAlice.replace(`${alice}&`, "")), {
             message: "The query string has no SAMLRequest or SAMLResponse parameter",
+          });
+        });
+
+        describe("when the parser is set to read the query string another way", function () {
+          const evil = "https://evil.example";
+          const splittingOnSemicolons = (query: string) => lastValues(query.replace(/;/g, "&"));
+          const unsignedRelayState = {
+            message: "The parsed query has a RelayState that the query string does not",
+          };
+
+          it("rejects a RelayState that only a parser splitting on semicolons reads", async function () {
+            const query = `${signedForAlice}&x=1;${param("RelayState", evil)}`;
+
+            await assert.rejects(validate(splittingOnSemicolons(query), query), unsignedRelayState);
+          });
+
+          it("rejects a RelayState that such a parser reads in place of the signed one", async function () {
+            const signed = sign(alice, param("RelayState", "/home"), sigAlg);
+            const query = `${signed}&x=1;${param("RelayState", evil)}`;
+
+            await assert.rejects(validate(splittingOnSemicolons(query), query), unsignedRelayState);
+          });
+
+          it("rejects a RelayState that a parser nests from a dotted name", async function () {
+            const query = `${signedForAlice}&${param("RelayState.next", evil)}`;
+            const container = { ...lastValues(signedForAlice), RelayState: { next: evil } };
+
+            await assert.rejects(
+              validate(container as unknown as querystring.ParsedUrlQuery, query),
+              unsignedRelayState,
+            );
           });
         });
       });

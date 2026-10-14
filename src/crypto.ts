@@ -22,10 +22,40 @@ export const keyInfoToPem = (
   try {
     return toPem(keyData, pemLabel);
   } catch (error) {
+    // toPem() gives one message for malformed text and for data its label doesn't fit, so name
+    // both ways the value was read rather than guess which one failed.
+    const base64Contents: Record<PemLabel, string> = {
+      CERTIFICATE: "certificate",
+      "PUBLIC KEY": "public key",
+      "PRIVATE KEY": "private key",
+      "RSA PRIVATE KEY": "private key",
+    };
     throw new TypeError(
-      `${optionName} is not in PEM format or in base64 format: ${(error as Error).message}`,
+      `${optionName} is neither valid PEM nor a valid Base64 ${base64Contents[pemLabel]}: ${(error as Error).message}`,
     );
   }
+};
+
+// Base64 carries no label, so it may be PKCS #8 or PKCS #1. Some Node versions read PKCS #8 under
+// either label, so trying PKCS #8 first keeps each key under its own label on every version.
+export const privateKeyToPem = (keyInfo: string | Buffer, optionName: string): string => {
+  try {
+    return keyInfoToPem(keyInfo, "PRIVATE KEY", optionName);
+  } catch {
+    return keyInfoToPem(keyInfo, "RSA PRIVATE KEY", optionName);
+  }
+};
+
+// Node's crypto has always read a PEM decryptionPvk as given, and it passes over text around the
+// message that toPem() refuses, so only base64, which Node cannot read, is converted. The base64
+// alphabet has no "-", so a value holding a boundary is PEM.
+export const decryptionPvkToPem = (decryptionPvk: string | Buffer): string | Buffer => {
+  const text = Buffer.isBuffer(decryptionPvk) ? decryptionPvk.toString("latin1") : decryptionPvk;
+  if (typeof text === "string" && text.includes("-----BEGIN")) {
+    return decryptionPvk;
+  }
+
+  return privateKeyToPem(decryptionPvk, "decryptionPvk");
 };
 
 export const keyInfoToBase64Certificate = (
