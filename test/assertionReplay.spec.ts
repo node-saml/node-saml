@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as util from "util";
 import * as sinon from "sinon";
+import * as xmlenc from "xml-encryption";
 import { expect } from "chai";
 import {
   CacheProvider,
@@ -10,6 +12,8 @@ import {
   ValidateInResponseTo,
 } from "../src";
 import { signXml } from "../src/xml";
+
+const encryptXml = util.promisify(xmlenc.encrypt);
 
 const privateKey = fs.readFileSync(path.join(__dirname, "static", "key.pem"), "utf-8");
 const idpCert = fs.readFileSync(path.join(__dirname, "static", "cert.pem"), "utf-8");
@@ -107,6 +111,38 @@ describe("rejectReplayedAssertions", function () {
   it("rejects a second copy of an accepted response", async () => {
     const saml = newSaml();
     const copy = response();
+
+    expect(await outcome(saml.validatePostResponseAsync(copy))).to.equal("accepted");
+    expect(await outcome(saml.validatePostResponseAsync(copy))).to.equal(
+      "The assertion _assertion has already been received",
+    );
+  });
+
+  it("rejects a second copy of a response whose assertion is encrypted", async () => {
+    const assertion = sign(
+      `<saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="_assertion" Version="2.0" IssueInstant="${instant()}">` +
+        `<saml:Issuer>idp</saml:Issuer>` +
+        `<saml:Subject><saml:NameID>user</saml:NameID>${confirmation(instant(300000))}</saml:Subject>` +
+        `<saml:Conditions NotBefore="${instant(-60000)}" NotOnOrAfter="${instant(300000)}">${audienceRestriction}</saml:Conditions>` +
+        `<saml:AuthnStatement AuthnInstant="${instant()}"/></saml:Assertion>`,
+      "Assertion",
+    );
+    const encryptedAssertion = await encryptXml(assertion, {
+      rsa_pub: fs.readFileSync(path.join(__dirname, "static", "testshib encryption pub.pem")),
+      pem: fs.readFileSync(path.join(__dirname, "static", "testshib encryption cert.pem")),
+      encryptionAlgorithm: "http://www.w3.org/2009/xmlenc11#aes256-gcm",
+      keyEncryptionAlgorithm: "http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p",
+    });
+    const signed = sign(
+      `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}">` +
+        `<saml:Issuer>idp</saml:Issuer>${success}` +
+        `<saml:EncryptedAssertion>${encryptedAssertion}</saml:EncryptedAssertion></samlp:Response>`,
+      "Response",
+    );
+    const copy = { SAMLResponse: Buffer.from(signed).toString("base64") };
+    const saml = newSaml({
+      decryptionPvk: fs.readFileSync(path.join(__dirname, "static", "testshib encryption pvk.pem")),
+    });
 
     expect(await outcome(saml.validatePostResponseAsync(copy))).to.equal("accepted");
     expect(await outcome(saml.validatePostResponseAsync(copy))).to.equal(
