@@ -39,25 +39,31 @@ function sign(xml: string, element: string): string {
   );
 }
 
-function confirmation(notOnOrAfter: string): string {
+function inResponseToAttribute(inResponseTo?: string): string {
+  return inResponseTo == null ? "" : ` InResponseTo="${inResponseTo}"`;
+}
+
+function confirmation(notOnOrAfter: string, inResponseTo?: string): string {
   return (
     '<saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">' +
-    `<saml:SubjectConfirmationData NotOnOrAfter="${notOnOrAfter}" Recipient="${callbackUrl}"/>` +
+    `<saml:SubjectConfirmationData NotOnOrAfter="${notOnOrAfter}" Recipient="${callbackUrl}"${inResponseToAttribute(inResponseTo)}/>` +
     "</saml:SubjectConfirmation>"
   );
 }
 
-// An unsolicited response, so nothing but the assertion's ID can tell a second copy from the first.
+// Unsolicited by default, so nothing but the assertion's ID can tell a second copy from the first.
 function response({
+  inResponseTo,
   issueInstant = instant(),
   assertionElement = "saml:Assertion",
   assertionAttributes = ` ID="_assertion" Version="2.0" IssueInstant="${issueInstant}"`,
   issuer = "<saml:Issuer>idp</saml:Issuer>",
   conditions = `<saml:Conditions NotBefore="${instant(-60000)}" NotOnOrAfter="${instant(300000)}">${audienceRestriction}</saml:Conditions>`,
-  confirmations = [confirmation(instant(300000))],
+  confirmations = [confirmation(instant(300000), inResponseTo)],
   subject = `<saml:Subject><saml:NameID>user</saml:NameID>${confirmations.join("")}</saml:Subject>`,
   signAssertion = true,
 }: {
+  inResponseTo?: string;
   issueInstant?: string;
   assertionElement?: string;
   assertionAttributes?: string;
@@ -68,7 +74,7 @@ function response({
   signAssertion?: boolean;
 } = {}): Record<string, string> {
   const xml =
-    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}">` +
+    `<samlp:Response ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}"${inResponseToAttribute(inResponseTo)}>` +
     `<saml:Issuer>idp</saml:Issuer>${success}` +
     `<${assertionElement}${assertionAttributes}>${issuer}${subject}` +
     `${conditions}<saml:AuthnStatement AuthnInstant="${instant()}"/></${assertionElement}></samlp:Response>`;
@@ -172,6 +178,28 @@ describe("rejectReplayedAssertions", function () {
       "accepted",
     ]);
   });
+
+  for (const validateInResponseTo of [
+    ValidateInResponseTo.always,
+    ValidateInResponseTo.ifPresent,
+  ]) {
+    it(`accepts one of two copies of a solicited response validated at the same moment under "${validateInResponseTo}"`, async () => {
+      const cacheProvider = new InMemoryCacheProvider();
+      await cacheProvider.saveAsync("_request", new Date().toISOString());
+      const saml = newSaml({ cacheProvider, validateInResponseTo });
+      const copy = response({ inResponseTo: "_request" });
+
+      const outcomes = await Promise.all([
+        outcome(saml.validatePostResponseAsync(copy)),
+        outcome(saml.validatePostResponseAsync(copy)),
+      ]);
+
+      expect(outcomes.sort()).to.deep.equal([
+        "The assertion _assertion has already been received",
+        "accepted",
+      ]);
+    });
+  }
 
   it("rejects a copy presented once valid, after it was rejected as not yet valid", async () => {
     const clock = sinon.useFakeTimers({ now: Date.now(), toFake: ["Date"] });

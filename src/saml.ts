@@ -183,6 +183,8 @@ function assertionAcceptedUntilMs(
   return limitsMs.length === 0 ? null : Math.min(...limitsMs) + acceptedClockSkewMs;
 }
 
+class ReplayedAssertionError extends Error {}
+
 // SAML profiles §4.1.4.5: the SP remembers the ID of each assertion it accepts for as long as that
 // assertion would be valid. It is recorded before the checks that can still reject the assertion, so
 // one rejected as not yet valid cannot be presented again once it is.
@@ -213,7 +215,7 @@ async function recordAssertionAsync(assertionXml: string, options: SamlOptions):
   // The constructor refuses a cacheProvider without saveIfAbsentAsync while this option is on.
   const cacheProvider = options.cacheProvider as Required<Pick<CacheProvider, "saveIfAbsentAsync">>;
   if (!(await cacheProvider.saveIfAbsentAsync(key, generateInstant(), acceptedUntilMs))) {
-    throw new Error(`The assertion ${id} has already been received`);
+    throw new ReplayedAssertionError(`The assertion ${id} has already been received`);
   }
 }
 
@@ -1307,7 +1309,11 @@ class SAML {
       // A failure the IdP signed means it answered the request, so no other response is coming.
       // An unsigned one proves nothing about the request it names, so that request stays pending.
       // Gated as success is, so under "ifPresent" a failure retires nothing a success would keep.
-      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+      // A replay leaves its requests to the first copy, which may still be validating.
+      if (
+        !(err instanceof ReplayedAssertionError) &&
+        this.mustValidateInResponseTo(Boolean(inResponseTo))
+      ) {
         const answeredRequestIds = new Set(
           verifiedAssertionXml == null
             ? []

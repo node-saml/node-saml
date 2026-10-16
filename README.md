@@ -890,7 +890,9 @@ one does and a custom one does if it implements `consumeAsync`, described below.
 While `InResponseTo` is validated — always under `"always"`, and under `"ifPresent"` when the
 `Response` or `LogoutResponse` element carries one — a request ID is removed when a verified
 signature covers an `InResponseTo` naming it, on that element or on a `SubjectConfirmationData` in
-the assertion, whether the response is then accepted or rejected. Nothing else removes one. Anyone
+the assertion, whether the response is then accepted or rejected. The exception is a copy rejected
+as a [replayed assertion](#replayed-assertions), which leaves the ID to the first copy, since that
+copy may still be validating. Nothing else removes one. Anyone
 who learns a pending request ID can put it in a response, so an unsigned `InResponseTo` is still
 checked against the recorded IDs but cannot by itself retire one, and the IdP's genuine response
 validates after it. That covers a rejected response in which nothing signed names the request, an
