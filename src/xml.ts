@@ -48,6 +48,78 @@ export const xpath = {
 export const decryptXml = async (xml: string, decryptionPvk: string | Buffer) =>
   util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionPvkToPem(decryptionPvk) });
 
+const encryptionMethod = (element: Element): Element | undefined =>
+  xpath.selectElements(
+    element,
+    "./*[local-name()='EncryptionMethod' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']",
+  )[0];
+
+const deprecatedContentAlgorithms = new Set([
+  "http://www.w3.org/2001/04/xmlenc#aes128-cbc",
+  "http://www.w3.org/2001/04/xmlenc#aes256-cbc",
+  "http://www.w3.org/2001/04/xmlenc#tripledes-cbc",
+]);
+
+export const warnIfDecryptionWillFailInNextMajor = (encryptedElement: Element): void => {
+  if (!debugLog.enabled) {
+    return;
+  }
+
+  const encryptedData = xpath.selectElements(
+    encryptedElement,
+    "./*[local-name()='EncryptedData' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']",
+  )[0];
+  if (!encryptedData) {
+    return;
+  }
+
+  const contentAlgorithm = encryptionMethod(encryptedData)?.getAttribute("Algorithm");
+  if (contentAlgorithm && deprecatedContentAlgorithms.has(contentAlgorithm)) {
+    debugLog(
+      "The %s was decrypted with content encryption algorithm \"%s\". The next major version will not decrypt it. Configure the identity provider to use aes128-gcm or aes256-gcm for content and rsa-oaep-mgf1p for key wrapping. If AES-GCM is unavailable, disable encryption of this element at the identity provider; node-saml continues to validate signatures on unencrypted assertions.",
+      encryptedElement.localName,
+      contentAlgorithm,
+    );
+  }
+
+  const encryptedKey = xpath.selectElements(
+    encryptedData,
+    "./*[local-name()='KeyInfo' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']/*[local-name()='EncryptedKey' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']",
+  )[0];
+  if (!encryptedKey) {
+    return;
+  }
+
+  const keyMethod = encryptionMethod(encryptedKey);
+  const keyAlgorithm = keyMethod?.getAttribute("Algorithm");
+  if (keyAlgorithm === "http://www.w3.org/2001/04/xmlenc#rsa-1_5") {
+    debugLog(
+      "The %s was decrypted with key transport algorithm \"%s\". The next major version will not decrypt it. Configure the identity provider to wrap the key with rsa-oaep-mgf1p and to encrypt content with aes128-gcm or aes256-gcm. If AES-GCM is unavailable, disable encryption at the identity provider; node-saml continues to validate signatures on unencrypted assertions.",
+      encryptedElement.localName,
+      keyAlgorithm,
+    );
+  }
+
+  if (keyAlgorithm === "http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p" && keyMethod) {
+    const digestAlgorithm = xpath.selectElements(
+      keyMethod,
+      "./*[local-name()='DigestMethod' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']",
+    )[0]?.getAttribute("Algorithm");
+
+    if (
+      digestAlgorithm === "http://www.w3.org/2000/09/xmldsig#sha256" ||
+      digestAlgorithm === "http://www.w3.org/2000/09/xmldsig#sha512"
+    ) {
+      debugLog(
+        "The %s was decrypted with key wrapping algorithm \"%s\" and DigestMethod \"%s\". The next major version will not decrypt this form. Configure the identity provider to use SHA-1 (the default) with rsa-oaep-mgf1p; both versions decrypt that form. After upgrading, the identity provider can switch to SHA-256.",
+        encryptedElement.localName,
+        keyAlgorithm,
+        digestAlgorithm,
+      );
+    }
+  }
+};
+
 /**
  * // modeled after the current validateSignature method, to maintain consistency for unit tests
  * Input: fullXml, the document for SignedXML context
