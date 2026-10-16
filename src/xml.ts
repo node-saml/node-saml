@@ -443,6 +443,7 @@ export const getNameIdAsync = async (
     const encryptedDataXml = encryptedData[0].toString();
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
+    warnIfDecryptionWillFailInNextMajor(encryptedIds[0]);
     const decryptedDoc = await parseDomFromString(decryptedXml);
     const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
     if (decryptedIds.length !== 1) {
