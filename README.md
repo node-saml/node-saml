@@ -905,18 +905,20 @@ whether a message is accepted.
   Configure the identity provider to use `aes128-gcm` or `aes256-gcm` instead.
 - **Key transport:** `rsa-1_5` will be refused. It already fails to decrypt on Node 18
   and Node 20; other runtimes may still accept it in 5.x. Configure the identity provider to
-  wrap encryption keys using `rsa-oaep-mgf1p` instead.
+  wrap encryption keys using `rsa-oaep-mgf1p` with its default SHA-1 digest instead.
 - **OAEP digest:** An `rsa-oaep-mgf1p` key with a `DigestMethod` of
-  `http://www.w3.org/2000/09/xmldsig#sha256` or
-  `http://www.w3.org/2000/09/xmldsig#sha512` will no longer decrypt. Older versions of
-  `xml-encryption` used the same digest for MGF1; the next major version uses MGF1-SHA1
-  as required by XML Encryption 1.1 §5.5.2. Configure the identity provider to use **SHA-1**
-  (the default) with `rsa-oaep-mgf1p` for now. Both versions decrypt that form. After the
-  upgrade, the identity provider can switch to SHA-256 using the specification-defined form.
+  `http://www.w3.org/2001/04/xmlenc#sha256`, `http://www.w3.org/2001/04/xmlenc#sha512`,
+  `http://www.w3.org/2000/09/xmldsig#sha256` or `http://www.w3.org/2000/09/xmldsig#sha512`
+  will no longer decrypt. The next major version uses that digest for OAEP and SHA-1 for MGF1,
+  as [XML Encryption 1.1 §5.5.2](https://www.w3.org/TR/xmlenc-core1/#sec-RSA-OAEP) requires,
+  and a key that 5.2 decrypts with one of these was wrapped another way. Configure the identity
+  provider to use **SHA-1** (the default) with `rsa-oaep-mgf1p` for now. Both versions decrypt
+  that form. After the upgrade, the identity provider can switch to SHA-256 with
+  `http://www.w3.org/2001/04/xmlenc#sha256`, provided it uses SHA-1 for MGF1.
 
-If your identity provider cannot use AES-GCM, disable assertion encryption at the identity
-provider. An unencrypted assertion is accepted even when `decryptionPvk` is configured, and
-node-saml still verifies the required signatures. For an encrypted logout NameID, disable
+If your identity provider cannot use AES-GCM or `rsa-oaep-mgf1p`, disable assertion encryption
+at the identity provider. An unencrypted assertion is accepted even when `decryptionPvk` is
+configured, and node-saml still verifies the required signatures. For an encrypted logout NameID, disable
 NameID encryption at the identity provider instead; logout signature validation still applies.
 
 ### Configuration option `idpCert`

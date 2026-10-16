@@ -60,6 +60,46 @@ const deprecatedContentAlgorithms = new Set([
   "http://www.w3.org/2001/04/xmlenc#tripledes-cbc",
 ]);
 
+const deprecatedOaepDigests = new Set([
+  "http://www.w3.org/2001/04/xmlenc#sha256",
+  "http://www.w3.org/2001/04/xmlenc#sha512",
+  "http://www.w3.org/2000/09/xmldsig#sha256",
+  "http://www.w3.org/2000/09/xmldsig#sha512",
+]);
+
+const findEncryptedKey = (
+  encryptedElement: Element,
+  encryptedData: Element,
+): Element | undefined => {
+  const keyInfo =
+    "./*[local-name()='KeyInfo' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']";
+  const inlineKey = xpath.selectElements(
+    encryptedData,
+    `${keyInfo}/*[local-name()='EncryptedKey' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']`,
+  )[0];
+  if (inlineKey) {
+    return inlineKey;
+  }
+
+  // SAML core §2.2.4 also allows the key beside the EncryptedData, named by a RetrievalMethod.
+  const uri = xpath
+    .selectElements(
+      encryptedData,
+      `${keyInfo}/*[local-name()='RetrievalMethod' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']`,
+    )[0]
+    ?.getAttribute("URI");
+  if (!uri?.startsWith("#")) {
+    return undefined;
+  }
+  const id = uri.slice(1);
+  return xpath
+    .selectElements(
+      encryptedElement,
+      "./*[local-name()='EncryptedKey' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']",
+    )
+    .find((key) => key.getAttribute("Id") === id);
+};
+
 export const warnIfDecryptionWillFailInNextMajor = (encryptedElement: Element): void => {
   if (!debugLog.enabled) {
     return;
@@ -76,16 +116,13 @@ export const warnIfDecryptionWillFailInNextMajor = (encryptedElement: Element): 
   const contentAlgorithm = encryptionMethod(encryptedData)?.getAttribute("Algorithm");
   if (contentAlgorithm && deprecatedContentAlgorithms.has(contentAlgorithm)) {
     debugLog(
-      "The %s was decrypted with content encryption algorithm \"%s\". The next major version will not decrypt it. Configure the identity provider to use aes128-gcm or aes256-gcm for content and rsa-oaep-mgf1p for key wrapping. If AES-GCM is unavailable, disable encryption of this element at the identity provider; node-saml continues to validate signatures on unencrypted assertions.",
+      'The %s was decrypted with content encryption algorithm "%s", which the next major version does not decrypt. Configure the identity provider to encrypt with aes128-gcm or aes256-gcm, which this version also decrypts. If it offers neither, turn off this encryption at the identity provider: node-saml also accepts the unencrypted form, and checks the same signatures either way.',
       encryptedElement.localName,
       contentAlgorithm,
     );
   }
 
-  const encryptedKey = xpath.selectElements(
-    encryptedData,
-    "./*[local-name()='KeyInfo' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']/*[local-name()='EncryptedKey' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']",
-  )[0];
+  const encryptedKey = findEncryptedKey(encryptedElement, encryptedData);
   if (!encryptedKey) {
     return;
   }
@@ -94,24 +131,23 @@ export const warnIfDecryptionWillFailInNextMajor = (encryptedElement: Element): 
   const keyAlgorithm = keyMethod?.getAttribute("Algorithm");
   if (keyAlgorithm === "http://www.w3.org/2001/04/xmlenc#rsa-1_5") {
     debugLog(
-      "The %s was decrypted with key transport algorithm \"%s\". The next major version will not decrypt it. Configure the identity provider to wrap the key with rsa-oaep-mgf1p and to encrypt content with aes128-gcm or aes256-gcm. If AES-GCM is unavailable, disable encryption at the identity provider; node-saml continues to validate signatures on unencrypted assertions.",
+      'The %s was decrypted with key transport algorithm "%s", which the next major version does not decrypt. Configure the identity provider to wrap the key with rsa-oaep-mgf1p and its default SHA-1 digest, which this version also decrypts. If it offers no rsa-oaep-mgf1p, turn off this encryption at the identity provider: node-saml also accepts the unencrypted form, and checks the same signatures either way.',
       encryptedElement.localName,
       keyAlgorithm,
     );
   }
 
   if (keyAlgorithm === "http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p" && keyMethod) {
-    const digestAlgorithm = xpath.selectElements(
-      keyMethod,
-      "./*[local-name()='DigestMethod' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']",
-    )[0]?.getAttribute("Algorithm");
+    const digestAlgorithm = xpath
+      .selectElements(
+        keyMethod,
+        "./*[local-name()='DigestMethod' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']",
+      )[0]
+      ?.getAttribute("Algorithm");
 
-    if (
-      digestAlgorithm === "http://www.w3.org/2000/09/xmldsig#sha256" ||
-      digestAlgorithm === "http://www.w3.org/2000/09/xmldsig#sha512"
-    ) {
+    if (digestAlgorithm && deprecatedOaepDigests.has(digestAlgorithm)) {
       debugLog(
-        "The %s was decrypted with key wrapping algorithm \"%s\" and DigestMethod \"%s\". The next major version will not decrypt this form. Configure the identity provider to use SHA-1 (the default) with rsa-oaep-mgf1p; both versions decrypt that form. After upgrading, the identity provider can switch to SHA-256.",
+        'The %s was decrypted with key transport algorithm "%s" and DigestMethod "%s", which the next major version does not decrypt: it uses that digest for OAEP and SHA-1 for MGF1, as XML Encryption 1.1 requires, and this key was wrapped another way. Configure the identity provider to use SHA-1, the default rsa-oaep-mgf1p digest, which both versions decrypt.',
         encryptedElement.localName,
         keyAlgorithm,
         digestAlgorithm,

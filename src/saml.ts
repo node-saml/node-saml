@@ -1178,7 +1178,6 @@ class SAML {
         const encryptedAssertionXml = encryptedAssertions[0].toString();
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
-        warnIfDecryptionWillFailInNextMajor(encryptedAssertions[0]);
         const decryptedDoc = await parseDomFromString(decryptedXml);
         const decryptedAssertion = decryptedDoc.documentElement;
         if (decryptedAssertion.localName !== "Assertion") {
