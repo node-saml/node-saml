@@ -903,8 +903,9 @@ whether a message is accepted.
 
 - **Content encryption:** `aes128-cbc`, `aes256-cbc`, and `tripledes-cbc` will be refused.
   Configure the identity provider to use `aes128-gcm` or `aes256-gcm` instead.
-- **Key transport:** `rsa-1_5` will be refused. Configure the identity provider to wrap
-  encryption keys using `rsa-oaep-mgf1p` instead.
+- **Key transport:** `rsa-1_5` will be refused. It already fails to decrypt on Node 18
+  and Node 20; other runtimes may still accept it in 5.x. Configure the identity provider to
+  wrap encryption keys using `rsa-oaep-mgf1p` instead.
 - **OAEP digest:** An `rsa-oaep-mgf1p` key with a `DigestMethod` of
   `http://www.w3.org/2000/09/xmldsig#sha256` or
   `http://www.w3.org/2000/09/xmldsig#sha512` will no longer decrypt. Older versions of
