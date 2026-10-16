@@ -39,6 +39,13 @@ export interface CacheProvider {
    * response only one is accepted.
    */
   consumeAsync?(key: string): Promise<string | null>;
+  /**
+   * Saves `value` under `key` unless `key` is already present, as one atomic operation, and keeps it
+   * until `expiresAtMs`. Resolves `true` if it saved the key and `false` if the key was present.
+   * `rejectReplayedAssertions` requires it, and uses it to remember the ID of each assertion
+   * received, so that of two concurrent copies of an assertion only one is accepted.
+   */
+  saveIfAbsentAsync?(key: string, value: string, expiresAtMs: number): Promise<boolean>;
 }
 
 export type XMLValue = string | number | boolean | null | XMLObject | XMLValue[];
@@ -319,6 +326,7 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   wantAssertionsSigned: boolean;
   wantAuthnResponseSigned: boolean;
   maxAssertionAgeMs: number;
+  rejectReplayedAssertions?: boolean;
   generateUniqueId: () => string;
   signMetadata: boolean;
 

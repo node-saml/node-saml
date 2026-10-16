@@ -218,6 +218,72 @@ async function getSubjectInResponseTosAsync(assertionXml: string): Promise<strin
     .filter((value): value is string => value != null);
 }
 
+// The last moment validation would still accept the assertion: each NotOnOrAfter it checks, capped
+// by maxAssertionAgeMs, plus the clock skew it allows. A SubjectConfirmation other than the one
+// chosen this time can be chosen next time, so the latest of theirs counts. Null if nothing bounds it.
+function assertionAcceptedUntilMs(
+  assertion: XMLOutput,
+  maxAssertionAgeMs: number,
+  acceptedClockSkewMs: number,
+): number | null {
+  const limitMs = (notOnOrAfter: string) => {
+    const notOnOrAfterMs = dateStringToTimestamp(notOnOrAfter, "NotOnOrAfter");
+    const issueInstantMs = dateStringToTimestamp(assertion.$.IssueInstant, "IssueInstant");
+    return maxAssertionAgeMs === 0
+      ? notOnOrAfterMs
+      : Math.min(notOnOrAfterMs, issueInstantMs + maxAssertionAgeMs);
+  };
+  const limitsMs: number[] = [];
+  const conditionsNotOnOrAfter = assertion.Conditions?.[0].$?.NotOnOrAfter;
+  if (conditionsNotOnOrAfter != null) {
+    limitsMs.push(limitMs(conditionsNotOnOrAfter));
+  }
+  const confirmationLimitsMs = ((assertion.Subject?.[0].SubjectConfirmation ?? []) as XMLOutput[])
+    .map((confirmation) => confirmation.SubjectConfirmationData?.[0].$?.NotOnOrAfter)
+    .filter((notOnOrAfter) => notOnOrAfter != null)
+    .map(limitMs);
+  if (confirmationLimitsMs.length > 0) {
+    limitsMs.push(Math.max(...confirmationLimitsMs));
+  }
+  return limitsMs.length === 0 ? null : Math.min(...limitsMs) + acceptedClockSkewMs;
+}
+
+class ReplayedAssertionError extends Error {}
+
+// SAML profiles §4.1.4.5: the SP remembers the ID of each assertion it accepts for as long as that
+// assertion would be valid. It is recorded before the checks that can still reject the assertion, so
+// one rejected as not yet valid cannot be presented again once it is.
+// https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf
+async function recordAssertionAsync(assertionXml: string, options: SamlOptions): Promise<void> {
+  const doc: XMLOutput = await parseXml2JsFromString(assertionXml);
+  const assertion: XMLOutput = doc.Assertion;
+  const id = assertion.$?.ID;
+  if (id == null) {
+    throw new Error("The assertion has no ID, so it cannot be checked for replay");
+  }
+  const acceptedUntilMs = assertionAcceptedUntilMs(
+    assertion,
+    options.maxAssertionAgeMs,
+    options.acceptedClockSkewMs,
+  );
+  if (acceptedUntilMs == null) {
+    throw new Error(
+      "The assertion has no NotOnOrAfter, so it would be accepted for ever and cannot be checked for replay",
+    );
+  }
+  if (acceptedUntilMs <= new Date().getTime()) {
+    return; // already expired, which the checks that follow reject
+  }
+
+  // Kept apart from request IDs, which are stored as they are, and from other identity providers'.
+  const key = JSON.stringify(["assertion", assertion.Issuer?.[0]._ ?? "", id]);
+  // The constructor refuses a cacheProvider without saveIfAbsentAsync while this option is on.
+  const cacheProvider = options.cacheProvider as Required<Pick<CacheProvider, "saveIfAbsentAsync">>;
+  if (!(await cacheProvider.saveIfAbsentAsync(key, generateInstant(), acceptedUntilMs))) {
+    throw new ReplayedAssertionError(`The assertion ${id} has already been received`);
+  }
+}
+
 const inflateRawAsync = util.promisify(zlib.inflateRaw);
 const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
@@ -423,6 +489,7 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAssertionsSigned);
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
+    assertBooleanIfPresent(ctorOptions.rejectReplayedAssertions);
     assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
     if (isValidSamlSigningOptions(ctorOptions)) {
       algorithms.assertDigestAlgorithmChosen(
@@ -443,6 +510,7 @@ class SAML {
       disableRequestAcsUrl: ctorOptions.disableRequestAcsUrl ?? false,
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
+      rejectReplayedAssertions: ctorOptions.rejectReplayedAssertions ?? false,
       callbackUrl: ctorOptions.callbackUrl,
       issuer: ctorOptions.issuer,
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
@@ -483,6 +551,25 @@ class SAML {
       debugLog(
         "`validateInResponseTo` is not set, so it defaults to `never` and an InResponseTo is not checked against a request this library issued. A SAML response can then be replayed, or delivered unsolicited. The next major version requires it; set it to `always`, `ifPresent`, or `never` now.",
       );
+    }
+
+    if (ctorOptions.rejectReplayedAssertions === undefined) {
+      debugLog(
+        "`rejectReplayedAssertions` is not set, so it defaults to `false`, and an assertion that `validateInResponseTo` does not tie to a request can be presented again until its timestamps expire. The next major version rejects a replayed assertion; set it to `true` now.",
+      );
+    }
+
+    if (options.rejectReplayedAssertions) {
+      if (options.acceptedClockSkewMs === -1) {
+        throw new TypeError(
+          "rejectReplayedAssertions cannot be used with acceptedClockSkewMs: -1, under which an assertion never expires",
+        );
+      }
+      if (options.cacheProvider.saveIfAbsentAsync == null) {
+        throw new TypeError(
+          "rejectReplayedAssertions requires a cacheProvider with saveIfAbsentAsync, which saves a key with an expiry only if it is absent, in one step",
+        );
+      }
     }
 
     if (
@@ -1212,6 +1299,9 @@ class SAML {
           throw new Error("Cannot obtain assertion from signed data");
         }
         verifiedAssertionXml = signedAssertion;
+        if (this.options.rejectReplayedAssertions) {
+          await recordAssertionAsync(signedAssertion, this.options);
+        }
         const result = await this.processValidlySignedAssertionAsync(
           signedAssertion,
           xml,
@@ -1324,7 +1414,11 @@ class SAML {
       // A failure the IdP signed means it answered the request, so no other response is coming.
       // An unsigned one proves nothing about the request it names, so that request stays pending.
       // Gated as success is, so under "ifPresent" a failure retires nothing a success would keep.
-      if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
+      // A replay leaves its requests to the first copy, which may still be validating.
+      if (
+        !(err instanceof ReplayedAssertionError) &&
+        this.mustValidateInResponseTo(Boolean(inResponseTo))
+      ) {
         const answeredRequestIds = new Set(
           verifiedAssertionXml == null
             ? []
@@ -1904,7 +1998,7 @@ class SAML {
       if (nowMs - this.options.acceptedClockSkewMs >= notOnOrAfterMs)
         return new Error("SAML assertion expired: clocks skewed too much");
     }
-    if (maxTimeLimitMs) {
+    if (maxTimeLimitMs != null) {
       if (nowMs - this.options.acceptedClockSkewMs >= maxTimeLimitMs)
         return new Error("SAML assertion expired: assertion too old");
     }

@@ -460,13 +460,14 @@ check is accepted. Run with `NODE_DEBUG=node-saml` to be told when one arrives, 
 
 ### Response validation
 
-| Option                    | Default | Description                                                                                                                                                            |
-| ------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wantAssertionsSigned`    | `true`  | Require the assertion itself to be signed, and advertise `WantAssertionsSigned="true"` in the metadata.                                                                |
-| `wantAuthnResponseSigned` | `true`  | Require the response to be signed at the top level, not only at the assertion.                                                                                         |
-| `acceptedClockSkewMs`     | `0`     | Tolerance in milliseconds when checking `NotBefore` and `NotOnOrAfter`. `-1` disables those checks entirely.                                                           |
-| `maxAssertionAgeMs`       | `0`     | Reject an assertion older than this, measured from its `IssueInstant`. `0` means no limit beyond `NotOnOrAfter`. When set and stricter than `NotOnOrAfter`, this wins. |
-| `idpIssuer`               | —       | If set, the `Issuer` on incoming logout requests and responses must match it. For ADFS this looks like `https://acme_tools.windows.net/deadbeef`.                      |
+| Option                     | Default | Description                                                                                                                                                            |
+| -------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wantAssertionsSigned`     | `true`  | Require the assertion itself to be signed, and advertise `WantAssertionsSigned="true"` in the metadata.                                                                |
+| `wantAuthnResponseSigned`  | `true`  | Require the response to be signed at the top level, not only at the assertion.                                                                                         |
+| `acceptedClockSkewMs`      | `0`     | Tolerance in milliseconds when checking `NotBefore` and `NotOnOrAfter`. `-1` disables those checks entirely.                                                           |
+| `maxAssertionAgeMs`        | `0`     | Reject an assertion older than this, measured from its `IssueInstant`. `0` means no limit beyond `NotOnOrAfter`. When set and stricter than `NotOnOrAfter`, this wins. |
+| `rejectReplayedAssertions` | `false` | Reject an assertion whose ID has been received before. See [Replayed assertions](#replayed-assertions).                                                                |
+| `idpIssuer`                | —       | If set, the `Issuer` on incoming logout requests and responses must match it. For ADFS this looks like `https://acme_tools.windows.net/deadbeef`.                      |
 
 Turning both `wantAssertionsSigned` and `wantAuthnResponseSigned` off does not turn signature
 checking off: either the response or the assertion still has to carry a valid signature, or the
@@ -534,8 +535,10 @@ scoping: {
 >   [cache provider](#cache-provider).
 > - `"ifPresent"` validates `InResponseTo` when a response carries one and accepts a response that
 >   does not. IdP-initiated login keeps working, and an unsolicited response is accepted and can be
->   replayed until its timestamps expire.
-> - `"never"` skips the check, so any captured response can be replayed until its timestamps expire.
+>   replayed until its timestamps expire, unless you set
+>   [`rejectReplayedAssertions`](#replayed-assertions).
+> - `"never"` skips the check, so any captured response can be replayed until its timestamps expire,
+>   unless you set [`rejectReplayedAssertions`](#replayed-assertions).
 
 See [InResponseTo validation](#inresponseto-validation) below for what this protects against and how the IDs are consumed.
 
@@ -1003,7 +1006,9 @@ one does and a custom one does if it implements `consumeAsync`, described below.
 While `InResponseTo` is validated — always under `"always"`, and under `"ifPresent"` when the
 `Response` or `LogoutResponse` element carries one — a request ID is removed when a verified
 signature covers an `InResponseTo` naming it, on that element or on a `SubjectConfirmationData` in
-the assertion, whether the response is then accepted or rejected. Nothing else removes one. Anyone
+the assertion, whether the response is then accepted or rejected. The exception is a copy rejected
+as a [replayed assertion](#replayed-assertions), which leaves the ID to the first copy, since that
+copy may still be validating. Nothing else removes one. Anyone
 who learns a pending request ID can put it in a response, so an unsigned `InResponseTo` is still
 checked against the recorded IDs but cannot by itself retire one, and the IdP's genuine response
 validates after it. That covers a rejected response in which nothing signed names the request, an
@@ -1019,10 +1024,41 @@ pending ID receives a genuinely signed response, and presenting it retires that 
 `privateKey`, and have the IdP require signed requests) leaves only a replay of that user's own
 `AuthnRequest`, which some IdPs reject.
 
+## Replayed assertions
+
+`InResponseTo` validation cannot stop an unsolicited response from being presented twice: it carries
+no `InResponseTo`, and an unsigned one can be deleted. Set `rejectReplayedAssertions: true` to have
+Node-SAML remember the ID of each assertion it receives, in the [cache provider](#cache-provider),
+and reject one whose ID it has seen
+([SAML profiles §4.1.4.5](https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf)).
+The second copy fails with `The assertion <ID> has already been received`. It gives IdP-initiated
+login, under `"ifPresent"` or `"never"`, the replay protection that `InResponseTo` gives a login
+your application started.
+
+- **What is remembered** is the verified assertion's ID together with its `Issuer`, so identity
+  providers sharing a cache do not collide. It is remembered as soon as the assertion's signature
+  verifies, before the other checks, so an assertion rejected as not yet valid cannot be presented
+  again once it is.
+- **For how long:** until the last moment the assertion could still be accepted. That is the
+  earlier of its `Conditions` `NotOnOrAfter` and the latest `NotOnOrAfter` among its
+  `SubjectConfirmationData`, capped by `maxAssertionAgeMs`, plus `acceptedClockSkewMs`. An
+  assertion with no `NotOnOrAfter` at all could be accepted for ever, so it is rejected; a
+  conforming IdP puts one on every bearer `SubjectConfirmationData`
+  ([SAML profiles §4.1.4.2](https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf)).
+  For the same reason the option cannot be combined with `acceptedClockSkewMs: -1`.
+- **Across servers or processes** this needs a shared cache provider, and within one process the
+  same `InMemoryCacheProvider` for every `SAML` instance, as described below. Either way, the
+  provider has to implement `saveIfAbsentAsync`.
+
+It is off by default in this version, because it rejects responses that were accepted before and
+writes to the cache provider on every login. Leaving it unset logs a warning under
+`NODE_DEBUG=node-saml`. The next major version rejects replayed assertions.
+
 ## Cache provider
 
-With `InResponseTo` validation on, the generated request IDs have to be stored somewhere. That is
-the `cacheProvider`'s job.
+With `InResponseTo` validation on, the generated request IDs have to be stored somewhere, and with
+`rejectReplayedAssertions` on, so do the IDs of the assertions received. That is the
+`cacheProvider`'s job.
 
 The default is an `InMemoryCacheProvider`, which keeps request IDs in one process's memory. It is
 not sufficient across multiple servers or processes: the instance that generated the request ID may
@@ -1040,6 +1076,8 @@ interface CacheProvider {
   removeAsync(key: string | null): Promise<string | null>;
   /** Optional. Removes the key and returns its value, or null if it was absent, atomically. */
   consumeAsync?(key: string): Promise<string | null>;
+  /** Needed by rejectReplayedAssertions. Saves the key until expiresAtMs, if absent, atomically. */
+  saveIfAbsentAsync?(key: string, value: string, expiresAtMs: number): Promise<boolean>;
 }
 ```
 
@@ -1049,6 +1087,14 @@ validated at the same moment, only one is accepted. Without it, Node-SAML reads 
 it in separate calls, both copies can be accepted, and a warning is logged under
 `NODE_DEBUG=node-saml` whenever `InResponseTo` is validated. The next major version requires it. The
 built-in provider implements it.
+
+Implement `saveIfAbsentAsync` with your store's single-step insert-if-absent with an expiry, such as
+Redis `SET key value NX PXAT expiresAtMs` or SQL `INSERT … ON CONFLICT DO NOTHING`. It resolves
+`true` if it saved the key and `false` if the key was already there. Node-SAML records assertion IDs
+with it when `rejectReplayedAssertions` is set, so of two copies of one assertion validated at the
+same moment, only one is accepted. That option requires it: the constructor throws a `TypeError`
+when the option is on and the provider has no `saveIfAbsentAsync`. The built-in provider implements
+it.
 
 Give each identity provider its own cache. In a shared store, that means a provider for each
 identity provider that prefixes every key with its name. Request IDs are looked up by ID alone, so

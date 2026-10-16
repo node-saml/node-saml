@@ -191,4 +191,25 @@ describe("Cache tests /", () => {
     await fakeClock.tickAsync(1000);
     expect(await cacheProvider.getAsync(requestId)).to.not.exist;
   });
+
+  it("keeps a key saved with saveIfAbsentAsync until the expiry it was given", async () => {
+    const cacheProvider = new InMemoryCacheProvider({ keyExpirationPeriodMs: 1000 });
+
+    expect(await cacheProvider.saveIfAbsentAsync("key", "value", 60000)).to.equal(true);
+    await fakeClock.tickAsync(30000);
+    expect(await cacheProvider.saveIfAbsentAsync("key", "value", 60000)).to.equal(false);
+    await fakeClock.tickAsync(30000);
+    expect(await cacheProvider.saveIfAbsentAsync("key", "value", 120000)).to.equal(true);
+  });
+
+  it("sweeps by the expiry given to saveIfAbsentAsync, not a keyExpirationPeriodMs later", async () => {
+    const cacheProvider = new InMemoryCacheProvider();
+    const cacheRemoveSpy = sinon.spy(cacheProvider, "removeAsync");
+
+    await cacheProvider.saveIfAbsentAsync("assertion", "value", 60000);
+    await fakeClock.tickAsync(60000);
+    await cacheProvider.saveIfAbsentAsync("another assertion", "value", 120000);
+
+    expect(cacheRemoveSpy.calledWith("assertion")).to.be.true;
+  });
 });
