@@ -894,6 +894,30 @@ Accepted formats:
    for `privateKey`: PKCS #8 or PKCS #1, whichever the data holds. Base64 that is neither is
    refused with an error naming `decryptionPvk`, before any decryption is attempted.
 
+#### Preparing for the next major version
+
+Version 5.2 continues to decrypt the legacy forms below, but the next major version will not.
+Set `NODE_DEBUG=node-saml` to see warnings **after successful decryption** of an
+`EncryptedAssertion` or `EncryptedID` that uses one of them. These warnings do not change
+whether a message is accepted.
+
+- **Content encryption:** `aes128-cbc`, `aes256-cbc`, and `tripledes-cbc` will be refused.
+  Configure the identity provider to use `aes128-gcm` or `aes256-gcm` instead.
+- **Key transport:** `rsa-1_5` will be refused. Configure the identity provider to wrap
+  encryption keys using `rsa-oaep-mgf1p` instead.
+- **OAEP digest:** An `rsa-oaep-mgf1p` key with a `DigestMethod` of
+  `http://www.w3.org/2000/09/xmldsig#sha256` or
+  `http://www.w3.org/2000/09/xmldsig#sha512` will no longer decrypt. Older versions of
+  `xml-encryption` used the same digest for MGF1; the next major version uses MGF1-SHA1
+  as required by XML Encryption 1.1 §5.5.2. Configure the identity provider to use **SHA-1**
+  (the default) with `rsa-oaep-mgf1p` for now. Both versions decrypt that form. After the
+  upgrade, the identity provider can switch to SHA-256 using the specification-defined form.
+
+If your identity provider cannot use AES-GCM, disable assertion encryption at the identity
+provider. An unencrypted assertion is accepted even when `decryptionPvk` is configured, and
+node-saml still verifies the required signatures. For an encrypted logout NameID, disable
+NameID encryption at the identity provider instead; logout signature validation still applies.
+
 ### Configuration option `idpCert`
 
 Validating the signatures on incoming responses is the point of this library, and `idpCert` is what
