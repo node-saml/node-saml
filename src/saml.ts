@@ -1678,6 +1678,14 @@ class SAML {
     if (this.options.idpIssuer != null) {
       const issuer = samlMessage.Issuer;
       if (issuer) {
+        // The schema allows one (SAML core §2.3.3, §3.2.2); with more, their order picks the issuer.
+        if (issuer.length > 1)
+          throw new Error(
+            "Multiple SAML issuers. Expected: " +
+              this.options.idpIssuer +
+              " Received: " +
+              issuer.map((element: XMLOutput) => element._).join(", "),
+          );
         if (issuer[0]._ !== this.options.idpIssuer)
           throw new Error(
             "Unknown SAML issuer. Expected: " +
