@@ -1678,7 +1678,7 @@ class SAML {
     if (this.options.idpIssuer != null) {
       const issuer = samlMessage.Issuer;
       if (issuer) {
-        // The schema allows one (SAML core §2.3.3, §3.2.2); with more, their order picks the issuer.
+        // The schema allows one (SAML core §2.3.3, §3.2.2); with more, the order picks the issuer.
         if (issuer.length > 1)
           throw new Error(
             "Multiple SAML issuers. Expected: " +
