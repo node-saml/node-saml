@@ -49,7 +49,7 @@ function assertion(issuers: string[], { signed = true } = {}): string {
   return signed ? sign(xml, "Assertion") : xml;
 }
 
-function response({
+function message({
   element = "Response",
   issuers = ["idp"],
   status = success,
@@ -63,9 +63,10 @@ function response({
   signed?: boolean;
 } = {}): Record<string, string> {
   const xml =
-    `<samlp:${element} ${namespaces} ID="_response" Version="2.0" IssueInstant="${instant()}">` +
+    `<samlp:${element} ${namespaces} ID="_message" Version="2.0" IssueInstant="${instant()}">` +
     `${issuerElements(issuers)}${status}${content}</samlp:${element}>`;
-  return { SAMLResponse: Buffer.from(signed ? sign(xml, element) : xml).toString("base64") };
+  const parameter = element.endsWith("Request") ? "SAMLRequest" : "SAMLResponse";
+  return { [parameter]: Buffer.from(signed ? sign(xml, element) : xml).toString("base64") };
 }
 
 function newSaml(config: Partial<SamlConfig> = {}): SAML {
@@ -88,14 +89,14 @@ async function outcome(validation: Promise<unknown>): Promise<string> {
 
 describe("idpIssuer on a login response", function () {
   it("accepts one whose Response and assertion are from idpIssuer", async () => {
-    const { profile } = await newSaml().validatePostResponseAsync(response());
+    const { profile } = await newSaml().validatePostResponseAsync(message());
 
     expect(profile?.issuer).to.equal("idp");
   });
 
   it("rejects one whose assertion is from another issuer", async () => {
     const saml = newSaml({ wantAuthnResponseSigned: false });
-    const received = response({ content: assertion(["another-idp"]), signed: false });
+    const received = message({ content: assertion(["another-idp"]), signed: false });
 
     expect(await outcome(saml.validatePostResponseAsync(received))).to.equal(
       "Unknown SAML issuer. Expected: idp Received: another-idp",
@@ -104,7 +105,7 @@ describe("idpIssuer on a login response", function () {
 
   it("rejects one whose unsigned assertion, in a signed Response, is from another issuer", async () => {
     const saml = newSaml({ wantAssertionsSigned: false });
-    const received = response({ content: assertion(["another-idp"], { signed: false }) });
+    const received = message({ content: assertion(["another-idp"], { signed: false }) });
 
     expect(await outcome(saml.validatePostResponseAsync(received))).to.equal(
       "Unknown SAML issuer. Expected: idp Received: another-idp",
@@ -122,7 +123,7 @@ describe("idpIssuer on a login response", function () {
       wantAuthnResponseSigned: false,
       decryptionPvk: fs.readFileSync(path.join(__dirname, "static", "testshib encryption pvk.pem")),
     });
-    const received = response({
+    const received = message({
       content: `<saml:EncryptedAssertion>${encryptedAssertion}</saml:EncryptedAssertion>`,
       signed: false,
     });
@@ -132,33 +133,23 @@ describe("idpIssuer on a login response", function () {
     );
   });
 
-  it("rejects one whose assertion names two issuers", async () => {
+  it("rejects one whose assertion names no issuer", async () => {
     const saml = newSaml({ wantAuthnResponseSigned: false });
-    const received = response({ content: assertion(["idp", "another-idp"]), signed: false });
+    const received = message({ content: assertion([]), signed: false });
 
-    expect(await outcome(saml.validatePostResponseAsync(received))).to.equal(
-      "Multiple SAML issuers. Expected: idp Received: idp, another-idp",
-    );
+    expect(await outcome(saml.validatePostResponseAsync(received))).to.equal("Missing SAML issuer");
   });
 
   it("rejects one whose signed Response is from another issuer", async () => {
-    const received = response({ issuers: ["another-idp"] });
+    const received = message({ issuers: ["another-idp"] });
 
     expect(await outcome(newSaml().validatePostResponseAsync(received))).to.equal(
       "Unknown SAML issuer. Expected: idp Received: another-idp",
     );
   });
 
-  it("rejects one whose signed Response names two issuers", async () => {
-    const received = response({ issuers: ["idp", "another-idp"] });
-
-    expect(await outcome(newSaml().validatePostResponseAsync(received))).to.equal(
-      "Multiple SAML issuers. Expected: idp Received: idp, another-idp",
-    );
-  });
-
   it("rejects a signed NoPassive response from another issuer", async () => {
-    const received = response({ issuers: ["another-idp"], status: noPassive, content: "" });
+    const received = message({ issuers: ["another-idp"], status: noPassive, content: "" });
 
     expect(await outcome(newSaml().validatePostResponseAsync(received))).to.equal(
       "Unknown SAML issuer. Expected: idp Received: another-idp",
@@ -166,7 +157,7 @@ describe("idpIssuer on a login response", function () {
   });
 
   it("accepts a signed NoPassive response that names no issuer", async () => {
-    const received = response({ issuers: [], status: noPassive, content: "" });
+    const received = message({ issuers: [], status: noPassive, content: "" });
 
     expect(await newSaml().validatePostResponseAsync(received)).to.deep.equal({
       profile: null,
@@ -175,16 +166,44 @@ describe("idpIssuer on a login response", function () {
   });
 });
 
-describe("idpIssuer on a logout response", function () {
-  it("rejects a signed one that names two issuers", async () => {
-    const received = response({
+describe("a message that names more than one issuer", function () {
+  const twoIssuers = "Expected one SAML issuer, received 2: idp, another-idp";
+
+  it("is rejected as an assertion with no idpIssuer set", async () => {
+    const saml = newSaml({ idpIssuer: undefined, wantAuthnResponseSigned: false });
+    const received = message({ content: assertion(["idp", "another-idp"]), signed: false });
+
+    expect(await outcome(saml.validatePostResponseAsync(received))).to.equal(twoIssuers);
+  });
+
+  it("is rejected as a signed LogoutRequest with no idpIssuer set", async () => {
+    const received = message({
+      element: "LogoutRequest",
+      issuers: ["idp", "another-idp"],
+      status: "",
+      content: "<saml:NameID>user</saml:NameID>",
+    });
+
+    expect(
+      await outcome(newSaml({ idpIssuer: undefined }).validatePostRequestAsync(received)),
+    ).to.equal(twoIssuers);
+  });
+
+  it("is rejected as a signed LogoutResponse with no idpIssuer set", async () => {
+    const received = message({
       element: "LogoutResponse",
       issuers: ["idp", "another-idp"],
       content: "",
     });
 
-    expect(await outcome(newSaml().validatePostResponseAsync(received))).to.equal(
-      "Multiple SAML issuers. Expected: idp Received: idp, another-idp",
-    );
+    expect(
+      await outcome(newSaml({ idpIssuer: undefined }).validatePostResponseAsync(received)),
+    ).to.equal(twoIssuers);
+  });
+
+  it("is rejected as a signed Response when idpIssuer is set", async () => {
+    const received = message({ issuers: ["idp", "another-idp"] });
+
+    expect(await outcome(newSaml().validatePostResponseAsync(received))).to.equal(twoIssuers);
   });
 });

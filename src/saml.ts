@@ -141,6 +141,17 @@ function getRootAttribute(dom: Document, name: string): string | null {
   return nodes.length ? nodes[0].nodeValue : null;
 }
 
+// SAML core §2.3.3 and §3.2.1-2 allow one; with more, the order would pick the issuer.
+function assertOneIssuer(samlMessage: XMLOutput): void {
+  const issuers: XMLOutput[] = samlMessage.Issuer ?? [];
+  if (issuers.length > 1) {
+    throw new Error(
+      `Expected one SAML issuer, received ${issuers.length}: ` +
+        issuers.map((issuer) => issuer._).join(", "),
+    );
+  }
+}
+
 // Compared as parsed URLs, so the case of the scheme and host and an explicit default port don't
 // count, while the path does, trailing slash included.
 function isSameUrl(received: string, expected: string): boolean {
@@ -1677,17 +1688,10 @@ class SAML {
    *   validation of an incoming message, so the next major version makes this method private.
    */
   protected verifyIssuer(samlMessage: XMLOutput): void {
+    assertOneIssuer(samlMessage);
     if (this.options.idpIssuer != null) {
       const issuer = samlMessage.Issuer;
       if (issuer) {
-        // SAML core §2.3.3 and §3.2.1-2 allow one; with more, the order would pick the issuer.
-        if (issuer.length > 1)
-          throw new Error(
-            "Multiple SAML issuers. Expected: " +
-              this.options.idpIssuer +
-              " Received: " +
-              issuer.map((element: XMLOutput) => element._).join(", "),
-          );
         if (issuer[0]._ !== this.options.idpIssuer)
           throw new Error(
             "Unknown SAML issuer. Expected: " +
