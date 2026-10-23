@@ -1224,12 +1224,17 @@ class SAML {
       const responseVerifiedXml = getVerifiedXml(xml, doc.documentElement, pemFiles);
       let assertionVerifiedXml = null;
       let decryptedAssertionVerifiedXml = null;
+      let verifiedXmljsDoc: SamlResponseXmlJs | null = null;
 
       if (responseVerifiedXml) {
         validSignature = true;
         const verifiedDom = await parseDomFromString(responseVerifiedXml);
         verifiedInResponseTo = getRootAttribute(verifiedDom, "InResponseTo");
         verifiedDestination = getRootAttribute(verifiedDom, "Destination");
+        verifiedXmljsDoc = (await parseXml2JsFromString(responseVerifiedXml)) as SamlResponseXmlJs;
+        if (verifiedXmljsDoc.Response) {
+          this.verifyIssuer(verifiedXmljsDoc.Response);
+        }
       }
 
       if (this.options.wantAuthnResponseSigned === true && validSignature === false) {
@@ -1332,9 +1337,8 @@ class SAML {
       }
 
       // With no signature on the root nothing here was verified, and every path below rejects.
-      const xmljsDoc = (await parseXml2JsFromString(
-        responseVerifiedXml ?? xml,
-      )) as SamlResponseXmlJs;
+      const xmljsDoc =
+        verifiedXmljsDoc ?? ((await parseXml2JsFromString(xml)) as SamlResponseXmlJs);
       const response = xmljsDoc.Response;
       if (response) {
         if (!("Assertion" in response)) {
@@ -1703,6 +1707,7 @@ class SAML {
     const doc: XMLOutput = await parseXml2JsFromString(xml);
     const parsedAssertion: XMLOutput = doc;
     const assertion: XMLOutput = doc.Assertion;
+    this.verifyIssuer(assertion);
     getInResponseTo: {
       const issuer = assertion.Issuer;
       if (issuer && issuer[0]._) {

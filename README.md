@@ -467,7 +467,7 @@ check is accepted. Run with `NODE_DEBUG=node-saml` to be told when one arrives, 
 | `acceptedClockSkewMs`      | `0`     | Tolerance in milliseconds when checking `NotBefore` and `NotOnOrAfter`. `-1` disables those checks entirely.                                                           |
 | `maxAssertionAgeMs`        | `0`     | Reject an assertion older than this, measured from its `IssueInstant`. `0` means no limit beyond `NotOnOrAfter`. When set and stricter than `NotOnOrAfter`, this wins. |
 | `rejectReplayedAssertions` | `false` | Reject an assertion whose ID has been received before. See [Replayed assertions](#replayed-assertions).                                                                |
-| `idpIssuer`                | —       | If set, the `Issuer` on incoming logout requests and responses must match it. For ADFS this looks like `https://acme_tools.windows.net/deadbeef`.                      |
+| `idpIssuer`                | —       | If set, the `Issuer` of the assertion, a signed `Response`, and logout messages must match it. For ADFS this looks like `https://acme_tools.windows.net/deadbeef`.     |
 
 Turning both `wantAssertionsSigned` and `wantAuthnResponseSigned` off does not turn signature
 checking off: either the response or the assertion still has to carry a valid signature, or the
