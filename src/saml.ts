@@ -1224,16 +1224,19 @@ class SAML {
       const responseVerifiedXml = getVerifiedXml(xml, doc.documentElement, pemFiles);
       let assertionVerifiedXml = null;
       let decryptedAssertionVerifiedXml = null;
-      let verifiedXmljsDoc: SamlResponseXmlJs | null = null;
 
       if (responseVerifiedXml) {
         validSignature = true;
         const verifiedDom = await parseDomFromString(responseVerifiedXml);
         verifiedInResponseTo = getRootAttribute(verifiedDom, "InResponseTo");
         verifiedDestination = getRootAttribute(verifiedDom, "Destination");
-        verifiedXmljsDoc = (await parseXml2JsFromString(responseVerifiedXml)) as SamlResponseXmlJs;
-        if (verifiedXmljsDoc.Response) {
-          this.verifyIssuer(verifiedXmljsDoc.Response);
+        if (this.options.idpIssuer != null) {
+          const verifiedDoc: XMLOutput = await parseXml2JsFromString(responseVerifiedXml);
+          // Checked only when present: an error response may omit it even when signed, and a login is
+          // checked on its assertion's Issuer, which is required (SAML profiles §4.1.4.2, Errata 05 E17).
+          if (verifiedDoc.Response?.Issuer) {
+            this.verifyIssuer(verifiedDoc.Response);
+          }
         }
       }
 
@@ -1337,8 +1340,9 @@ class SAML {
       }
 
       // With no signature on the root nothing here was verified, and every path below rejects.
-      const xmljsDoc =
-        verifiedXmljsDoc ?? ((await parseXml2JsFromString(xml)) as SamlResponseXmlJs);
+      const xmljsDoc = (await parseXml2JsFromString(
+        responseVerifiedXml ?? xml,
+      )) as SamlResponseXmlJs;
       const response = xmljsDoc.Response;
       if (response) {
         if (!("Assertion" in response)) {
