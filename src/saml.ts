@@ -142,13 +142,9 @@ function getRootAttribute(dom: Document, name: string): string | null {
 }
 
 // SAML core §2.3.3 and §3.2.1-2 allow one; with more, the order would pick the issuer.
-function assertOneIssuer(samlMessage: XMLOutput): void {
-  const issuers: XMLOutput[] = samlMessage.Issuer ?? [];
+function assertOneIssuer(issuers: (string | null | undefined)[]): void {
   if (issuers.length > 1) {
-    throw new Error(
-      `Expected one SAML issuer, received ${issuers.length}: ` +
-        issuers.map((issuer) => issuer._).join(", "),
-    );
+    throw new Error(`Expected one SAML issuer, received ${issuers.length}: ${issuers.join(", ")}`);
   }
 }
 
@@ -1242,6 +1238,11 @@ class SAML {
         const verifiedDom = await parseDomFromString(responseVerifiedXml);
         verifiedInResponseTo = getRootAttribute(verifiedDom, "InResponseTo");
         verifiedDestination = getRootAttribute(verifiedDom, "Destination");
+        assertOneIssuer(
+          xpath
+            .selectElements(verifiedDom, "/*[local-name()='Response']/*[local-name()='Issuer']")
+            .map((issuer) => issuer.textContent),
+        );
         if (this.options.idpIssuer != null) {
           const verifiedDoc: XMLOutput = await parseXml2JsFromString(responseVerifiedXml);
           // Checked only when present: an error response may omit it even when signed, and a login is
@@ -1688,7 +1689,7 @@ class SAML {
    *   validation of an incoming message, so the next major version makes this method private.
    */
   protected verifyIssuer(samlMessage: XMLOutput): void {
-    assertOneIssuer(samlMessage);
+    assertOneIssuer((samlMessage.Issuer ?? []).map((issuer: XMLOutput) => issuer._));
     if (this.options.idpIssuer != null) {
       const issuer = samlMessage.Issuer;
       if (issuer) {

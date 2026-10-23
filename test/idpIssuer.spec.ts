@@ -201,9 +201,11 @@ describe("a message that names more than one issuer", function () {
     ).to.equal(twoIssuers);
   });
 
-  it("is rejected as a signed Response when idpIssuer is set", async () => {
+  it("is rejected as a signed Response with no idpIssuer set", async () => {
     const received = message({ issuers: ["idp", "another-idp"] });
 
-    expect(await outcome(newSaml().validatePostResponseAsync(received))).to.equal(twoIssuers);
+    expect(
+      await outcome(newSaml({ idpIssuer: undefined }).validatePostResponseAsync(received)),
+    ).to.equal(twoIssuers);
   });
 });

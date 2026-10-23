@@ -684,12 +684,11 @@ explain rejections that might otherwise look overly strict:
   and that is the content the library goes on to process. The original document is never re-read
   after verification, because an attacker controls the difference between the two — that is the
   whole of an XML signature wrapping attack.
-- **Ambiguity is rejected, not resolved.** A response with more than one assertion, an assertion or
-  logout message with more than one `Issuer`, more than one signature on an element, an `ID`
-  resolving to more than one element, a reference pointing anywhere other than its own parent, or
-  more than two transforms is refused, and so is a signed `Response` with more than one `Issuer`
-  when `idpIssuer` is set, the only time its `Issuer` is read. The library does not pick a reading,
-  and it does not pick the reading that happens to verify.
+- **Ambiguity is rejected, not resolved.** A response with more than one assertion, an assertion, a
+  logout message or a signed `Response` with more than one `Issuer`, more than one signature on an
+  element, an `ID` resolving to more than one element, a reference pointing anywhere other than its
+  own parent, or more than two transforms is refused. The library does not pick a reading, and it
+  does not pick the reading that happens to verify.
   One case is not refused yet: a signature with more than one reference is ignored, so its element
   counts as unsigned. That matters only for a `Response` under `wantAuthnResponseSigned: false`,
   which is then accepted on the strength of its separately signed assertion. The next major version
