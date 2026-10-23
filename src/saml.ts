@@ -47,6 +47,7 @@ import {
   getVerifiedXml,
   parseDomFromString,
   parseXml2JsFromString,
+  warnIfDecryptionWillFailInNextMajor,
   xpath,
 } from "./xml";
 
@@ -1274,6 +1275,7 @@ class SAML {
         const encryptedAssertionXml = encryptedAssertions[0].toString();
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
+        warnIfDecryptionWillFailInNextMajor(encryptedAssertions[0]);
         const decryptedDoc = await parseDomFromString(decryptedXml);
         const decryptedAssertions = xpath.selectElements(
           decryptedDoc,

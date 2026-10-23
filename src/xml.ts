@@ -48,6 +48,114 @@ export const xpath = {
 export const decryptXml = async (xml: string, decryptionPvk: string | Buffer) =>
   util.promisify(xmlenc.decrypt).bind(xmlenc)(xml, { key: decryptionPvkToPem(decryptionPvk) });
 
+const encryptionMethod = (element: Element): Element | undefined =>
+  xpath.selectElements(
+    element,
+    "./*[local-name()='EncryptionMethod' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']",
+  )[0];
+
+const deprecatedContentAlgorithms = new Set([
+  "http://www.w3.org/2001/04/xmlenc#aes128-cbc",
+  "http://www.w3.org/2001/04/xmlenc#aes256-cbc",
+  "http://www.w3.org/2001/04/xmlenc#tripledes-cbc",
+]);
+
+const deprecatedOaepDigests = new Set([
+  "http://www.w3.org/2001/04/xmlenc#sha256",
+  "http://www.w3.org/2001/04/xmlenc#sha512",
+  "http://www.w3.org/2000/09/xmldsig#sha256",
+  "http://www.w3.org/2000/09/xmldsig#sha512",
+]);
+
+const findEncryptedKey = (
+  encryptedElement: Element,
+  encryptedData: Element,
+): Element | undefined => {
+  const keyInfo =
+    "./*[local-name()='KeyInfo' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']";
+  const inlineKey = xpath.selectElements(
+    encryptedData,
+    `${keyInfo}/*[local-name()='EncryptedKey' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']`,
+  )[0];
+  if (inlineKey) {
+    return inlineKey;
+  }
+
+  // SAML core §2.2.4 also allows the key beside the EncryptedData, named by a RetrievalMethod.
+  const uri = xpath
+    .selectElements(
+      encryptedData,
+      `${keyInfo}/*[local-name()='RetrievalMethod' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']`,
+    )[0]
+    ?.getAttribute("URI");
+  if (!uri?.startsWith("#")) {
+    return undefined;
+  }
+  const id = uri.slice(1);
+  return xpath
+    .selectElements(
+      encryptedElement,
+      "./*[local-name()='EncryptedKey' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']",
+    )
+    .find((key) => key.getAttribute("Id") === id);
+};
+
+export const warnIfDecryptionWillFailInNextMajor = (encryptedElement: Element): void => {
+  if (!debugLog.enabled) {
+    return;
+  }
+
+  const encryptedData = xpath.selectElements(
+    encryptedElement,
+    "./*[local-name()='EncryptedData' and namespace-uri(.)='http://www.w3.org/2001/04/xmlenc#']",
+  )[0];
+  if (!encryptedData) {
+    return;
+  }
+
+  const contentAlgorithm = encryptionMethod(encryptedData)?.getAttribute("Algorithm");
+  if (contentAlgorithm && deprecatedContentAlgorithms.has(contentAlgorithm)) {
+    debugLog(
+      'The %s was decrypted with content encryption algorithm "%s", which the next major version does not decrypt. Configure the identity provider to encrypt with aes128-gcm or aes256-gcm, which this version also decrypts. If it offers neither, and the deployment does not need these contents kept confidential, turn off this encryption at the identity provider: node-saml also accepts the unencrypted form and checks the same signatures either way, but signatures do not hide its contents from the browser or any other system that handles the message.',
+      encryptedElement.localName,
+      contentAlgorithm,
+    );
+  }
+
+  const encryptedKey = findEncryptedKey(encryptedElement, encryptedData);
+  if (!encryptedKey) {
+    return;
+  }
+
+  const keyMethod = encryptionMethod(encryptedKey);
+  const keyAlgorithm = keyMethod?.getAttribute("Algorithm");
+  if (keyAlgorithm === "http://www.w3.org/2001/04/xmlenc#rsa-1_5") {
+    debugLog(
+      'The %s was decrypted with key transport algorithm "%s", which the next major version does not decrypt. Configure the identity provider to wrap the key with rsa-oaep-mgf1p and its default SHA-1 digest, which this version also decrypts. If it offers no rsa-oaep-mgf1p, and the deployment does not need these contents kept confidential, turn off this encryption at the identity provider: node-saml also accepts the unencrypted form and checks the same signatures either way, but signatures do not hide its contents from the browser or any other system that handles the message.',
+      encryptedElement.localName,
+      keyAlgorithm,
+    );
+  }
+
+  if (keyAlgorithm === "http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p" && keyMethod) {
+    const digestAlgorithm = xpath
+      .selectElements(
+        keyMethod,
+        "./*[local-name()='DigestMethod' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']",
+      )[0]
+      ?.getAttribute("Algorithm");
+
+    if (digestAlgorithm && deprecatedOaepDigests.has(digestAlgorithm)) {
+      debugLog(
+        'The %s was decrypted with key transport algorithm "%s" and DigestMethod "%s", which the next major version does not decrypt: it uses that digest for OAEP and SHA-1 for MGF1, as XML Encryption 1.1 requires, and this key was wrapped another way. Configure the identity provider to use SHA-1, the default rsa-oaep-mgf1p digest, which both versions decrypt.',
+        encryptedElement.localName,
+        keyAlgorithm,
+        digestAlgorithm,
+      );
+    }
+  }
+};
+
 /**
  * // modeled after the current validateSignature method, to maintain consistency for unit tests
  * Input: fullXml, the document for SignedXML context
@@ -371,6 +479,7 @@ export const getNameIdAsync = async (
     const encryptedDataXml = encryptedData[0].toString();
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
+    warnIfDecryptionWillFailInNextMajor(encryptedIds[0]);
     const decryptedDoc = await parseDomFromString(decryptedXml);
     const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
     if (decryptedIds.length !== 1) {
