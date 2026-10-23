@@ -116,7 +116,7 @@ export const warnIfDecryptionWillFailInNextMajor = (encryptedElement: Element): 
   const contentAlgorithm = encryptionMethod(encryptedData)?.getAttribute("Algorithm");
   if (contentAlgorithm && deprecatedContentAlgorithms.has(contentAlgorithm)) {
     debugLog(
-      'The %s was decrypted with content encryption algorithm "%s", which the next major version does not decrypt. Configure the identity provider to encrypt with aes128-gcm or aes256-gcm, which this version also decrypts. If it offers neither, turn off this encryption at the identity provider: node-saml also accepts the unencrypted form, and checks the same signatures either way.',
+      'The %s was decrypted with content encryption algorithm "%s", which the next major version does not decrypt. Configure the identity provider to encrypt with aes128-gcm or aes256-gcm, which this version also decrypts. If it offers neither, and the deployment does not need these contents kept confidential, turn off this encryption at the identity provider: node-saml also accepts the unencrypted form and checks the same signatures either way, but signatures do not hide its contents from the browser or any other system that handles the message.',
       encryptedElement.localName,
       contentAlgorithm,
     );
@@ -131,7 +131,7 @@ export const warnIfDecryptionWillFailInNextMajor = (encryptedElement: Element): 
   const keyAlgorithm = keyMethod?.getAttribute("Algorithm");
   if (keyAlgorithm === "http://www.w3.org/2001/04/xmlenc#rsa-1_5") {
     debugLog(
-      'The %s was decrypted with key transport algorithm "%s", which the next major version does not decrypt. Configure the identity provider to wrap the key with rsa-oaep-mgf1p and its default SHA-1 digest, which this version also decrypts. If it offers no rsa-oaep-mgf1p, turn off this encryption at the identity provider: node-saml also accepts the unencrypted form, and checks the same signatures either way.',
+      'The %s was decrypted with key transport algorithm "%s", which the next major version does not decrypt. Configure the identity provider to wrap the key with rsa-oaep-mgf1p and its default SHA-1 digest, which this version also decrypts. If it offers no rsa-oaep-mgf1p, and the deployment does not need these contents kept confidential, turn off this encryption at the identity provider: node-saml also accepts the unencrypted form and checks the same signatures either way, but signatures do not hide its contents from the browser or any other system that handles the message.',
       encryptedElement.localName,
       keyAlgorithm,
     );

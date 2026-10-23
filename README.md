@@ -916,10 +916,14 @@ whether a message is accepted.
   that form. After the upgrade, the identity provider can switch to SHA-256 with
   `http://www.w3.org/2001/04/xmlenc#sha256`, provided it uses SHA-1 for MGF1.
 
-If your identity provider cannot use AES-GCM or `rsa-oaep-mgf1p`, disable assertion encryption
-at the identity provider. An unencrypted assertion is accepted even when `decryptionPvk` is
-configured, and node-saml still verifies the required signatures. For an encrypted logout NameID, disable
-NameID encryption at the identity provider instead; logout signature validation still applies.
+If your identity provider cannot use AES-GCM or `rsa-oaep-mgf1p`, and your deployment does not
+require assertion confidentiality, disable assertion encryption at the identity provider. An
+unencrypted assertion is accepted even when `decryptionPvk` is configured, and node-saml still
+verifies the required signatures. Signatures protect integrity, not confidentiality: the browser
+and any other system that handles the response can read an unencrypted assertion's NameID and
+attributes. The same holds for an encrypted logout NameID: disable NameID encryption at the
+identity provider only if the NameID need not be kept confidential. Logout signature validation
+still applies.
 
 ### Configuration option `idpCert`
 
