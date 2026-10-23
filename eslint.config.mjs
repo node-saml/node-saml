@@ -13,7 +13,7 @@ export default tseslint.config([
   eslint.configs.recommended,
   tseslint.configs.recommended,
   tseslint.configs.strict,
-  mochaPlugin.configs.flat.recommended,
+  mochaPlugin.configs.recommended,
   {
     files: ["**/*"],
     rules: {
@@ -36,6 +36,8 @@ export default tseslint.config([
     },
     rules: {
       "no-console": "error",
+      // An Error's `cause` option is ES2022, and tsconfig.json's lib is es2018.
+      "preserve-caught-error": "off",
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-unused-vars": "error",
       "@typescript-eslint/no-invalid-void-type": "off",
@@ -53,17 +55,17 @@ export default tseslint.config([
       "chai-friendly": pluginChaiFriendly,
     },
     rules: {
-      "mocha/no-async-describe": "off",
+      "mocha/no-async-suite": "off",
       "@typescript-eslint/no-unused-expressions": "off",
-      "mocha/no-setup-in-describe": "off",
+      "mocha/no-setup-in-suite": "off",
       "mocha/no-exports": "off",
       "mocha/consistent-spacing-between-blocks": "off",
       "mocha/no-mocha-arrows": "off",
       "mocha/no-pending-tests": "off",
-      "mocha/no-top-level-hooks": "off",
-      "mocha/no-sibling-hooks": "off",
-      "mocha/no-hooks-for-single-case": "off",
-      "mocha/no-global-tests": "off",
+      "mocha/no-root-hooks": "off",
+      "mocha/consistent-structure": ["error", { disallowDuplicateHooks: false }],
+      "mocha/no-hooks-for-single-child": "off",
+      "mocha/no-top-level-tests": "off",
       "chai-friendly/no-unused-expressions": "off",
     },
   },
