@@ -460,14 +460,14 @@ check is accepted. Run with `NODE_DEBUG=node-saml` to be told when one arrives, 
 
 ### Response validation
 
-| Option                     | Default | Description                                                                                                                                                            |
-| -------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wantAssertionsSigned`     | `true`  | Require the assertion itself to be signed, and advertise `WantAssertionsSigned="true"` in the metadata.                                                                |
-| `wantAuthnResponseSigned`  | `true`  | Require the response to be signed at the top level, not only at the assertion.                                                                                         |
-| `acceptedClockSkewMs`      | `0`     | Tolerance in milliseconds when checking `NotBefore` and `NotOnOrAfter`. `-1` disables those checks entirely.                                                           |
-| `maxAssertionAgeMs`        | `0`     | Reject an assertion older than this, measured from its `IssueInstant`. `0` means no limit beyond `NotOnOrAfter`. When set and stricter than `NotOnOrAfter`, this wins. |
-| `rejectReplayedAssertions` | `false` | Reject an assertion whose ID has been received before. See [Replayed assertions](#replayed-assertions).                                                                |
-| `idpIssuer`                | —       | If set, the `Issuer` on incoming logout requests and responses must match it. For ADFS this looks like `https://acme_tools.windows.net/deadbeef`.                      |
+| Option                     | Default | Description                                                                                                                                                                           |
+| -------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wantAssertionsSigned`     | `true`  | Require the assertion itself to be signed, and advertise `WantAssertionsSigned="true"` in the metadata.                                                                               |
+| `wantAuthnResponseSigned`  | `true`  | Require the response to be signed at the top level, not only at the assertion.                                                                                                        |
+| `acceptedClockSkewMs`      | `0`     | Tolerance in milliseconds when checking `NotBefore` and `NotOnOrAfter`. `-1` disables those checks entirely.                                                                          |
+| `maxAssertionAgeMs`        | `0`     | Reject an assertion older than this, measured from its `IssueInstant`. `0` means no limit beyond `NotOnOrAfter`. When set and stricter than `NotOnOrAfter`, this wins.                |
+| `rejectReplayedAssertions` | `false` | Reject an assertion whose ID has been received before. See [Replayed assertions](#replayed-assertions).                                                                               |
+| `idpIssuer`                | —       | If set, it must match the `Issuer` of the assertion, of logout messages, and of a signed `Response` that has one. For ADFS this looks like `https://acme_tools.windows.net/deadbeef`. |
 
 Turning both `wantAssertionsSigned` and `wantAuthnResponseSigned` off does not turn signature
 checking off: either the response or the assertion still has to carry a valid signature, or the
@@ -684,10 +684,11 @@ explain rejections that might otherwise look overly strict:
   and that is the content the library goes on to process. The original document is never re-read
   after verification, because an attacker controls the difference between the two — that is the
   whole of an XML signature wrapping attack.
-- **Ambiguity is rejected, not resolved.** A response with more than one assertion, more than one
-  signature on an element, an `ID` resolving to more than one element, a reference pointing anywhere
-  other than its own parent, or more than two transforms is refused. The library does not pick a
-  reading, and it does not pick the reading that happens to verify.
+- **Ambiguity is rejected, not resolved.** A response with more than one assertion, an assertion, a
+  logout message or a signed `Response` with more than one `Issuer`, more than one signature on an
+  element, an `ID` resolving to more than one element, a reference pointing anywhere other than its
+  own parent, or more than two transforms is refused. The library does not pick a reading, and it
+  does not pick the reading that happens to verify.
   One case is not refused yet: a signature with more than one reference is ignored, so its element
   counts as unsigned. That matters only for a `Response` under `wantAuthnResponseSigned: false`,
   which is then accepted on the strength of its separately signed assertion. The next major version

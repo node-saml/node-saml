@@ -141,6 +141,13 @@ function getRootAttribute(dom: Document, name: string): string | null {
   return nodes.length ? nodes[0].nodeValue : null;
 }
 
+// SAML core §2.3.3 and §3.2.1-2 allow one; with more, the order would pick the issuer.
+function assertOneIssuer(issuers: (string | null | undefined)[]): void {
+  if (issuers.length > 1) {
+    throw new Error(`Expected one SAML issuer, received ${issuers.length}: ${issuers.join(", ")}`);
+  }
+}
+
 // Compared as parsed URLs, so the case of the scheme and host and an explicit default port don't
 // count, while the path does, trailing slash included.
 function isSameUrl(received: string, expected: string): boolean {
@@ -1231,6 +1238,19 @@ class SAML {
         const verifiedDom = await parseDomFromString(responseVerifiedXml);
         verifiedInResponseTo = getRootAttribute(verifiedDom, "InResponseTo");
         verifiedDestination = getRootAttribute(verifiedDom, "Destination");
+        assertOneIssuer(
+          xpath
+            .selectElements(verifiedDom, "/*[local-name()='Response']/*[local-name()='Issuer']")
+            .map((issuer) => issuer.textContent),
+        );
+        if (this.options.idpIssuer != null) {
+          const verifiedDoc: XMLOutput = await parseXml2JsFromString(responseVerifiedXml);
+          // Checked only when present: an error response may omit it even when signed, and a login is
+          // checked on its assertion's Issuer, which is required (SAML profiles §4.1.4.2, Errata 05 E17).
+          if (verifiedDoc.Response?.Issuer) {
+            this.verifyIssuer(verifiedDoc.Response);
+          }
+        }
       }
 
       if (this.options.wantAuthnResponseSigned === true && validSignature === false) {
@@ -1669,6 +1689,7 @@ class SAML {
    *   validation of an incoming message, so the next major version makes this method private.
    */
   protected verifyIssuer(samlMessage: XMLOutput): void {
+    assertOneIssuer((samlMessage.Issuer ?? []).map((issuer: XMLOutput) => issuer._));
     if (this.options.idpIssuer != null) {
       const issuer = samlMessage.Issuer;
       if (issuer) {
@@ -1705,6 +1726,7 @@ class SAML {
     const doc: XMLOutput = await parseXml2JsFromString(xml);
     const parsedAssertion: XMLOutput = doc;
     const assertion: XMLOutput = doc.Assertion;
+    this.verifyIssuer(assertion);
     getInResponseTo: {
       const issuer = assertion.Issuer;
       if (issuer && issuer[0]._) {
