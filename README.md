@@ -369,8 +369,9 @@ of the five parameters in bracket notation, such as `RelayState[]` or `[RelaySta
 `qs` parser reads as `RelayState`. It rejects a signed message, too, when the parsed object holds a
 `RelayState` that is not the one in `originalQuery`, as it does when the parser splits or nests the
 query string by other rules: one that also splits on `;` reads `x=1;RelayState=...` as a
-`RelayState`. An unsigned message is accepted by both forms alike, so moving to
-`validateRedirectAsync(originalQuery)` does not change which messages are accepted.
+`RelayState`. Both forms accept an unsigned message. The deprecated form reads one from the parsed
+object, so it skips the checks the query-string form makes for a repeated parameter or for both a
+`SAMLRequest` and a `SAMLResponse`.
 
 On the POST binding the profile is built only from the bytes that signature covers. The signature
 has to envelope the message the way
