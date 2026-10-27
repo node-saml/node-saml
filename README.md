@@ -738,15 +738,7 @@ check.
 `validateSignature()`, which doesn't. Like everything under `lib/`, neither is part of the API: the
 next major version closes the path to both, and removes `validateSignature()`.
 
-To validate a SAML message, use the `SAML` methods above, which apply every check in this section.
-To verify other signed XML, use `xml-crypto` directly, and read the signed content from
-`getSignedReferences()` rather than from the document you passed in, as its
-[Verifying Xml documents](https://github.com/node-saml/xml-crypto#verifying-xml-documents) section
-shows. `validateSignature()` reports only that a signature verified, which leaves you to find the
-signed content somewhere else, and an attacker controls the difference between what verified and
-what you then read. That is an XML signature wrapping attack. `xml-crypto` doesn't apply the
-SAML-specific checks listed above, such as requiring a signature's reference to point at the
-signature's own parent, so add any your documents need:
+To validate a SAML message, use the `SAML` methods above, which apply every check in this section:
 
 ```javascript
 // deprecated: `dom` is the document as received, not the part the signature covered
@@ -755,14 +747,19 @@ if (validateSignature(xml, dom.documentElement, pemFiles)) {
 }
 
 // use this instead
-const sig = new SignedXml({ publicCert });
-sig.loadSignature(signatureElement);
-if (!sig.checkSignature(xml)) {
-  throw new Error("Invalid signature");
-}
-
-readTheProfileFrom(new DOMParser().parseFromString(sig.getSignedReferences()[0], "text/xml"));
+const { profile } = await saml.validatePostResponseAsync(req.body);
 ```
+
+They build the profile they return from what a signature covered, except for an unsigned logout
+message accepted over the Redirect binding (see [Single logout](#single-logout-slo)). The
+deprecated `Profile.getSamlResponseXml()` is not built that way: it returns the response as
+received. For the verified assertion, use `getAssertionXml()` or `getAssertion()`.
+
+`validateSignature()` reports only that a signature verified, which leaves you to find the signed
+content somewhere else, and an attacker controls the difference between what verified and what you
+then read. That is an XML signature wrapping attack.
+
+For signed XML that is not a SAML message, this version has no replacement to point to.
 
 ### Configuration option `signatureAlgorithm`
 
