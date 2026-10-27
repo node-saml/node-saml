@@ -339,11 +339,19 @@ const { profile, loggedOut, relayState } = await saml.validateRedirectAsync(orig
 ```
 
 Node-SAML reads the `SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and `Signature` from
-that string, requires the signature to verify, and returns the `RelayState` that was signed. Use
+that string, verifies the signature, and returns the `RelayState` that the signature covers. Use
 that `relayState`, and not the one in a parsed query object such as `req.query`: a query parser can
 read a parameter that the signature does not cover as `RelayState`. A query string with more than
 one of any of those five parameters, or with both a `SAMLRequest` and a `SAMLResponse`, is
-rejected, and so is a message with no `Signature`.
+rejected.
+
+> **Note:** a message with no `Signature` parameter is still accepted, because the binding makes
+> signing optional. Such a message is accepted with none of its contents authenticated — the issuer
+> and the timestamps are read from the same unsigned bytes, so `idpIssuer` only checks a value the
+> sender wrote and does not show who sent it, and the `relayState` returned is whatever the sender
+> wrote. Run with `NODE_DEBUG=node-saml` to be told when this happens, and configure your IdP to
+> sign its logout messages: the next major version rejects unsigned ones. The POST binding is
+> unaffected: `validatePostRequestAsync` always requires a valid signature.
 
 `validateRedirectAsync` also accepts a deprecated first argument, the parsed query object, before
 the query string. That form is removed in the next major version, and calling it logs a warning
@@ -361,16 +369,8 @@ of the five parameters in bracket notation, such as `RelayState[]` or `[RelaySta
 `qs` parser reads as `RelayState`. It rejects a signed message, too, when the parsed object holds a
 `RelayState` that is not the one in `originalQuery`, as it does when the parser splits or nests the
 query string by other rules: one that also splits on `;` reads `x=1;RelayState=...` as a
-`RelayState`.
-
-> **Note:** the deprecated form still accepts a message with no `Signature` parameter, because the
-> binding makes signing optional. Such a message is accepted with none of its contents
-> authenticated — the issuer and the timestamps are read from the same unsigned bytes, so
-> `idpIssuer` only checks a value the sender wrote and does not show who sent it. Run with
-> `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
-> messages before you move to `validateRedirectAsync(originalQuery)`, which rejects unsigned ones,
-> as the next major version does for every call. The POST binding is unaffected:
-> `validatePostRequestAsync` always requires a valid signature.
+`RelayState`. An unsigned message is accepted by both forms alike, so moving to
+`validateRedirectAsync(originalQuery)` does not change which messages are accepted.
 
 On the POST binding the profile is built only from the bytes that signature covers. The signature
 has to envelope the message the way

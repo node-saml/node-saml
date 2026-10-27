@@ -4150,12 +4150,6 @@ describe("node-saml /", function () {
           });
         });
 
-        it("rejects a message that is not signed", async function () {
-          await assert.rejects(validate(mallory), {
-            message: "The query string has no Signature parameter",
-          });
-        });
-
         it("rejects a signature that is not the one for the message", async function () {
           const query = signedForAlice.replace(/Signature=[^&]*/, "Signature=AAAA");
 

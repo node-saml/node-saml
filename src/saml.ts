@@ -411,18 +411,15 @@ function resolveRedirectArguments(
   if (typeof originalQueryOrContainer === "string") {
     const parameters = readRedirectParameters(originalQueryOrContainer);
     const { samlMessageType, samlMessage, relayState, signed } = parameters;
-    // No caller of this shape relies on unsigned messages, so it does not accept them. Checked
-    // here and not in `hasValidSignatureForRedirect`, which an override can replace.
-    if (!signed) {
-      throw new Error("The query string has no Signature parameter");
-    }
-    // An override of `hasValidSignatureForRedirect` is still handed a parse to read.
-    const container: ParsedQs = {
-      [samlMessageType]: samlMessage,
-      SigAlg: signed.sigAlg,
-      Signature: signed.signature,
-    };
+    // An override of `hasValidSignatureForRedirect` is still handed a parse to read. An unsigned
+    // message reaches it too, and is accepted as the parsed-query form accepts it, so that moving
+    // off that form changes nothing; the next major version rejects it in both.
+    const container: ParsedQs = { [samlMessageType]: samlMessage };
     if (relayState !== undefined) container.RelayState = relayState;
+    if (signed) {
+      container.SigAlg = signed.sigAlg;
+      container.Signature = signed.signature;
+    }
     return { container, originalQuery: originalQueryOrContainer, parameters, legacy: false };
   }
 
@@ -1490,12 +1487,13 @@ class SAML {
    * Validates a `LogoutRequest` or `LogoutResponse` received over the HTTP-Redirect binding.
    *
    * Call it with the raw query string of the request: still URL-encoded, without the leading `?`.
-   * The message, its `RelayState` and its signature are all read from that string, and the
-   * message has to be signed.
+   * The message, its `RelayState` and its signature are all read from that string. A message with
+   * no `Signature` parameter is accepted with its contents unverified and logs a warning under
+   * `NODE_DEBUG=node-saml`; the next major version rejects it.
    *
    * @returns The profile of a `LogoutRequest`, or `null` for a `LogoutResponse`, and the
-   *   `RelayState` that was signed with the message.
-   * @throws If the signature is missing or does not verify, if the query string has two
+   *   `RelayState` from the query string, which the signature covers when there is one.
+   * @throws If a signature, even an empty one, does not verify, if the query string has two
    *   candidates for one of the signed parameters, or if the message fails its own checks.
    */
   validateRedirectAsync(
