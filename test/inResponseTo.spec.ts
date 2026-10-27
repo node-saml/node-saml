@@ -545,6 +545,8 @@ describe("InResponseTo request ID consumption", function () {
       expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
     });
 
+    // The next major version removes allowUnsignedRedirectLogout, and these tests with it.
+    // https://github.com/node-saml/node-saml/issues/419
     describe("given the query string alone under allowUnsignedRedirectLogout", function () {
       beforeEach(async function () {
         saml = newSaml({ wantAuthnResponseSigned: true, allowUnsignedRedirectLogout: true });

@@ -4183,6 +4183,8 @@ describe("node-saml /", function () {
           });
         });
 
+        // The next major version removes allowUnsignedRedirectLogout, and these tests with it.
+        // https://github.com/node-saml/node-saml/issues/419
         describe("under allowUnsignedRedirectLogout", function () {
           const validateAllowingUnsigned = (originalQuery: string) =>
             newSaml({ allowUnsignedRedirectLogout: true }).validateRedirectAsync(originalQuery);
