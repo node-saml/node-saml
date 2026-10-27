@@ -738,8 +738,7 @@ check.
 `validateSignature()`, which doesn't. Like everything under `lib/`, neither is part of the API: the
 next major version closes the path to both, and removes `validateSignature()`.
 
-To validate a SAML message, use the `SAML` methods above. They apply every check in this section
-and return only what was verified:
+To validate a SAML message, use the `SAML` methods above, which apply every check in this section:
 
 ```javascript
 // deprecated: `dom` is the document as received, not the part the signature covered
@@ -750,6 +749,11 @@ if (validateSignature(xml, dom.documentElement, pemFiles)) {
 // use this instead
 const { profile } = await saml.validatePostResponseAsync(req.body);
 ```
+
+They build the profile they return from what a signature covered, except for an unsigned logout
+message accepted over the Redirect binding (see [Single logout](#single-logout-slo)). The
+deprecated `Profile.getSamlResponseXml()` is not built that way: it returns the response as
+received. For the verified assertion, use `getAssertionXml()` or `getAssertion()`.
 
 `validateSignature()` reports only that a signature verified, which leaves you to find the signed
 content somewhere else, and an attacker controls the difference between what verified and what you

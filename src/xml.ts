@@ -273,7 +273,9 @@ export const getVerifiedXml = (
  * @deprecated Reports only whether a signature verified, leaving the caller to find the signed
  * content somewhere else — and an attacker controls the difference between what verified and what
  * the caller then reads. Removed in the next major version. To validate a SAML message, use the
- * `SAML` methods, which return only what was verified.
+ * `SAML` methods, which build the profile from what a signature covered. For the verified
+ * assertion, use the profile's `getAssertionXml()` or `getAssertion()`, not `getSamlResponseXml()`,
+ * which returns the response as received.
  */
 export const validateSignature = (
   fullXml: string,
