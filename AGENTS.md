@@ -180,7 +180,7 @@ Removing a deprecated API is part of the work, not a someday. The process:
 
 Don't test deprecation warnings.
 
-Two cautions specific to this repository:
+Three cautions specific to this repository:
 
 - A lint rule that errors on deprecated usage makes internal migration enforceable, and is
   worth adding when we have enough marked to justify it. Note that the `@deprecated` tag
@@ -189,6 +189,11 @@ Two cautions specific to this repository:
 - Deprecating a **default** is not the same as deprecating an API and is harder: silence is
   the thing being removed, so there is no call site to warn at. The migration is to warn
   when the option is absent, then require it in the next major.
+- A replacement is a migration path only if every caller of the deprecated API can move to it
+  in the same major by changing its own code. So it accepts everything the deprecated API
+  accepts. A tightening it would bring, such as rejecting input an identity provider sends
+  today, is a default of its own: warn about that input on both paths, and reject it on both
+  in the next major. Before deprecating, check that `passport-saml` can move in a minor.
 
 ## Tests
 
