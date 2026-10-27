@@ -190,10 +190,12 @@ Three cautions specific to this repository:
   the thing being removed, so there is no call site to warn at. The migration is to warn
   when the option is absent, then require it in the next major.
 - A replacement is a migration path only if every caller of the deprecated API can move to it
-  in the same major by changing its own code. So it accepts everything the deprecated API
-  accepts. A tightening it would bring, such as rejecting input an identity provider sends
-  today, is a default of its own: warn about that input on both paths, and reject it on both
-  in the next major. Before deprecating, check that `passport-saml` can move in a minor.
+  in the same major by changing its own code. A caller can't change what its identity
+  provider sends, so when the replacement rejects input the deprecated API accepts, such as
+  an unsigned message, give the caller an option that accepts it: off by default, named for
+  what it lets through, and removed in the next major. Keep the stricter default. Don't
+  loosen a security check to ease a migration, least of all once a release has shipped it.
+  Before deprecating, check that `passport-saml` can move in a minor.
 
 ## Tests
 

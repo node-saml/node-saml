@@ -407,13 +407,19 @@ function readRedirectParametersBeside(
 function resolveRedirectArguments(
   originalQueryOrContainer: string | ParsedQs,
   legacyOriginalQuery: string | undefined,
+  allowUnsigned: boolean,
 ): { container: ParsedQs; originalQuery: string; parameters: RedirectParameters; legacy: boolean } {
   if (typeof originalQueryOrContainer === "string") {
     const parameters = readRedirectParameters(originalQueryOrContainer);
     const { samlMessageType, samlMessage, relayState, signed } = parameters;
-    // An override of `hasValidSignatureForRedirect` is still handed a parse to read. An unsigned
-    // message reaches it too, and is accepted as the parsed-query form accepts it, so that moving
-    // off that form changes nothing; the next major version rejects it in both.
+    // SAML profiles 4.4.4.1 and 4.4.4.2: the sender of a logout message authenticates it, which
+    // over this binding takes a signature. So an unsigned one is accepted only when the caller
+    // asks for it. Checked here and not in `hasValidSignatureForRedirect`, which an override can
+    // replace. https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf
+    if (!signed && !allowUnsigned) {
+      throw new Error("The query string has no Signature parameter");
+    }
+    // An override of `hasValidSignatureForRedirect` is still handed a parse to read.
     const container: ParsedQs = { [samlMessageType]: samlMessage };
     if (relayState !== undefined) container.RelayState = relayState;
     if (signed) {
@@ -495,6 +501,7 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
     assertBooleanIfPresent(ctorOptions.rejectReplayedAssertions);
+    assertBooleanIfPresent(ctorOptions.allowUnsignedRedirectLogout);
     assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
     if (isValidSamlSigningOptions(ctorOptions)) {
       algorithms.assertDigestAlgorithmChosen(
@@ -538,6 +545,7 @@ class SAML {
         new InMemoryCacheProvider({
           keyExpirationPeriodMs: ctorOptions.requestIdExpirationPeriodMs,
         }),
+      allowUnsignedRedirectLogout: ctorOptions.allowUnsignedRedirectLogout ?? false,
       logoutUrl: ctorOptions.logoutUrl ?? ctorOptions.entryPoint ?? "", // Default to Entry Point
       signatureAlgorithm: ctorOptions.signatureAlgorithm ?? "sha1",
       authnRequestBinding: ctorOptions.authnRequestBinding ?? "HTTP-Redirect",
@@ -1487,14 +1495,16 @@ class SAML {
    * Validates a `LogoutRequest` or `LogoutResponse` received over the HTTP-Redirect binding.
    *
    * Call it with the raw query string of the request: still URL-encoded, without the leading `?`.
-   * The message, its `RelayState` and its signature are all read from that string. A message with
-   * no `Signature` parameter is accepted with its contents unverified and logs a warning under
-   * `NODE_DEBUG=node-saml`; the next major version rejects it.
+   * The message, its `RelayState` and its signature are all read from that string, and the
+   * message has to be signed. Under `allowUnsignedRedirectLogout`, one with no `Signature`
+   * parameter is accepted with its contents unverified, and logs a warning under
+   * `NODE_DEBUG=node-saml`.
    *
    * @returns The profile of a `LogoutRequest`, or `null` for a `LogoutResponse`, and the
-   *   `RelayState` from the query string, which the signature covers when there is one.
-   * @throws If a signature, even an empty one, does not verify, if the query string has two
-   *   candidates for one of the signed parameters, or if the message fails its own checks.
+   *   `RelayState` that was signed with the message, or that came with an unsigned one.
+   * @throws If the signature is missing and not allowed to be, or if a signature, even an empty
+   *   one, does not verify; if the query string has two candidates for one of the signed
+   *   parameters; or if the message fails its own checks.
    */
   validateRedirectAsync(
     ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
@@ -1515,6 +1525,7 @@ class SAML {
     const { container, originalQuery, parameters, legacy } = resolveRedirectArguments(
       originalQueryOrContainer,
       legacyOriginalQuery,
+      this.options.allowUnsignedRedirectLogout,
     );
     const { samlMessageType, samlMessage, signed } = parameters;
 

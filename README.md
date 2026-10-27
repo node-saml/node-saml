@@ -339,19 +339,24 @@ const { profile, loggedOut, relayState } = await saml.validateRedirectAsync(orig
 ```
 
 Node-SAML reads the `SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and `Signature` from
-that string, verifies the signature, and returns the `RelayState` that the signature covers. Use
+that string, requires the signature to verify, and returns the `RelayState` that was signed. Use
 that `relayState`, and not the one in a parsed query object such as `req.query`: a query parser can
 read a parameter that the signature does not cover as `RelayState`. A query string with more than
 one of any of those five parameters, or with both a `SAMLRequest` and a `SAMLResponse`, is
-rejected.
+rejected, and so is a message with no `Signature`.
 
-> **Note:** a message with no `Signature` parameter is still accepted, because the binding makes
-> signing optional. Such a message is accepted with none of its contents authenticated — the issuer
-> and the timestamps are read from the same unsigned bytes, so `idpIssuer` only checks a value the
-> sender wrote and does not show who sent it, and the `relayState` returned is whatever the sender
-> wrote. Run with `NODE_DEBUG=node-saml` to be told when this happens, and configure your IdP to
-> sign its logout messages: the next major version rejects unsigned ones. The POST binding is
-> unaffected: `validatePostRequestAsync` always requires a valid signature.
+> **Note:** the binding lets a message go unsigned, but the
+> [Single Logout profile](https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf)
+> (§4.4.4) has the sender of a logout message authenticate it, which over this binding takes a
+> signature. If your IdP does not sign its logout messages, configure it to. Until it does,
+> `allowUnsignedRedirectLogout: true` accepts an unsigned one, with none of its contents
+> authenticated: the issuer and the timestamps are read from the same bytes the sender wrote, so
+> `idpIssuer` only checks a value the sender chose, and the `relayState` returned is whatever the
+> sender wrote. Run with `NODE_DEBUG=node-saml` to be told when one is accepted. A message that
+> comes with a `Signature`, even an empty one, still has to verify, and the checks above still
+> apply. The next major version removes the option and rejects an unsigned logout message on every
+> path. The POST binding is unaffected: `validatePostRequestAsync` and `validatePostResponseAsync`
+> always require a logout message to be signed.
 
 `validateRedirectAsync` also accepts a deprecated first argument, the parsed query object, before
 the query string. That form is removed in the next major version, and calling it logs a warning
@@ -369,9 +374,13 @@ of the five parameters in bracket notation, such as `RelayState[]` or `[RelaySta
 `qs` parser reads as `RelayState`. It rejects a signed message, too, when the parsed object holds a
 `RelayState` that is not the one in `originalQuery`, as it does when the parser splits or nests the
 query string by other rules: one that also splits on `;` reads `x=1;RelayState=...` as a
-`RelayState`. Both forms accept an unsigned message. The deprecated form reads one from the parsed
-object, so it skips the checks the query-string form makes for a repeated parameter or for both a
-`SAMLRequest` and a `SAMLResponse`.
+`RelayState`.
+
+The deprecated form also accepts a message with no `Signature` parameter, whatever
+`allowUnsignedRedirectLogout` says, and reads it from the parsed object, so it skips the checks the
+query-string form makes for a repeated parameter or for both a `SAMLRequest` and a `SAMLResponse`.
+If your IdP still sends unsigned logout messages when you move to the query string alone, set
+`allowUnsignedRedirectLogout: true` to go on accepting them.
 
 On the POST binding the profile is built only from the bytes that signature covers. The signature
 has to envelope the message the way
@@ -545,11 +554,12 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 
 ### Logout
 
-| Option                   | Default      | Description                                                                                       |
-| ------------------------ | ------------ | ------------------------------------------------------------------------------------------------- |
-| `logoutUrl`              | `entryPoint` | Address to send logout requests to.                                                               |
-| `additionalLogoutParams` | `{}`         | Query parameters added to logout requests only.                                                   |
-| `logoutCallbackUrl`      | —            | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata. |
+| Option                        | Default      | Description                                                                                                                                                                                    |
+| ----------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `logoutUrl`                   | `entryPoint` | Address to send logout requests to.                                                                                                                                                            |
+| `additionalLogoutParams`      | `{}`         | Query parameters added to logout requests only.                                                                                                                                                |
+| `logoutCallbackUrl`           | —            | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata.                                                                                              |
+| `allowUnsignedRedirectLogout` | `false`      | Accept an unsigned `LogoutRequest` or `LogoutResponse` in `validateRedirectAsync(originalQuery)`, unauthenticated. Removed in the next major version. See [Single logout](#single-logout-slo). |
 
 The next major version also compares the `Destination` of a signed `LogoutRequest` or
 `LogoutResponse` with `logoutCallbackUrl`, in the same way as for `callbackUrl` above. Until then
