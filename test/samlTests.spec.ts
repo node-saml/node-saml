@@ -24,6 +24,18 @@ describe("saml.ts", function () {
     ).to.throw("value is set but not boolean");
   });
 
+  it("should throw when allowUnsignedRedirectLogout is a string instead of a boolean", function () {
+    expect(
+      () =>
+        new SAML({
+          allowUnsignedRedirectLogout: "false" as unknown as boolean,
+          idpCert: FAKE_CERT,
+          issuer: "issuer",
+          callbackUrl: "callback",
+        }),
+    ).to.throw("value is set but not boolean");
+  });
+
   describe("resolveAndParseKeyInfosToPem", function () {
     let getKeyInfosAsPemSpy: sinon.SinonSpy;
 

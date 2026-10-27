@@ -4062,11 +4062,12 @@ describe("node-saml /", function () {
       const sigAlg = param("SigAlg", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
       const signedForAlice = sign(alice, sigAlg);
 
-      const newSaml = () =>
+      const newSaml = (config: Partial<SamlConfig> = {}) =>
         new SAML({
           callbackUrl: "http://localhost/saml/consume",
           idpCert: fs.readFileSync(__dirname + "/static/cert.pem", "utf-8"),
           issuer: "onesaml_login",
+          ...config,
         });
 
       describe("given the query string alone", function () {
@@ -4179,6 +4180,44 @@ describe("node-saml /", function () {
         it("rejects a query string with no message", async function () {
           await assert.rejects(validate(`${sigAlg}&${signatureOver(alice, sigAlg)}`), {
             message: "The query string has no SAMLRequest or SAMLResponse parameter",
+          });
+        });
+
+        // The next major version removes allowUnsignedRedirectLogout, and these tests with it.
+        // https://github.com/node-saml/node-saml/issues/419
+        describe("under allowUnsignedRedirectLogout", function () {
+          const validateAllowingUnsigned = (originalQuery: string) =>
+            newSaml({ allowUnsignedRedirectLogout: true }).validateRedirectAsync(originalQuery);
+
+          it("returns the profile and the RelayState of a message that is not signed", async function () {
+            const query = `${mallory}&${param("RelayState", "/home")}`;
+
+            const { profile, relayState } = await validateAllowingUnsigned(query);
+            expect(profile?.nameID).to.equal("mallory");
+            expect(relayState).to.equal("/home");
+          });
+
+          it("still rejects a signature that is not the one for the message", async function () {
+            const query = signedForAlice.replace(/Signature=[^&]*/, "Signature=AAAA");
+
+            await assert.rejects(validateAllowingUnsigned(query), {
+              message: "Invalid query signature",
+            });
+          });
+
+          for (const emptySignature of ["Signature=", "Signature"]) {
+            it(`still rejects an unsigned SAMLRequest that comes with ${emptySignature}`, async function () {
+              await assert.rejects(
+                validateAllowingUnsigned(`${mallory}&${sigAlg}&${emptySignature}`),
+                { message: "Invalid query signature" },
+              );
+            });
+          }
+
+          it("still rejects a second SAMLRequest beside one that is not signed", async function () {
+            await assert.rejects(validateAllowingUnsigned(`${alice}&${mallory}`), {
+              message: "The query string has more than one SAMLRequest parameter",
+            });
           });
         });
       });

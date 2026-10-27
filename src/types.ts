@@ -336,6 +336,14 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   cacheProvider: CacheProvider;
 
   // Logout
+  /**
+   * Accept a `LogoutRequest` or `LogoutResponse` with no signature in
+   * `validateRedirectAsync(originalQuery)`, with none of its contents authenticated. For an
+   * identity provider that does not sign them yet, as the Single Logout profile requires it to.
+   * Removed in the next major version, which rejects an unsigned logout message on every path.
+   * @default false
+   */
+  allowUnsignedRedirectLogout: boolean;
   logoutUrl: string;
   additionalLogoutParams: Record<string, string>;
   logoutCallbackUrl?: string;

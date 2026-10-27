@@ -535,6 +535,60 @@ describe("InResponseTo request ID consumption", function () {
       );
     });
 
+    it("rejects an unsigned one given the query string alone and leaves the request pending", async () => {
+      const unsigned = redirectLogoutResponse(logoutResponseXml());
+      const signed = signedRedirectLogoutResponse(logoutResponseXml());
+
+      expect(await outcome(saml.validateRedirectAsync(unsigned.query))).to.equal(
+        "The query string has no Signature parameter",
+      );
+      expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
+    });
+
+    // The next major version removes allowUnsignedRedirectLogout, and these tests with it.
+    // https://github.com/node-saml/node-saml/issues/419
+    describe("given the query string alone under allowUnsignedRedirectLogout", function () {
+      beforeEach(async function () {
+        saml = newSaml({ wantAuthnResponseSigned: true, allowUnsignedRedirectLogout: true });
+        await saml.getLogoutUrlAsync(user, "", {});
+      });
+
+      it("leaves the request pending when an unsigned one answers it", async () => {
+        const unsigned = redirectLogoutResponse(logoutResponseXml());
+        const signed = signedRedirectLogoutResponse(logoutResponseXml());
+
+        expect(await outcome(saml.validateRedirectAsync(unsigned.query))).to.equal("accepted");
+        expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
+      });
+
+      it("leaves the request pending when an unsigned one naming it fails", async () => {
+        const failed = redirectLogoutResponse(logoutResponseXml({ status: requesterError }));
+        const signed = signedRedirectLogoutResponse(logoutResponseXml());
+
+        expect(await outcome(saml.validateRedirectAsync(failed.query))).to.equal(
+          "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester",
+        );
+        expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
+      });
+
+      it("rejects an unsigned one with no InResponseTo when validateInResponseTo is always", async () => {
+        const unsigned = redirectLogoutResponse(logoutResponseXml({ inResponseTo: false }));
+
+        expect(await outcome(saml.validateRedirectAsync(unsigned.query))).to.equal(
+          "InResponseTo is missing from response",
+        );
+      });
+
+      it("still rejects a signed one presented again", async () => {
+        const { query } = signedRedirectLogoutResponse(logoutResponseXml());
+
+        expect(await outcome(saml.validateRedirectAsync(query))).to.equal("accepted");
+        expect(await outcome(saml.validateRedirectAsync(query))).to.equal(
+          "InResponseTo is not valid",
+        );
+      });
+    });
+
     it("rejects an unsigned one over POST and leaves the request pending", async () => {
       saml = newSaml({ wantAuthnResponseSigned: false });
       await saml.getLogoutUrlAsync(user, "", {});
