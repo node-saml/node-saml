@@ -91,7 +91,7 @@
     "onchange": "^7.1.0",
     "prettier": "^3.9.10",
     "prettier-plugin-packagejson": "^3.0.2",
-    "release-it": "^21.1.1",
+    "release-it": "^21.1.2",
     "sinon": "^22.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
