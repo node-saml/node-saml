@@ -371,6 +371,55 @@ describe("saml.ts", function () {
       });
     });
 
+    describe("additional parameters", function () {
+      let signedSaml: SAML;
+
+      beforeEach(function () {
+        signedSaml = new SAML({
+          callbackUrl: "http://localhost/saml/consume",
+          entryPoint: "https://exampleidp.com/path?key=value",
+          idpCert: FAKE_CERT,
+          issuer: "onesaml_login",
+          privateKey: fs.readFileSync(__dirname + "/static/acme_tools_com.key", "utf-8"),
+          signatureAlgorithm: "sha256",
+        });
+      });
+
+      it("escapes a parameter's name in the form", async () => {
+        const form = await saml.getAuthorizeFormAsync("", {
+          additionalParams: { 'x"><script>alert(1)</script><input name="y': "v" },
+        });
+
+        expect(form).to.contain(
+          '<input type="hidden" name="x&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;input name=&quot;y" value="v" />',
+        );
+        expect(form).to.not.contain("<script>alert");
+      });
+
+      const outgoing: Record<string, (options: AuthOptions) => Promise<unknown>> = {
+        getAuthorizeUrlAsync: (options) => signedSaml.getAuthorizeUrlAsync("", options),
+        getAuthorizeMessageAsync: (options) => signedSaml.getAuthorizeMessageAsync("", options),
+        getAuthorizeFormAsync: (options) => signedSaml.getAuthorizeFormAsync("", options),
+        getLogoutUrlAsync: (options) => {
+          assertRequired(req.user);
+          return signedSaml.getLogoutUrlAsync(req.user, "", options);
+        },
+        getLogoutResponseUrlAsync: (options) =>
+          signedSaml.getLogoutResponseUrlAsync(req.samlLogoutRequest, "", options, true),
+      };
+
+      for (const [method, call] of Object.entries(outgoing)) {
+        it(`${method} rejects the message and signature parameters in additionalParams`, async () => {
+          for (const name of ["SAMLRequest", "SAMLResponse", "SigAlg", "Signature"]) {
+            await assert.rejects(call({ additionalParams: { [name]: "forged" } }), {
+              name: "TypeError",
+              message: `additionalParams cannot set ${name}, which node-saml sets itself`,
+            });
+          }
+        });
+      }
+    });
+
     describe("getLogoutUrl", function () {
       it("calls callback with right host", async () => {
         assertRequired(req.user);
@@ -555,6 +604,24 @@ describe("saml.ts", function () {
           samlObj.initialize(undefined as any);
         }).to.throw("SamlOptions required on construction");
       });
+
+      for (const option of [
+        "additionalParams",
+        "additionalAuthorizeParams",
+        "additionalLogoutParams",
+      ] as const) {
+        it(`rejects SAMLRequest in ${option}`, function () {
+          expect(
+            () =>
+              new SAML({
+                callbackUrl: "http://localhost/saml/consume",
+                idpCert: FAKE_CERT,
+                issuer: "onesaml_login",
+                [option]: { SAMLRequest: "forged" },
+              }),
+          ).to.throw(TypeError, `${option} cannot set SAMLRequest, which node-saml sets itself`);
+        });
+      }
     });
   });
 });

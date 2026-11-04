@@ -143,7 +143,9 @@ res.redirect(url);
 
 `relayState` is echoed back by the IdP and is omitted from the request when it is an empty string.
 `options` is an `AuthOptions`, whose `additionalParams` override anything set by
-`additionalParams`/`additionalAuthorizeParams` in the constructor.
+`additionalParams`/`additionalAuthorizeParams` in the constructor. None of these can set
+`SAMLRequest`, `SAMLResponse`, `SigAlg`, or `Signature`, which carry the message and its signature;
+naming one throws a `TypeError`.
 
 The URL never carries an empty `RelayState`, because identity providers differ on whether a
 signature covers one. A `RelayState` of `""` in `additionalParams` means "send none", even when
@@ -176,6 +178,7 @@ fallback button for browsers without JavaScript.
 
 If you would rather build the form yourself, `getAuthorizeMessageAsync(relayState, options)`
 returns the message as a plain object of form fields (`SAMLRequest` plus any additional parameters).
+Escape each field's name as well as its value when you write it into HTML.
 
 ### Validate the response
 
@@ -490,8 +493,8 @@ document is rejected.
 | `disableRequestAcsUrl`           | `false`                                                                 | Omit the optional `AssertionConsumerServiceURL` from the request.                                                                                                                                                   |
 | `skipRequestCompression`         | `false`                                                                 | Send the request uncompressed instead of DEFLATE-compressed.                                                                                                                                                        |
 | `authnRequestBinding`            | `"HTTP-Redirect"`                                                       | Recorded on the instance for consumers such as `passport-saml` to act on. Within this library the binding follows from the method you call — `getAuthorizeUrlAsync` for Redirect, `getAuthorizeFormAsync` for POST. |
-| `additionalParams`               | `{}`                                                                    | Query parameters added to every outgoing request.                                                                                                                                                                   |
-| `additionalAuthorizeParams`      | `{}`                                                                    | Query parameters added to authorize requests only.                                                                                                                                                                  |
+| `additionalParams`               | `{}`                                                                    | Query parameters added to every outgoing request. Cannot set `SAMLRequest`, `SAMLResponse`, `SigAlg`, or `Signature`.                                                                                               |
+| `additionalAuthorizeParams`      | `{}`                                                                    | Query parameters added to authorize requests only. Cannot set `SAMLRequest`, `SAMLResponse`, `SigAlg`, or `Signature`.                                                                                              |
 | `scoping`                        | —                                                                       | `Scoping` element contents; see below.                                                                                                                                                                              |
 
 `scoping` implements [SAML core §3.4.1.2, `<Scoping>`](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf):
@@ -544,11 +547,11 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 
 ### Logout
 
-| Option                   | Default      | Description                                                                                       |
-| ------------------------ | ------------ | ------------------------------------------------------------------------------------------------- |
-| `logoutUrl`              | `entryPoint` | Address to send logout requests to.                                                               |
-| `additionalLogoutParams` | `{}`         | Query parameters added to logout requests only.                                                   |
-| `logoutCallbackUrl`      | —            | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata. |
+| Option                   | Default      | Description                                                                                                         |
+| ------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `logoutUrl`              | `entryPoint` | Address to send logout requests to.                                                                                 |
+| `additionalLogoutParams` | `{}`         | Query parameters added to logout requests only. Cannot set `SAMLRequest`, `SAMLResponse`, `SigAlg`, or `Signature`. |
+| `logoutCallbackUrl`      | —            | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata.                   |
 
 The next major version also compares the `Destination` of a signed `LogoutRequest` or
 `LogoutResponse` with `logoutCallbackUrl`, in the same way as for `callbackUrl` above. Until then
