@@ -297,6 +297,17 @@ const deflateRawAsync = util.promisify(zlib.deflateRaw);
 
 const redirectParameterNames = ["SAMLRequest", "SAMLResponse", "RelayState", "SigAlg", "Signature"];
 
+// RelayState is the caller's to set. The others carry the message and its signature, which this
+// library builds and signs itself, so a caller's parameter must not replace them.
+const reservedParameterNames = redirectParameterNames.filter((name) => name !== "RelayState");
+
+function assertNoReservedParameterNames(parameters: object | undefined, source: string): void {
+  const name = Object.keys(parameters ?? {}).find((key) => reservedParameterNames.includes(key));
+  if (name !== undefined) {
+    throw new TypeError(`${source} cannot set ${name}, which node-saml sets itself`);
+  }
+}
+
 // For a parameter a caller supplies: null and undefined mean it was not given, and "" or [] that
 // it is empty.
 const hasValue = <T>(value: T | null | undefined): value is T =>
@@ -499,6 +510,13 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.signMetadata);
     assertBooleanIfPresent(ctorOptions.rejectReplayedAssertions);
     assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
+    for (const option of [
+      "additionalParams",
+      "additionalAuthorizeParams",
+      "additionalLogoutParams",
+    ] as const) {
+      assertNoReservedParameterNames(ctorOptions[option], option);
+    }
     if (isValidSamlSigningOptions(ctorOptions)) {
       algorithms.assertDigestAlgorithmChosen(
         ctorOptions.signatureAlgorithm,
@@ -937,6 +955,7 @@ class SAML {
     operation: "authorize" | "logout",
     overrideParams?: querystring.ParsedUrlQuery,
   ): querystring.ParsedUrlQuery {
+    assertNoReservedParameterNames(overrideParams, "additionalParams");
     const additionalParams: querystring.ParsedUrlQuery = {};
 
     if (typeof relayState === "string" && relayState.length > 0) {
@@ -1065,9 +1084,10 @@ class SAML {
     );
 
     const formInputs = Object.keys(samlMessage)
-      .map((k) => {
-        return '<input type="hidden" name="' + k + '" value="' + quoteattr(samlMessage[k]) + '" />';
-      })
+      .map(
+        (k) =>
+          `<input type="hidden" name="${quoteattr(k)}" value="${quoteattr(samlMessage[k])}" />`,
+      )
       .join("\r\n");
 
     return [
