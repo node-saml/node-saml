@@ -406,18 +406,6 @@ describe("InResponseTo request ID consumption", function () {
       );
     });
 
-    it("rejects a signed one presented again when container holds no Signature", async () => {
-      const { container, query } = signedRedirectLogoutResponse(logoutResponseXml());
-      const { SAMLResponse } = container;
-
-      expect(await outcome(saml.validateRedirectAsync({ SAMLResponse }, query))).to.equal(
-        "accepted",
-      );
-      expect(await outcome(saml.validateRedirectAsync({ SAMLResponse }, query))).to.equal(
-        "InResponseTo is not valid",
-      );
-    });
-
     it("retires the request when a signed one answering it fails on the Redirect binding", async () => {
       const failed = signedRedirectLogoutResponse(logoutResponseXml({ status: requesterError }));
       const signed = signedRedirectLogoutResponse(logoutResponseXml());
@@ -430,28 +418,27 @@ describe("InResponseTo request ID consumption", function () {
       );
     });
 
-    it("leaves the request pending when an unsigned one naming it fails on the Redirect binding", async () => {
+    it("rejects an unsigned failure response and leaves the request pending", async () => {
       const failed = redirectLogoutResponse(logoutResponseXml({ status: requesterError }));
       const signed = signedRedirectLogoutResponse(logoutResponseXml());
 
-      expect(await outcome(saml.validateRedirectAsync(failed.container, failed.query))).to.equal(
-        "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester",
+      expect(await outcome(saml.validateRedirectAsync(failed.query))).to.equal(
+        "The query string has no Signature parameter",
       );
       expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
     });
 
-    it("leaves the request pending when an unsigned one answers it on the Redirect binding", async () => {
+    it("rejects an unsigned response and leaves the request pending", async () => {
       const unsigned = redirectLogoutResponse(logoutResponseXml());
       const signed = signedRedirectLogoutResponse(logoutResponseXml());
 
-      expect(
-        await outcome(saml.validateRedirectAsync(unsigned.container, unsigned.query)),
-      ).to.equal("accepted");
+      expect(await outcome(saml.validateRedirectAsync(unsigned.query))).to.equal(
+        "The query string has no Signature parameter",
+      );
       expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
     });
 
-    // Whether the message was signed must not travel through an overridable method, which an
-    // override written against its two-argument signature would drop.
+    // A subclass override must not interfere with request ID consumption.
     describe("through an override of processValidlySignedSamlLogoutAsync", function () {
       class OverridingSaml extends SAML {
         protected async processValidlySignedSamlLogoutAsync(
@@ -476,11 +463,13 @@ describe("InResponseTo request ID consumption", function () {
         );
       });
 
-      it("leaves the request pending when an unsigned one answers it on the Redirect binding", async () => {
+      it("rejects an unsigned response and leaves the request pending", async () => {
         const unsigned = redirectLogoutResponse(logoutResponseXml());
         const signed = signedRedirectLogoutResponse(logoutResponseXml());
 
-        await saml.validateRedirectAsync(unsigned.container, unsigned.query);
+        expect(await outcome(saml.validateRedirectAsync(unsigned.query))).to.equal(
+          "The query string has no Signature parameter",
+        );
         expect(await outcome(saml.validateRedirectAsync(signed.query))).to.equal("accepted");
       });
     });
@@ -561,16 +550,16 @@ describe("InResponseTo request ID consumption", function () {
   });
 
   describe("Redirect-binding logout responses without InResponseTo", function () {
-    let request: { container: Record<string, string>; query: string };
+    let request: { query: string };
 
     beforeEach(function () {
-      request = redirectLogoutResponse(logoutResponseXml({ inResponseTo: false }));
+      request = signedRedirectLogoutResponse(logoutResponseXml({ inResponseTo: false }));
     });
 
     it("are rejected when validateInResponseTo is always", async () => {
       const saml = newSaml();
 
-      expect(await outcome(saml.validateRedirectAsync(request.container, request.query))).to.equal(
+      expect(await outcome(saml.validateRedirectAsync(request.query))).to.equal(
         "InResponseTo is missing from response",
       );
     });
@@ -579,9 +568,7 @@ describe("InResponseTo request ID consumption", function () {
       it(`are accepted when validateInResponseTo is ${validateInResponseTo}`, async () => {
         const saml = newSaml({ validateInResponseTo });
 
-        expect(
-          await outcome(saml.validateRedirectAsync(request.container, request.query)),
-        ).to.equal("accepted");
+        expect(await outcome(saml.validateRedirectAsync(request.query))).to.equal("accepted");
       });
     });
   });

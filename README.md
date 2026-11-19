@@ -338,39 +338,17 @@ const originalQuery = req.url.slice(req.url.indexOf("?") + 1);
 const { profile, loggedOut, relayState } = await saml.validateRedirectAsync(originalQuery);
 ```
 
-Node-SAML reads the `SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and `Signature` from
-that string, requires the signature to verify, and returns the `RelayState` that was signed. Use
-that `relayState`, and not the one in a parsed query object such as `req.query`: a query parser can
-read a parameter that the signature does not cover as `RelayState`. A query string with more than
-one of any of those five parameters, or with both a `SAMLRequest` and a `SAMLResponse`, is
-rejected, and so is a message with no `Signature`.
+Node-SAML reads the `SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and `Signature`
+from the raw query string. It requires the signature to verify **before decompression** and returns
+the `RelayState` that was signed. Use this `relayState`, not a value in a parsed query object such
+as `req.query`: a parser can read parameters that the signature does not cover.
 
-`validateRedirectAsync` also accepts a deprecated first argument, the parsed query object, before
-the query string. That form is removed in the next major version, and calling it logs a warning
-under `NODE_DEBUG=node-saml`:
-
-```javascript
-await saml.validateRedirectAsync(req.query, originalQuery); // deprecated
-await saml.validateRedirectAsync(originalQuery); // use this, and the `relayState` it returns
-```
-
-The deprecated form returns no `relayState`. A signed message is read from `originalQuery` there
-too, and is treated as signed when either argument has a `Signature`, even an empty one. Because
-its caller goes on reading the parsed object, it also rejects a signed query string that names one
-of the five parameters in bracket notation, such as `RelayState[]` or `[RelayState]`, which the
-`qs` parser reads as `RelayState`. It rejects a signed message, too, when the parsed object holds a
-`RelayState` that is not the one in `originalQuery`, as it does when the parser splits or nests the
-query string by other rules: one that also splits on `;` reads `x=1;RelayState=...` as a
-`RelayState`.
-
-> **Note:** the deprecated form still accepts a message with no `Signature` parameter, because the
-> binding makes signing optional. Such a message is accepted with none of its contents
-> authenticated — the issuer and the timestamps are read from the same unsigned bytes, so
-> `idpIssuer` only checks a value the sender wrote and does not show who sent it. Run with
-> `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
-> messages before you move to `validateRedirectAsync(originalQuery)`, which rejects unsigned ones,
-> as the next major version does for every call. The POST binding is unaffected:
-> `validatePostRequestAsync` always requires a valid signature.
+A query string with duplicate SAML or signature parameters, or with both `SAMLRequest` and
+`SAMLResponse`, is rejected. A message without a signature is also rejected. The deprecated
+`validateRedirectAsync(req.query, originalQuery)` overload has been removed; migrate callers to
+the single raw-query argument and use the returned `relayState`. Unlike the old overload, this
+API never accepts unsigned messages. The POST binding is unaffected:
+`validatePostRequestAsync` always requires a valid signature.
 
 On the POST binding the profile is built only from the bytes that signature covers. The signature
 has to envelope the message the way
@@ -473,6 +451,26 @@ Turning both `wantAssertionsSigned` and `wantAuthnResponseSigned` off does not t
 checking off: either the response or the assertion still has to carry a valid signature, or the
 document is rejected.
 
+### XML parser resource limits
+
+Node-SAML checks uncompressed XML before it builds a DOM or an `xml2js` object.
+By default, `xmlParserLimits.maxBytes` is `5242880` (5 MiB) and
+`xmlParserLimits.maxTokens` is `50000`. These budgets follow
+[gosaml2](https://github.com/russellhaering/gosaml2/blob/main/decode_response.go).
+They are not limits defined by the SAML specification.
+
+The token guard estimates `3 × markup openers + 1`. It ignores literal `<`
+characters in CDATA, comments, and processing instructions, but counts each
+such construct once. This check uses string operations, not another XML parser.
+It also rejects DOCTYPE declarations.
+
+To accommodate a known IdP, set `xmlParserLimits: { maxTokens: 100000 }` or
+override `maxBytes`. Both settings require positive safe integers. Unknown
+settings and invalid values cause a `TypeError` at SAML construction.
+
+The limits apply to XML from POST, Redirect, verified assertion fragments, and
+decryption. The separate HTTP-Redirect decompression limit applies first.
+
 ### AuthnRequest content
 
 | Option                           | Default                                                                 | Description                                                                                                                                                                                                         |
@@ -544,11 +542,23 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 
 ### Logout
 
-| Option                   | Default      | Description                                                                                       |
-| ------------------------ | ------------ | ------------------------------------------------------------------------------------------------- |
-| `logoutUrl`              | `entryPoint` | Address to send logout requests to.                                                               |
-| `additionalLogoutParams` | `{}`         | Query parameters added to logout requests only.                                                   |
-| `logoutCallbackUrl`      | —            | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata. |
+| Option                    | Default         | Description                                                                                       |
+| ------------------------- | --------------- | ------------------------------------------------------------------------------------------------- |
+| `logoutUrl`               | `entryPoint`    | Address to send logout requests to.                                                               |
+| `additionalLogoutParams`  | `{}`            | Query parameters added to logout requests only.                                                   |
+| `logoutCallbackUrl`       | —               | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata. |
+| `maxRedirectMessageBytes` | 5242880 (5 MiB) | Maximum size, in bytes, of a decompressed Redirect-bound `SAMLRequest` or `SAMLResponse`.         |
+
+Redirect signature verification uses the original URL-encoded parameters before Node-SAML
+inflates or parses the XML ([SAML bindings §3.4.4.1](https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf)).
+Node-SAML limits inflated HTTP-Redirect messages to 5 MiB by default. This is a
+resource limit, not a SAML protocol limit. The value follows the decompressed-response
+budget in gosaml2 and gives substantial space to logout messages. A deployer can set
+`maxRedirectMessageBytes` to a different positive safe integer when required. Node's
+`zlib.inflateRaw` enforces the limit after signature verification and before XML parsing.
+A message that exceeds the limit is rejected with a specific error. The limit does not
+bound the number or nesting depth of XML elements, so it is not a replacement for
+XML parser hardening.
 
 The next major version also compares the `Destination` of a signed `LogoutRequest` or
 `LogoutResponse` with `logoutCallbackUrl`, in the same way as for `callbackUrl` above. Until then

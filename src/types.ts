@@ -299,10 +299,20 @@ export interface AttributeConsumingService {
  * The options required to use a SAML strategy
  * These may be provided by means of defaults specified in the constructor
  */
+export interface XmlParserLimits {
+  /** Maximum uncompressed XML document size in UTF-8 bytes. */
+  maxBytes: number;
+  /** Maximum estimated XML tokens, based on markup openers (3 per opener + 1). */
+  maxTokens: number;
+}
+
 export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlOptions {
   // Core
   entryPoint?: string;
   decryptionPvk?: string | Buffer;
+
+  /** Resource limits for parsing untrusted XML, including POST, Redirect, and decrypted XML. */
+  xmlParserLimits?: Partial<XmlParserLimits>;
 
   // Additional SAML behaviors
   additionalParams: Record<string, string>;
@@ -339,6 +349,11 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   logoutUrl: string;
   additionalLogoutParams: Record<string, string>;
   logoutCallbackUrl?: string;
+  /**
+   * Maximum size in bytes of an inflated HTTP-Redirect SAMLRequest or SAMLResponse.
+   * @default 5242880 (5 MiB)
+   */
+  maxRedirectMessageBytes?: number;
 
   // extras
   disableRequestAcsUrl: boolean;

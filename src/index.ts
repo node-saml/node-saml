@@ -25,6 +25,7 @@ import {
   XMLOutput,
   XMLValue,
   XmlJsObject,
+  XmlParserLimits,
 } from "./types";
 
 export {
@@ -55,4 +56,5 @@ export {
   XMLOutput,
   XMLValue,
   XmlJsObject,
+  XmlParserLimits,
 };

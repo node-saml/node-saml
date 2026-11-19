@@ -1,11 +1,14 @@
 import * as crypto from "crypto";
-import { ParsedQs } from "qs";
 import * as querystring from "querystring";
 import { URL, URLSearchParams } from "url";
 import * as util from "util";
 import * as zlib from "zlib";
 import * as algorithms from "./algorithms";
-import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+import {
+  DEFAULT_IDENTIFIER_FORMAT,
+  DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
+  DEFAULT_WANT_ASSERTIONS_SIGNED,
+} from "./constants";
 import { generateUniqueId, keyInfoToPem, privateKeyToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { warnIfRequestExtensionsInvalid } from "./extensions";
@@ -33,12 +36,14 @@ import {
   SamlStatusError,
   ValidateInResponseTo,
   XmlJsObject,
+  XmlParserLimits,
   XMLInput,
   XMLObject,
   XMLOutput,
   XMLValue,
 } from "./types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
+import { resolveXmlParserLimits } from "./xml-limits";
 import {
   buildXml2JsObject,
   buildXmlBuilderObject,
@@ -216,10 +221,13 @@ function warnIfNoBearerConfirmationNames(
   }
 }
 
-async function getSubjectInResponseTosAsync(assertionXml: string): Promise<string[]> {
+async function getSubjectInResponseTosAsync(
+  assertionXml: string,
+  limits?: Partial<XmlParserLimits>,
+): Promise<string[]> {
   return xpath
     .selectAttributes(
-      await parseDomFromString(assertionXml),
+      await parseDomFromString(assertionXml, limits),
       "/*[local-name()='Assertion']/*[local-name()='Subject']/*[local-name()='SubjectConfirmation']/*[local-name()='SubjectConfirmationData']/@InResponseTo",
     )
     .map((attribute) => attribute.nodeValue)
@@ -263,7 +271,7 @@ class ReplayedAssertionError extends Error {}
 // one rejected as not yet valid cannot be presented again once it is.
 // https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf
 async function recordAssertionAsync(assertionXml: string, options: SamlOptions): Promise<void> {
-  const doc: XMLOutput = await parseXml2JsFromString(assertionXml);
+  const doc: XMLOutput = await parseXml2JsFromString(assertionXml, options.xmlParserLimits);
   const assertion: XMLOutput = doc.Assertion;
   const id = assertion.$?.ID;
   if (id == null) {
@@ -305,9 +313,6 @@ const hasValue = <T>(value: T | null | undefined): value is T =>
 // As `querystring.parse` decodes a name or a value.
 const decodeQueryComponent = (component: string): string =>
   querystring.unescape(component.replace(/\+/g, " "));
-
-const queryParameterNames = (originalQuery: string): string[] =>
-  originalQuery.split("&").map((token) => decodeQueryComponent(token.split("=", 1)[0]));
 
 interface RedirectParameters {
   samlMessageType: "SAMLRequest" | "SAMLResponse";
@@ -363,80 +368,6 @@ function readRedirectParameters(originalQuery: string): RedirectParameters {
     samlMessage: message.value,
     relayState: relayState?.value,
     signed,
-  };
-}
-
-// `container` is typed as a `qs` parse, and `qs` reads `RelayState[]` and `[RelayState]` as
-// RelayState.
-const bracketedParameter = (name: string): string | undefined =>
-  redirectParameterNames.find(
-    (reserved) => name.startsWith(`${reserved}[`) || name.startsWith(`[${reserved}]`),
-  );
-
-// A caller who passes `container`, its own parse of the query string, goes on reading it. So a
-// signed query string must not let that parse hold a parameter that was not verified, and what
-// `container` says about a Signature counts. An unsigned message is still read from it.
-function readRedirectParametersBeside(
-  container: ParsedQs,
-  originalQuery: string,
-): RedirectParameters {
-  const names = queryParameterNames(originalQuery);
-  const bracketed = names.map(bracketedParameter).filter((name) => name !== undefined);
-  const claimsSignature =
-    container.Signature != null || names.includes("Signature") || bracketed.includes("Signature");
-  if (!claimsSignature) {
-    const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
-    return { samlMessageType, samlMessage: container[samlMessageType] as string };
-  }
-
-  if (bracketed.length > 0) {
-    throw new Error(`The query string has a ${bracketed[0]} parameter in bracket notation`);
-  }
-  const parameters = readRedirectParameters(originalQuery);
-  // This form returns no RelayState, so the caller's is the one in `container`, and how its
-  // parser was set to split or nest the query string is not known here.
-  if (container.RelayState != null && container.RelayState !== parameters.relayState) {
-    throw new Error("The parsed query has a RelayState that the query string does not");
-  }
-  return parameters;
-}
-
-// `container` is a second reading of the query string, by a parser this library does not choose.
-// Accepting both shapes lets callers move to the query string alone before the next major version
-// removes the other. Module-level so it adds nothing to the `SAML` class surface.
-function resolveRedirectArguments(
-  originalQueryOrContainer: string | ParsedQs,
-  legacyOriginalQuery: string | undefined,
-): { container: ParsedQs; originalQuery: string; parameters: RedirectParameters; legacy: boolean } {
-  if (typeof originalQueryOrContainer === "string") {
-    const parameters = readRedirectParameters(originalQueryOrContainer);
-    const { samlMessageType, samlMessage, relayState, signed } = parameters;
-    // No caller of this shape relies on unsigned messages, so it does not accept them. Checked
-    // here and not in `hasValidSignatureForRedirect`, which an override can replace.
-    if (!signed) {
-      throw new Error("The query string has no Signature parameter");
-    }
-    // An override of `hasValidSignatureForRedirect` is still handed a parse to read.
-    const container: ParsedQs = {
-      [samlMessageType]: samlMessage,
-      SigAlg: signed.sigAlg,
-      Signature: signed.signature,
-    };
-    if (relayState !== undefined) container.RelayState = relayState;
-    return { container, originalQuery: originalQueryOrContainer, parameters, legacy: false };
-  }
-
-  if (typeof legacyOriginalQuery !== "string") {
-    throw new TypeError("originalQuery is required");
-  }
-  debugLog(
-    "validateRedirectAsync was called with a parsed query object. That argument is removed in the next major version; call validateRedirectAsync(originalQuery) and use the relayState it returns in place of your own parse.",
-  );
-  return {
-    container: originalQueryOrContainer,
-    originalQuery: legacyOriginalQuery,
-    parameters: readRedirectParametersBeside(originalQueryOrContainer, legacyOriginalQuery),
-    legacy: true,
   };
 }
 
@@ -498,6 +429,13 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
     assertBooleanIfPresent(ctorOptions.rejectReplayedAssertions);
+    if (
+      ctorOptions.maxRedirectMessageBytes !== undefined &&
+      (!Number.isSafeInteger(ctorOptions.maxRedirectMessageBytes) ||
+        ctorOptions.maxRedirectMessageBytes <= 0)
+    ) {
+      throw new TypeError("maxRedirectMessageBytes must be a positive safe integer");
+    }
     assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
     if (isValidSamlSigningOptions(ctorOptions)) {
       algorithms.assertDigestAlgorithmChosen(
@@ -519,6 +457,9 @@ class SAML {
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
       rejectReplayedAssertions: ctorOptions.rejectReplayedAssertions ?? false,
+      xmlParserLimits: resolveXmlParserLimits(ctorOptions.xmlParserLimits),
+      maxRedirectMessageBytes:
+        ctorOptions.maxRedirectMessageBytes ?? DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
       callbackUrl: ctorOptions.callbackUrl,
       issuer: ctorOptions.issuer,
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
@@ -1162,7 +1103,7 @@ class SAML {
    */
   protected async getSignedAssertion(signedXml: string): Promise<string | null> {
     // case 1: Response signed
-    const verifiedDoc = await parseDomFromString(signedXml);
+    const verifiedDoc = await parseDomFromString(signedXml, this.options.xmlParserLimits);
     const rootNode = verifiedDoc.documentElement;
 
     // case 1: response is a verified assertion
@@ -1185,7 +1126,7 @@ class SAML {
         const encryptedAssertionXml = encryptedAssertions[0].toString();
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
-        const decryptedDoc = await parseDomFromString(decryptedXml);
+        const decryptedDoc = await parseDomFromString(decryptedXml, this.options.xmlParserLimits);
         const decryptedAssertion = decryptedDoc.documentElement;
         if (decryptedAssertion.localName !== "Assertion") {
           throw new Error("Invalid EncryptedAssertion content");
@@ -1204,6 +1145,7 @@ class SAML {
   async validatePostResponseAsync(
     container: Record<string, string>,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
+    const xmlLimits = this.options.xmlParserLimits;
     let xml: string;
     let doc: Document;
     let inResponseTo: string | null = null;
@@ -1213,7 +1155,7 @@ class SAML {
 
     try {
       xml = Buffer.from(container.SAMLResponse, "base64").toString("utf8");
-      doc = await parseDomFromString(xml);
+      doc = await parseDomFromString(xml, this.options.xmlParserLimits);
 
       const inResponseToNodes = xpath.selectAttributes(
         doc,
@@ -1235,7 +1177,10 @@ class SAML {
 
       if (responseVerifiedXml) {
         validSignature = true;
-        const verifiedDom = await parseDomFromString(responseVerifiedXml);
+        const verifiedDom = await parseDomFromString(
+          responseVerifiedXml,
+          this.options.xmlParserLimits,
+        );
         verifiedInResponseTo = getRootAttribute(verifiedDom, "InResponseTo");
         verifiedDestination = getRootAttribute(verifiedDom, "Destination");
         assertOneIssuer(
@@ -1244,7 +1189,10 @@ class SAML {
             .map((issuer) => issuer.textContent),
         );
         if (this.options.idpIssuer != null) {
-          const verifiedDoc: XMLOutput = await parseXml2JsFromString(responseVerifiedXml);
+          const verifiedDoc: XMLOutput = await parseXml2JsFromString(
+            responseVerifiedXml,
+            this.options.xmlParserLimits,
+          );
           // Checked only when present: an error response may omit it even when signed, and a login is
           // checked on its assertion's Issuer, which is required (SAML profiles §4.1.4.2, Errata 05 E17).
           if (verifiedDoc.Response?.Issuer) {
@@ -1288,7 +1236,7 @@ class SAML {
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
         warnIfDecryptionWillFailInNextMajor(encryptedAssertions[0]);
-        const decryptedDoc = await parseDomFromString(decryptedXml);
+        const decryptedDoc = await parseDomFromString(decryptedXml, this.options.xmlParserLimits);
         const decryptedAssertions = xpath.selectElements(
           decryptedDoc,
           "/*[local-name()='Assertion']",
@@ -1336,7 +1284,7 @@ class SAML {
         if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
           const answeredRequestId = responseVerifiedXml
             ? verifiedInResponseTo
-            : (await getSubjectInResponseTosAsync(signedAssertion)).find(
+            : (await getSubjectInResponseTosAsync(signedAssertion, xmlLimits)).find(
                 (subjectInResponseTo) => subjectInResponseTo === inResponseTo,
               );
           await consumeInResponseToAsync(this.cacheProvider, answeredRequestId ?? null);
@@ -1356,6 +1304,7 @@ class SAML {
       // With no signature on the root nothing here was verified, and every path below rejects.
       const xmljsDoc = (await parseXml2JsFromString(
         responseVerifiedXml ?? xml,
+        this.options.xmlParserLimits,
       )) as SamlResponseXmlJs;
       const response = xmljsDoc.Response;
       if (response) {
@@ -1444,7 +1393,7 @@ class SAML {
         const answeredRequestIds = new Set(
           verifiedAssertionXml == null
             ? []
-            : await getSubjectInResponseTosAsync(verifiedAssertionXml),
+            : await getSubjectInResponseTosAsync(verifiedAssertionXml, xmlLimits),
         );
         if (verifiedInResponseTo != null) {
           answeredRequestIds.add(verifiedInResponseTo);
@@ -1474,65 +1423,39 @@ class SAML {
     }
   }
 
-  // An override written against the two-argument signature has to stay assignable to every
-  // signature here, so the one for the query string alone takes the old shape as well. The
-  // deprecated signature comes first, so that a two-argument call resolves to it, and is repeated
-  // last, so that `Parameters<SAML["validateRedirectAsync"]>` is still what it was.
-  /**
-   * @deprecated Call `validateRedirectAsync(originalQuery)` and use the `relayState` it returns: a
-   *   parse of the query string can hold a parameter that the signature does not cover.
-   */
-  validateRedirectAsync(
-    container: ParsedQs,
-    originalQuery: string,
-  ): Promise<{ profile: Profile | null; loggedOut: boolean }>;
-  /**
-   * Validates a `LogoutRequest` or `LogoutResponse` received over the HTTP-Redirect binding.
-   *
-   * Call it with the raw query string of the request: still URL-encoded, without the leading `?`.
-   * The message, its `RelayState` and its signature are all read from that string, and the
-   * message has to be signed.
-   *
-   * @returns The profile of a `LogoutRequest`, or `null` for a `LogoutResponse`, and the
-   *   `RelayState` that was signed with the message.
-   * @throws If the signature is missing or does not verify, if the query string has two
-   *   candidates for one of the signed parameters, or if the message fails its own checks.
-   */
-  validateRedirectAsync(
-    ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
-  ): Promise<{ profile: Profile | null; loggedOut: boolean; relayState?: string | undefined }>;
-  /**
-   * @deprecated Call `validateRedirectAsync(originalQuery)` and use the `relayState` it returns: a
-   *   parse of the query string can hold a parameter that the signature does not cover.
-   */
-  // eslint-disable-next-line @typescript-eslint/unified-signatures -- see the note above
-  validateRedirectAsync(
-    container: ParsedQs,
-    originalQuery: string,
-  ): Promise<{ profile: Profile | null; loggedOut: boolean }>;
   async validateRedirectAsync(
-    ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
+    originalQuery: string,
   ): Promise<{ profile: Profile | null; loggedOut: boolean; relayState?: string | undefined }> {
-    const [originalQueryOrContainer, legacyOriginalQuery] = args;
-    const { container, originalQuery, parameters, legacy } = resolveRedirectArguments(
-      originalQueryOrContainer,
-      legacyOriginalQuery,
-    );
+    const parameters = readRedirectParameters(originalQuery);
     const { samlMessageType, samlMessage, signed } = parameters;
+    if (!signed) {
+      throw new Error("The query string has no Signature parameter");
+    }
+    // SAML bindings §3.4.4.1 signs the URL-encoded query parameters, not the inflated XML.
+    await this.verifyRedirectSignature(signed);
 
     const data = Buffer.from(samlMessage, "base64");
-    const inflated = await inflateRawAsync(data);
+    let inflated: Buffer;
+    try {
+      inflated = await inflateRawAsync(data, {
+        maxOutputLength: this.options.maxRedirectMessageBytes,
+      });
+    } catch (err) {
+      if (err instanceof Error && "code" in err && err.code === "ERR_BUFFER_TOO_LARGE") {
+        throw new Error(
+          `SAML Redirect message exceeds maxRedirectMessageBytes (${this.options.maxRedirectMessageBytes} bytes)`,
+        );
+      }
+      throw err;
+    }
 
-    const dom = await parseDomFromString(inflated.toString());
-    const doc: XMLOutput = await parseXml2JsFromString(inflated);
-    // Before the checks below, so a signed response that fails them still retires its request.
-    await this.hasValidSignatureForRedirect(container, originalQuery);
+    const dom = await parseDomFromString(inflated.toString(), this.options.xmlParserLimits);
+    const doc: XMLOutput = await parseXml2JsFromString(inflated, this.options.xmlParserLimits);
     if (samlMessageType === "SAMLRequest") {
       this.verifyLogoutRequest(doc);
     } else {
-      // Retired here, not in the overridable processing method, so an override can't lose track of
-      // whether the message was signed. An unsigned one can name anyone's pending request.
-      const signedInResponseTo = signed ? doc.LogoutResponse.$.InResponseTo : null;
+      // Retire the signed request here, outside the overridable processing method.
+      const signedInResponseTo = doc.LogoutResponse.$.InResponseTo;
       const retire = signedInResponseTo != null && this.mustValidateInResponseTo(true);
       try {
         await this.verifyLogoutResponse(doc);
@@ -1547,64 +1470,29 @@ class SAML {
       }
     }
     const result = await this.processValidlySignedSamlLogoutAsync(doc, dom);
-    if (signed) {
-      const messageName = samlMessageType === "SAMLRequest" ? "LogoutRequest" : "LogoutResponse";
-      warnIfDestinationIsNot(
-        "logoutCallbackUrl",
-        this.options.logoutCallbackUrl,
-        messageName,
-        getRootAttribute(dom, "Destination"),
-      );
-    }
-    return legacy ? result : { ...result, relayState: parameters.relayState };
+    const messageName = samlMessageType === "SAMLRequest" ? "LogoutRequest" : "LogoutResponse";
+    warnIfDestinationIsNot(
+      "logoutCallbackUrl",
+      this.options.logoutCallbackUrl,
+      messageName,
+      getRootAttribute(dom, "Destination"),
+    );
+    return { ...result, relayState: parameters.relayState };
   }
 
-  /**
-   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
-   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
-   *   validation of an incoming message, so the next major version makes this method private.
-   */
-  protected async hasValidSignatureForRedirect(
-    container: ParsedQs,
-    originalQuery: string,
-  ): Promise<boolean | void> {
-    // A parse can lose a Signature that the query string has, and one can be present and empty.
-    // Either way the message claims a signature.
-    if (container.Signature != null || queryParameterNames(originalQuery).includes("Signature")) {
-      const { signed } = readRedirectParameters(originalQuery);
-      if (!signed) {
-        throw new Error("The query string has no Signature parameter");
-      }
-
-      const pemFiles = await this.getKeyInfosAsPem();
-      const hasValidQuerySignature = pemFiles.some((pemFile) => {
-        return this.validateSignatureForRedirect(
-          signed.octets,
-          signed.signature,
-          signed.sigAlg,
-          pemFile,
-        );
-      });
-      if (!hasValidQuerySignature) {
-        throw new Error("Invalid query signature");
-      }
-    } else {
-      // Nothing here is authenticated: the issuer and the timestamps come from the same bytes
-      // an attacker supplies. Accepted for compatibility until a future major version rejects it.
-      debugLog(
-        "Processing a %s over the Redirect binding with no Signature parameter. Its contents are unverified. Configure the identity provider to sign logout messages; a future major version will reject unsigned ones.",
-        container.SAMLRequest ? "SAMLRequest" : "SAMLResponse",
-      );
-      return true;
+  private async verifyRedirectSignature(
+    signed: NonNullable<RedirectParameters["signed"]>,
+  ): Promise<void> {
+    const pemFiles = await this.getKeyInfosAsPem();
+    const valid = pemFiles.some((pemFile) =>
+      this.validateSignatureForRedirect(signed.octets, signed.signature, signed.sigAlg, pemFile),
+    );
+    if (!valid) {
+      throw new Error("Invalid query signature");
     }
   }
 
-  /**
-   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
-   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
-   *   validation of an incoming message, so the next major version makes this method private.
-   */
-  protected validateSignatureForRedirect(
+  private validateSignatureForRedirect(
     urlString: crypto.BinaryLike,
     signature: string,
     alg: string,
@@ -1723,7 +1611,7 @@ class SAML {
     const profile = {} as Profile;
     let confirmationMethods: string[] = [];
     let timelyBearerRecipients: (string | undefined)[] = [];
-    const doc: XMLOutput = await parseXml2JsFromString(xml);
+    const doc: XMLOutput = await parseXml2JsFromString(xml, this.options.xmlParserLimits);
     const parsedAssertion: XMLOutput = doc;
     const assertion: XMLOutput = doc.Assertion;
     this.verifyIssuer(assertion);
@@ -2080,14 +1968,14 @@ class SAML {
     warnIgnoredInjectedDependencies(legacyInjectedDependencies);
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
     // The document as received locates the signature; only what that signature covers is read.
-    const receivedDom = await parseDomFromString(xml);
+    const receivedDom = await parseDomFromString(xml, this.options.xmlParserLimits);
     const pemFiles = await this.getKeyInfosAsPem();
     const verifiedXml = getVerifiedXml(xml, receivedDom.documentElement, pemFiles);
     if (verifiedXml == null) {
       throw new Error("Invalid signature on documentElement");
     }
-    const verifiedDom = await parseDomFromString(verifiedXml);
-    const verifiedDoc = await parseXml2JsFromString(verifiedXml);
+    const verifiedDom = await parseDomFromString(verifiedXml, this.options.xmlParserLimits);
+    const verifiedDoc = await parseXml2JsFromString(verifiedXml, this.options.xmlParserLimits);
     const result = await this.processValidlySignedPostRequestAsync(verifiedDoc, verifiedDom);
     warnIfDestinationIsNot(
       "logoutCallbackUrl",
@@ -2123,7 +2011,11 @@ class SAML {
       } else {
         throw new Error("Missing SAML issuer");
       }
-      const nameID = await getNameIdAsync(dom, this.options.decryptionPvk ?? null);
+      const nameID = await getNameIdAsync(
+        dom,
+        this.options.decryptionPvk ?? null,
+        this.options.xmlParserLimits,
+      );
       if (nameID.value) {
         profile.nameID = nameID.value;
         if (nameID.format) {

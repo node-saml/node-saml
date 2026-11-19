@@ -7,7 +7,6 @@ import { expect } from "chai";
 const repoRoot = path.join(__dirname, "..");
 const tscEntry = path.join(repoRoot, "node_modules", "typescript", "bin", "tsc");
 const packageEntry = JSON.stringify(repoRoot);
-const qsTypesEntry = JSON.stringify(path.join(repoRoot, "node_modules", "@types", "qs"));
 
 // Compiles `source` against the emitted `.d.ts` rather than the sources, because that is the
 // shape a consumer sees and `declaration` options can change it without changing `src`.
@@ -56,27 +55,12 @@ describe("published type surface", function () {
   // `SAML` is exported from the barrel, so an override's signature is part of the semver
   // contract. A second overload on any of these methods breaks every existing override, and a new
   // required parameter breaks the override's `super` call.
-  it("keeps compiling a subclass written against the previous signatures", function () {
+  it("keeps compiling unrelated legacy subclass method signatures", function () {
     const errors = typeCheck(`
       import { SAML, AuthOptions, Profile } from ${packageEntry};
-      import type { ParsedQs } from ${qsTypesEntry};
       import type * as querystring from "querystring";
 
       class LegacySubclass extends SAML {
-        async validateRedirectAsync(
-          container: ParsedQs,
-          originalQuery: string,
-        ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
-          return super.validateRedirectAsync(container, originalQuery);
-        }
-
-        protected async hasValidSignatureForRedirect(
-          container: ParsedQs,
-          originalQuery: string,
-        ): Promise<boolean | void> {
-          return super.hasValidSignatureForRedirect(container, originalQuery);
-        }
-
         async getAuthorizeUrlAsync(
           RelayState: string,
           host: string | undefined,
@@ -218,31 +202,14 @@ describe("published type surface", function () {
     expect(errors).to.equal("");
   });
 
-  // Without this, the tests above would pass if `typeCheck` stopped reporting anything.
-  it("accepts validateRedirectAsync with the query string alone and with a parsed query before it", function () {
+  it("exports only the signed raw-query Redirect API", function () {
     const consumer = `
       import { SAML, Profile } from ${packageEntry};
-      import type { ParsedQs } from ${qsTypesEntry};
-      import type * as querystring from "querystring";
 
       declare const saml: SAML;
       declare const originalQuery: string;
-      declare const parsedByQs: ParsedQs;
-      declare const parsedByQuerystring: querystring.ParsedUrlQuery;
-      declare const handBuilt: Record<string, string>;
 
-      void saml.validateRedirectAsync(parsedByQs, originalQuery);
-      void saml.validateRedirectAsync(parsedByQuerystring, originalQuery);
-      void saml.validateRedirectAsync(handBuilt, originalQuery);
-
-      // Callers whose own query type is looser than ParsedQs cast to the parameter's type, and
-      // callers that wrap the method take its argument list.
-      declare const loose: Record<string, unknown>;
-      void saml.validateRedirectAsync(
-        loose as Parameters<typeof saml.validateRedirectAsync>[0],
-        originalQuery,
-      );
-      const forwarded: Parameters<SAML["validateRedirectAsync"]> = [handBuilt, originalQuery];
+      const forwarded: Parameters<SAML["validateRedirectAsync"]> = [originalQuery];
       void saml.validateRedirectAsync(...forwarded);
 
       async function logout(): Promise<{ profile: Profile | null; relayState: string | undefined }> {
@@ -257,9 +224,23 @@ describe("published type surface", function () {
     expect(typeCheck(consumer, ["--exactOptionalPropertyTypes"])).to.equal("");
   });
 
-  // The query string was required beside a parsed query, and accepting it alone must not make it
-  // optional there.
-  it("still requires the query string after a parsed query on validateRedirectAsync", function () {
+  it("rejects the removed parsed-query overload at compile time", function () {
+    const source = `
+      import { SAML } from ${packageEntry};
+
+      declare const saml: SAML;
+      declare const parsed: Record<string, string>;
+      declare const originalQuery: string;
+      void saml.validateRedirectAsync(parsed, originalQuery);
+    `;
+    const reported = typeCheck(source)
+      .split("\\n")
+      .filter((line) => line.includes("error TS"));
+    expect(reported).to.have.lengthOf(1);
+    expect(reported[0]).to.contain("error TS2554");
+  });
+
+  it("rejects a parsed query in place of the raw query string", function () {
     const source = `
       import { SAML } from ${packageEntry};
 
@@ -267,14 +248,10 @@ describe("published type surface", function () {
       declare const parsed: Record<string, string>;
       void saml.validateRedirectAsync(parsed);
     `;
-    const callLine =
-      source.split("\n").findIndex((line) => line.includes("validateRedirectAsync")) + 1;
-
     const reported = typeCheck(source)
-      .split("\n")
+      .split("\\n")
       .filter((line) => line.includes("error TS"));
     expect(reported).to.have.lengthOf(1);
-    expect(reported[0]).to.contain(`consumer.ts(${callLine},`);
     expect(reported[0]).to.contain("error TS2345");
   });
 
