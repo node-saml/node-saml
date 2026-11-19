@@ -47,13 +47,14 @@ describe("HTTP-Redirect decompression limits", function () {
       makeSaml({ requireSignedRedirectMessages: true }).options.requireSignedRedirectMessages,
       true,
     );
-    assert.throws(() => makeSaml({ requireSignedRedirectMessages: "false" as unknown as boolean }), {
+    const wrongType = { requireSignedRedirectMessages: "false" as unknown as boolean };
+    assert.throws(() => makeSaml(wrongType), {
       name: "TypeError",
       message: "value is set but not boolean",
     });
   });
 
-  it("rejects an invalid Redirect signature before decompressing invalid DEFLATE data", async function () {
+  it("rejects invalid signatures before decoding invalid DEFLATE data", async function () {
     const query =
       "SAMLRequest=" +
       encodeURIComponent(Buffer.from("invalid DEFLATE").toString("base64")) +
@@ -65,7 +66,7 @@ describe("HTTP-Redirect decompression limits", function () {
     });
   });
 
-  it("requires the signature before decompressing when the strict option is set", async function () {
+  it("requires a signature before decoding when the strict option is set", async function () {
     await assert.rejects(
       makeSaml({ requireSignedRedirectMessages: true }).validateRedirectAsync(
         { SAMLRequest: "not-deflate" },
@@ -75,7 +76,7 @@ describe("HTTP-Redirect decompression limits", function () {
     );
   });
 
-  it("bounds an unsigned message in the deprecated API, without changing its signature policy", async function () {
+  it("bounds unsigned messages through the deprecated API", async function () {
     const { encoded, query } = unsignedQuery(Buffer.alloc(128 * 1024, 0x41));
     await assert.rejects(
       makeSaml({ maxRedirectMessageBytes: 1024 }).validateRedirectAsync(
@@ -102,13 +103,10 @@ describe("HTTP-Redirect decompression limits", function () {
   });
 
   it("rejects the same signed message one byte below its inflated size", async function () {
+    const limit = inflatedFixture.length - 1;
     await assert.rejects(
-      makeSaml({ maxRedirectMessageBytes: inflatedFixture.length - 1 }).validateRedirectAsync(
-        fixture.originalQuery,
-      ),
-      {
-        message: `SAML Redirect message exceeds maxRedirectMessageBytes (${inflatedFixture.length - 1} bytes)`,
-      },
+      makeSaml({ maxRedirectMessageBytes: limit }).validateRedirectAsync(fixture.originalQuery),
+      { message: `SAML Redirect message exceeds maxRedirectMessageBytes (${limit} bytes)` },
     );
   });
 
