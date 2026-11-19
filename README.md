@@ -547,13 +547,13 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 
 ### Logout
 
-| Option                          | Default           | Description                                                                                                                                    |
-| ------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `logoutUrl`                     | `entryPoint`      | Address to send logout requests to.                                                                                                            |
-| `additionalLogoutParams`        | `{}`              | Query parameters added to logout requests only.                                                                                                |
-| `logoutCallbackUrl`             | —                 | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata.                                              |
-| `requireSignedRedirectMessages` | —                 | Set to `true` to reject unsigned Redirect messages through the deprecated two-argument API. The one-argument API already requires a signature. |
-| `maxRedirectMessageBytes`       | — (Node.js default) | Optional maximum size, in bytes, of a decompressed Redirect-bound `SAMLRequest` or `SAMLResponse`.                                                      |
+| Option                          | Default             | Description                                                                                                                                    |
+| -------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `logoutUrl`                     | `entryPoint`        | Address to send logout requests to.                                                                                                            |
+| `additionalLogoutParams`        | `{}`                | Query parameters added to logout requests only.                                                                                                |
+| `logoutCallbackUrl`             | —                   | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata.                                              |
+| `requireSignedRedirectMessages` | —                   | Set to `true` to reject unsigned Redirect messages through the deprecated two-argument API. The one-argument API already requires a signature. |
+| `maxRedirectMessageBytes`       | — (Node.js default) | Optional maximum size, in bytes, of a decompressed Redirect-bound `SAMLRequest` or `SAMLResponse`.                                             |
 
 Redirect signature verification uses the original URL-encoded parameters before Node-SAML
 inflates or parses the XML ([SAML bindings §3.4.4.1](https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf)).
