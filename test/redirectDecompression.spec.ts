@@ -1,4 +1,5 @@
 import * as assert from "assert";
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import * as sinon from "sinon";
@@ -7,6 +8,8 @@ import { SAML } from "../src/saml";
 import { SamlConfig } from "../src/types";
 
 const cert = fs.readFileSync(path.join(__dirname, "static/acme_tools_com.cert"), "utf8");
+const testCert = fs.readFileSync(path.join(__dirname, "static/cert.pem"), "utf8");
+const testKey = fs.readFileSync(path.join(__dirname, "static/key.pem"), "utf8");
 const fixture = JSON.parse(
   fs.readFileSync(path.join(__dirname, "static/idp_slo_redirect.json"), "utf8"),
 ) as { SAMLRequest: string; originalQuery: string };
@@ -27,9 +30,18 @@ function unsignedQuery(data: Buffer): { encoded: string; query: string } {
   return { encoded, query: `SAMLRequest=${encodeURIComponent(encoded)}` };
 }
 
+function signedQuery(data: Buffer): string {
+  const { query } = unsignedQuery(data);
+  const algorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+  const sigAlg = `SigAlg=${encodeURIComponent(algorithm)}`;
+  const signed = `${query}&${sigAlg}`;
+  const signature = crypto.sign("RSA-SHA256", Buffer.from(signed), testKey).toString("base64");
+  return `${signed}&Signature=${encodeURIComponent(signature)}`;
+}
+
 describe("HTTP-Redirect decompression limits", function () {
-  it("leaves the decompression limit unset by default and validates opt-in limits", function () {
-    assert.strictEqual(makeSaml().options.maxRedirectMessageBytes, undefined);
+  it("sets a configurable 5 MiB default and validates overrides", function () {
+    assert.strictEqual(makeSaml().options.maxRedirectMessageBytes, 5 * 1024 * 1024);
     assert.strictEqual(
       makeSaml({ maxRedirectMessageBytes: 4 * 1024 * 1024 }).options.maxRedirectMessageBytes,
       4 * 1024 * 1024,
@@ -40,18 +52,6 @@ describe("HTTP-Redirect decompression limits", function () {
         message: "maxRedirectMessageBytes must be a positive safe integer",
       });
     }
-  });
-
-  it("validates the optional signature requirement at construction", function () {
-    assert.strictEqual(
-      makeSaml({ requireSignedRedirectMessages: true }).options.requireSignedRedirectMessages,
-      true,
-    );
-    const wrongType = { requireSignedRedirectMessages: "false" as unknown as boolean };
-    assert.throws(() => makeSaml(wrongType), {
-      name: "TypeError",
-      message: "value is set but not boolean",
-    });
   });
 
   it("rejects invalid signatures before decoding invalid DEFLATE data", async function () {
@@ -66,25 +66,18 @@ describe("HTTP-Redirect decompression limits", function () {
     });
   });
 
-  it("requires a signature before decoding when the strict option is set", async function () {
-    await assert.rejects(
-      makeSaml({ requireSignedRedirectMessages: true }).validateRedirectAsync(
-        { SAMLRequest: "not-deflate" },
-        "SAMLRequest=not-deflate",
-      ),
-      { message: "The query string has no Signature parameter" },
-    );
+  it("rejects unsigned compressed messages before decompression", async function () {
+    const { query } = unsignedQuery(Buffer.alloc(128 * 1024, 0x41));
+    await assert.rejects(makeSaml().validateRedirectAsync(query), {
+      message: "The query string has no Signature parameter",
+    });
   });
 
-  it("bounds unsigned messages through the deprecated API", async function () {
-    const { encoded, query } = unsignedQuery(Buffer.alloc(128 * 1024, 0x41));
-    await assert.rejects(
-      makeSaml({ maxRedirectMessageBytes: 1024 }).validateRedirectAsync(
-        { SAMLRequest: encoded },
-        query,
-      ),
-      { message: "SAML Redirect message exceeds maxRedirectMessageBytes (1024 bytes)" },
-    );
+  it("rejects a signed message larger than the default inflated size limit", async function () {
+    const originalQuery = signedQuery(Buffer.alloc(5 * 1024 * 1024 + 1, 0x41));
+    const saml = makeSaml({ idpCert: testCert });
+    const errorMessage = "SAML Redirect message exceeds maxRedirectMessageBytes (5242880 bytes)";
+    await assert.rejects(saml.validateRedirectAsync(originalQuery), { message: errorMessage });
   });
 
   it("accepts a signed message exactly at the configured inflated byte limit", async function () {

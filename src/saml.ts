@@ -1,11 +1,14 @@
 import * as crypto from "crypto";
-import { ParsedQs } from "qs";
 import * as querystring from "querystring";
 import { URL, URLSearchParams } from "url";
 import * as util from "util";
 import * as zlib from "zlib";
 import * as algorithms from "./algorithms";
-import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+import {
+  DEFAULT_IDENTIFIER_FORMAT,
+  DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
+  DEFAULT_WANT_ASSERTIONS_SIGNED,
+} from "./constants";
 import { generateUniqueId, keyInfoToPem, privateKeyToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { warnIfRequestExtensionsInvalid } from "./extensions";
@@ -306,9 +309,6 @@ const hasValue = <T>(value: T | null | undefined): value is T =>
 const decodeQueryComponent = (component: string): string =>
   querystring.unescape(component.replace(/\+/g, " "));
 
-const queryParameterNames = (originalQuery: string): string[] =>
-  originalQuery.split("&").map((token) => decodeQueryComponent(token.split("=", 1)[0]));
-
 interface RedirectParameters {
   samlMessageType: "SAMLRequest" | "SAMLResponse";
   samlMessage: string;
@@ -363,80 +363,6 @@ function readRedirectParameters(originalQuery: string): RedirectParameters {
     samlMessage: message.value,
     relayState: relayState?.value,
     signed,
-  };
-}
-
-// `container` is typed as a `qs` parse, and `qs` reads `RelayState[]` and `[RelayState]` as
-// RelayState.
-const bracketedParameter = (name: string): string | undefined =>
-  redirectParameterNames.find(
-    (reserved) => name.startsWith(`${reserved}[`) || name.startsWith(`[${reserved}]`),
-  );
-
-// A caller who passes `container`, its own parse of the query string, goes on reading it. So a
-// signed query string must not let that parse hold a parameter that was not verified, and what
-// `container` says about a Signature counts. An unsigned message is still read from it.
-function readRedirectParametersBeside(
-  container: ParsedQs,
-  originalQuery: string,
-): RedirectParameters {
-  const names = queryParameterNames(originalQuery);
-  const bracketed = names.map(bracketedParameter).filter((name) => name !== undefined);
-  const claimsSignature =
-    container.Signature != null || names.includes("Signature") || bracketed.includes("Signature");
-  if (!claimsSignature) {
-    const samlMessageType = container.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
-    return { samlMessageType, samlMessage: container[samlMessageType] as string };
-  }
-
-  if (bracketed.length > 0) {
-    throw new Error(`The query string has a ${bracketed[0]} parameter in bracket notation`);
-  }
-  const parameters = readRedirectParameters(originalQuery);
-  // This form returns no RelayState, so the caller's is the one in `container`, and how its
-  // parser was set to split or nest the query string is not known here.
-  if (container.RelayState != null && container.RelayState !== parameters.relayState) {
-    throw new Error("The parsed query has a RelayState that the query string does not");
-  }
-  return parameters;
-}
-
-// `container` is a second reading of the query string, by a parser this library does not choose.
-// Accepting both shapes lets callers move to the query string alone before the next major version
-// removes the other. Module-level so it adds nothing to the `SAML` class surface.
-function resolveRedirectArguments(
-  originalQueryOrContainer: string | ParsedQs,
-  legacyOriginalQuery: string | undefined,
-): { container: ParsedQs; originalQuery: string; parameters: RedirectParameters; legacy: boolean } {
-  if (typeof originalQueryOrContainer === "string") {
-    const parameters = readRedirectParameters(originalQueryOrContainer);
-    const { samlMessageType, samlMessage, relayState, signed } = parameters;
-    // No caller of this shape relies on unsigned messages, so it does not accept them. Checked
-    // here and not in `hasValidSignatureForRedirect`, which an override can replace.
-    if (!signed) {
-      throw new Error("The query string has no Signature parameter");
-    }
-    // An override of `hasValidSignatureForRedirect` is still handed a parse to read.
-    const container: ParsedQs = {
-      [samlMessageType]: samlMessage,
-      SigAlg: signed.sigAlg,
-      Signature: signed.signature,
-    };
-    if (relayState !== undefined) container.RelayState = relayState;
-    return { container, originalQuery: originalQueryOrContainer, parameters, legacy: false };
-  }
-
-  if (typeof legacyOriginalQuery !== "string") {
-    throw new TypeError("originalQuery is required");
-  }
-  debugLog(
-    "validateRedirectAsync was called with a parsed query object. That argument is removed in the next major version; call validateRedirectAsync(originalQuery) and use the relayState it returns in place of your own parse.",
-  );
-  return {
-    container: originalQueryOrContainer,
-    originalQuery: legacyOriginalQuery,
-    parameters: readRedirectParametersBeside(originalQueryOrContainer, legacyOriginalQuery),
-    legacy: true,
   };
 }
 
@@ -498,7 +424,6 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
     assertBooleanIfPresent(ctorOptions.rejectReplayedAssertions);
-    assertBooleanIfPresent(ctorOptions.requireSignedRedirectMessages);
     if (
       ctorOptions.maxRedirectMessageBytes !== undefined &&
       (!Number.isSafeInteger(ctorOptions.maxRedirectMessageBytes) ||
@@ -527,6 +452,8 @@ class SAML {
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
       rejectReplayedAssertions: ctorOptions.rejectReplayedAssertions ?? false,
+      maxRedirectMessageBytes:
+        ctorOptions.maxRedirectMessageBytes ?? DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
       callbackUrl: ctorOptions.callbackUrl,
       issuer: ctorOptions.issuer,
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
@@ -1482,73 +1409,25 @@ class SAML {
     }
   }
 
-  // An override written against the two-argument signature has to stay assignable to every
-  // signature here, so the one for the query string alone takes the old shape as well. The
-  // deprecated signature comes first, so that a two-argument call resolves to it, and is repeated
-  // last, so that `Parameters<SAML["validateRedirectAsync"]>` is still what it was.
-  /**
-   * @deprecated Call `validateRedirectAsync(originalQuery)` and use the `relayState` it returns: a
-   *   parse of the query string can hold a parameter that the signature does not cover.
-   */
-  validateRedirectAsync(
-    container: ParsedQs,
-    originalQuery: string,
-  ): Promise<{ profile: Profile | null; loggedOut: boolean }>;
-  /**
-   * Validates a `LogoutRequest` or `LogoutResponse` received over the HTTP-Redirect binding.
-   *
-   * Call it with the raw query string of the request: still URL-encoded, without the leading `?`.
-   * The message, its `RelayState` and its signature are all read from that string, and the
-   * message has to be signed.
-   *
-   * @returns The profile of a `LogoutRequest`, or `null` for a `LogoutResponse`, and the
-   *   `RelayState` that was signed with the message.
-   * @throws If the signature is missing or does not verify, if the query string has two
-   *   candidates for one of the signed parameters, or if the message fails its own checks.
-   */
-  validateRedirectAsync(
-    ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
-  ): Promise<{ profile: Profile | null; loggedOut: boolean; relayState?: string | undefined }>;
-  /**
-   * @deprecated Call `validateRedirectAsync(originalQuery)` and use the `relayState` it returns: a
-   *   parse of the query string can hold a parameter that the signature does not cover.
-   */
-  // eslint-disable-next-line @typescript-eslint/unified-signatures -- see the note above
-  validateRedirectAsync(
-    container: ParsedQs,
-    originalQuery: string,
-  ): Promise<{ profile: Profile | null; loggedOut: boolean }>;
   async validateRedirectAsync(
-    ...args: [originalQuery: string] | [container: ParsedQs, originalQuery: string]
+    originalQuery: string,
   ): Promise<{ profile: Profile | null; loggedOut: boolean; relayState?: string | undefined }> {
-    const [originalQueryOrContainer, legacyOriginalQuery] = args;
-    const { container, originalQuery, parameters, legacy } = resolveRedirectArguments(
-      originalQueryOrContainer,
-      legacyOriginalQuery,
-    );
+    const parameters = readRedirectParameters(originalQuery);
     const { samlMessageType, samlMessage, signed } = parameters;
-
-    if (!signed && this.options.requireSignedRedirectMessages) {
+    if (!signed) {
       throw new Error("The query string has no Signature parameter");
     }
     // SAML bindings §3.4.4.1 signs the URL-encoded query parameters, not the inflated XML.
-    await this.hasValidSignatureForRedirect(container, originalQuery);
+    await this.verifyRedirectSignature(signed);
 
     const data = Buffer.from(samlMessage, "base64");
     let inflated: Buffer;
     try {
       inflated = await inflateRawAsync(data, {
-        ...(this.options.maxRedirectMessageBytes === undefined
-          ? {}
-          : { maxOutputLength: this.options.maxRedirectMessageBytes }),
+        maxOutputLength: this.options.maxRedirectMessageBytes,
       });
     } catch (err) {
-      if (
-        this.options.maxRedirectMessageBytes !== undefined &&
-        err instanceof Error &&
-        "code" in err &&
-        err.code === "ERR_BUFFER_TOO_LARGE"
-      ) {
+      if (err instanceof Error && "code" in err && err.code === "ERR_BUFFER_TOO_LARGE") {
         throw new Error(
           `SAML Redirect message exceeds maxRedirectMessageBytes (${this.options.maxRedirectMessageBytes} bytes)`,
         );
@@ -1561,9 +1440,8 @@ class SAML {
     if (samlMessageType === "SAMLRequest") {
       this.verifyLogoutRequest(doc);
     } else {
-      // Retired here, not in the overridable processing method, so an override can't lose track of
-      // whether the message was signed. An unsigned one can name anyone's pending request.
-      const signedInResponseTo = signed ? doc.LogoutResponse.$.InResponseTo : null;
+      // Retire the signed request here, outside the overridable processing method.
+      const signedInResponseTo = doc.LogoutResponse.$.InResponseTo;
       const retire = signedInResponseTo != null && this.mustValidateInResponseTo(true);
       try {
         await this.verifyLogoutResponse(doc);
@@ -1578,64 +1456,29 @@ class SAML {
       }
     }
     const result = await this.processValidlySignedSamlLogoutAsync(doc, dom);
-    if (signed) {
-      const messageName = samlMessageType === "SAMLRequest" ? "LogoutRequest" : "LogoutResponse";
-      warnIfDestinationIsNot(
-        "logoutCallbackUrl",
-        this.options.logoutCallbackUrl,
-        messageName,
-        getRootAttribute(dom, "Destination"),
-      );
-    }
-    return legacy ? result : { ...result, relayState: parameters.relayState };
+    const messageName = samlMessageType === "SAMLRequest" ? "LogoutRequest" : "LogoutResponse";
+    warnIfDestinationIsNot(
+      "logoutCallbackUrl",
+      this.options.logoutCallbackUrl,
+      messageName,
+      getRootAttribute(dom, "Destination"),
+    );
+    return { ...result, relayState: parameters.relayState };
   }
 
-  /**
-   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
-   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
-   *   validation of an incoming message, so the next major version makes this method private.
-   */
-  protected async hasValidSignatureForRedirect(
-    container: ParsedQs,
-    originalQuery: string,
-  ): Promise<boolean | void> {
-    // A parse can lose a Signature that the query string has, and one can be present and empty.
-    // Either way the message claims a signature.
-    if (container.Signature != null || queryParameterNames(originalQuery).includes("Signature")) {
-      const { signed } = readRedirectParameters(originalQuery);
-      if (!signed) {
-        throw new Error("The query string has no Signature parameter");
-      }
-
-      const pemFiles = await this.getKeyInfosAsPem();
-      const hasValidQuerySignature = pemFiles.some((pemFile) => {
-        return this.validateSignatureForRedirect(
-          signed.octets,
-          signed.signature,
-          signed.sigAlg,
-          pemFile,
-        );
-      });
-      if (!hasValidQuerySignature) {
-        throw new Error("Invalid query signature");
-      }
-    } else {
-      // Nothing here is authenticated: the issuer and the timestamps come from the same bytes
-      // an attacker supplies. Accepted for compatibility until a future major version rejects it.
-      debugLog(
-        "Processing a %s over the Redirect binding with no Signature parameter. Its contents are unverified. Configure the identity provider to sign logout messages; a future major version will reject unsigned ones.",
-        container.SAMLRequest ? "SAMLRequest" : "SAMLResponse",
-      );
-      return true;
+  private async verifyRedirectSignature(
+    signed: NonNullable<RedirectParameters["signed"]>,
+  ): Promise<void> {
+    const pemFiles = await this.getKeyInfosAsPem();
+    const valid = pemFiles.some((pemFile) =>
+      this.validateSignatureForRedirect(signed.octets, signed.signature, signed.sigAlg, pemFile),
+    );
+    if (!valid) {
+      throw new Error("Invalid query signature");
     }
   }
 
-  /**
-   * @deprecated Check what `validatePostResponseAsync`, `validatePostRequestAsync` or
-   *   `validateRedirectAsync` returns instead of overriding this: an override can weaken the
-   *   validation of an incoming message, so the next major version makes this method private.
-   */
-  protected validateSignatureForRedirect(
+  private validateSignatureForRedirect(
     urlString: crypto.BinaryLike,
     signature: string,
     alg: string,

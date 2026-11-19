@@ -3880,22 +3880,16 @@ describe("node-saml /", function () {
         fakeClock.restore();
       });
       it("errors if bad xml", async function () {
-        const body = {
-          SAMLRequest: "asdf",
-        };
-        await assert.rejects(samlObj.validateRedirectAsync(body, "SAMLRequest=asdf"), {
-          message: "unexpected end of file",
+        await assert.rejects(samlObj.validateRedirectAsync("SAMLRequest=asdf"), {
+          message: "The query string has no Signature parameter",
         });
       });
       it("errors if idpIssuer is set and issuer is wrong", async function () {
         samlObj.options.idpIssuer = "foo";
-        await assert.rejects(
-          samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          {
-            message:
-              "Unknown SAML issuer. Expected: foo Received: http://localhost:20000/saml2/idp/metadata.php",
-          },
-        );
+        await assert.rejects(samlObj.validateRedirectAsync(this.request.originalQuery), {
+          message:
+            "Unknown SAML issuer. Expected: foo Received: http://localhost:20000/saml2/idp/metadata.php",
+        });
       });
       it("errors if request has expired", async function () {
         fakeClock.restore();
@@ -3904,10 +3898,9 @@ describe("node-saml /", function () {
           toFake: ["Date"],
         });
 
-        await assert.rejects(
-          samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "SAML assertion expired: clocks skewed too much" },
-        );
+        await assert.rejects(samlObj.validateRedirectAsync(this.request.originalQuery), {
+          message: "SAML assertion expired: clocks skewed too much",
+        });
       });
       it("errors if request has a bad signature", async function () {
         this.request.Signature = "foo";
@@ -3915,16 +3908,12 @@ describe("node-saml /", function () {
           /Signature=[^&]*/,
           "Signature=foo",
         );
-        await assert.rejects(
-          samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "Invalid query signature" },
-        );
+        await assert.rejects(samlObj.validateRedirectAsync(this.request.originalQuery), {
+          message: "Invalid query signature",
+        });
       });
       it("returns profile for valid signature including session index", async function () {
-        const { profile } = await samlObj.validateRedirectAsync(
-          this.request,
-          this.request.originalQuery,
-        );
+        const { profile } = await samlObj.validateRedirectAsync(this.request.originalQuery);
         expect(profile).to.deep.equal({
           ID: "_8f0effde308adfb6ae7f1e29b414957fc320f5636f",
           issuer: "http://localhost:20000/saml2/idp/metadata.php",
@@ -3933,12 +3922,11 @@ describe("node-saml /", function () {
           sessionIndex: "_00bf7b2d5d9d3c970217eecefb1194bef3362a618e",
         });
       });
-      // Pins behavior scheduled to change, not behavior we want: when this becomes a
-      // rejection the test must fail and be rewritten. https://github.com/node-saml/node-saml/issues/419
-      it("accepts a message with no Signature parameter, pending rejection in the next major", async function () {
+      it("rejects an unsigned Redirect request before decoding it", async function () {
         const request = withoutSignature(this.request);
-        const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
-        expect(loggedOut).to.be.true;
+        await assert.rejects(samlObj.validateRedirectAsync(request.originalQuery), {
+          message: "The query string has no Signature parameter",
+        });
       });
     });
     describe("sp slo", function () {
@@ -3961,35 +3949,27 @@ describe("node-saml /", function () {
         await samlObj.cacheProvider.removeAsync("_79db1e7ad12ca1d63e5b");
       });
       it("errors if bad xml", async function () {
-        const body = {
-          SAMLRequest: "asdf",
-        };
-        await assert.rejects(samlObj.validateRedirectAsync(body, ""));
+        await assert.rejects(samlObj.validateRedirectAsync(""));
       });
       it("errors if idpIssuer is set and wrong issuer", async function () {
         samlObj.options.idpIssuer = "foo";
-        await assert.rejects(
-          samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          {
-            message:
-              "Unknown SAML issuer. Expected: foo Received: http://localhost:20000/saml2/idp/metadata.php",
-          },
-        );
+        await assert.rejects(samlObj.validateRedirectAsync(this.request.originalQuery), {
+          message:
+            "Unknown SAML issuer. Expected: foo Received: http://localhost:20000/saml2/idp/metadata.php",
+        });
       });
       it("errors if unsuccessful", async function () {
         this.request = JSON.parse(
           fs.readFileSync(__dirname + "/static/sp_slo_redirect_failure.json", "utf8"),
         );
-        await assert.rejects(
-          samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester" },
-        );
+        await assert.rejects(samlObj.validateRedirectAsync(this.request.originalQuery), {
+          message: "Bad status code: urn:oasis:names:tc:SAML:2.0:status:Requester",
+        });
       });
       it("errors if InResponseTo is not found", async function () {
-        await assert.rejects(
-          samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "InResponseTo is not valid" },
-        );
+        await assert.rejects(samlObj.validateRedirectAsync(this.request.originalQuery), {
+          message: "InResponseTo is not valid",
+        });
       });
       it("errors if bad signature", async function () {
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
@@ -3998,28 +3978,22 @@ describe("node-saml /", function () {
           /Signature=[^&]*/,
           "Signature=foo",
         );
-        await assert.rejects(
-          samlObj.validateRedirectAsync(this.request, this.request.originalQuery),
-          { message: "Invalid query signature" },
-        );
+        await assert.rejects(samlObj.validateRedirectAsync(this.request.originalQuery), {
+          message: "Invalid query signature",
+        });
       });
 
       it("returns true for valid signature", async function () {
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
-        const { loggedOut } = await samlObj.validateRedirectAsync(
-          this.request,
-          this.request.originalQuery,
-        );
+        const { loggedOut } = await samlObj.validateRedirectAsync(this.request.originalQuery);
         expect(loggedOut).to.be.true;
       });
 
-      // As above, pinned pending rejection: the status reported here is the attacker's to
-      // choose. https://github.com/node-saml/node-saml/issues/419
-      it("accepts a response with no Signature parameter, pending rejection in the next major", async function () {
-        await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
+      it("rejects an unsigned Redirect response before decoding it", async function () {
         const request = withoutSignature(this.request);
-        const { loggedOut } = await samlObj.validateRedirectAsync(request, request.originalQuery);
-        expect(loggedOut).to.be.true;
+        await assert.rejects(samlObj.validateRedirectAsync(request.originalQuery), {
+          message: "The query string has no Signature parameter",
+        });
       });
 
       it("accepts cert without header and footer line", async function () {
@@ -4028,10 +4002,7 @@ describe("node-saml /", function () {
           "ascii",
         );
         await samlObj.cacheProvider.saveAsync("_79db1e7ad12ca1d63e5b", new Date().toISOString());
-        const { loggedOut } = await samlObj.validateRedirectAsync(
-          this.request,
-          this.request.originalQuery,
-        );
+        const { loggedOut } = await samlObj.validateRedirectAsync(this.request.originalQuery);
         expect(loggedOut).to.be.true;
       });
     });
@@ -4179,265 +4150,6 @@ describe("node-saml /", function () {
         it("rejects a query string with no message", async function () {
           await assert.rejects(validate(`${sigAlg}&${signatureOver(alice, sigAlg)}`), {
             message: "The query string has no SAMLRequest or SAMLResponse parameter",
-          });
-        });
-      });
-
-      describe("given a parsed query object as well", function () {
-        const firstValues = (query: string) => {
-          const container: Record<string, string> = {};
-          new URLSearchParams(query).forEach((value, name) => {
-            if (!(name in container)) container[name] = value;
-          });
-          return container;
-        };
-        const lastValues = (query: string) => {
-          const container: Record<string, string> = {};
-          new URLSearchParams(query).forEach((value, name) => {
-            container[name] = value;
-          });
-          return container;
-        };
-        const parsers: Record<string, (query: string) => querystring.ParsedUrlQuery> = {
-          "its first value": firstValues,
-          "its last value": lastValues,
-          "all of its values": (query) => querystring.parse(query),
-        };
-
-        const validate = (container: querystring.ParsedUrlQuery, originalQuery: string) =>
-          newSaml().validateRedirectAsync(container, originalQuery);
-
-        it("returns only the profile and loggedOut, as it did", async function () {
-          const query = sign(alice, param("RelayState", "/home"), sigAlg);
-
-          expect(await validate(lastValues(query), query)).to.have.all.keys("profile", "loggedOut");
-        });
-
-        it("requires the query string", async function () {
-          const container = lastValues(signedForAlice);
-
-          await assert.rejects(validate(container, undefined as unknown as string), {
-            name: "TypeError",
-            message: "originalQuery is required",
-          });
-        });
-
-        for (const [values, parse] of Object.entries(parsers)) {
-          for (const [position, query] of [
-            ["after", `${signedForAlice}&${mallory}`],
-            ["before", `${mallory}&${signedForAlice}`],
-          ]) {
-            it(`rejects a forged SAMLRequest ${position} the signed one when a repeated parameter is parsed to ${values}`, async function () {
-              await assert.rejects(validate(parse(query), query), {
-                message: "The query string has more than one SAMLRequest parameter",
-              });
-            });
-          }
-        }
-
-        for (const { position, parse, query } of [
-          {
-            position: "after",
-            parse: lastValues,
-            query: `${signedForAlice}&${mallory}&Signature=`,
-          },
-          {
-            position: "before",
-            parse: firstValues,
-            query: `${mallory}&Signature=&${signedForAlice}`,
-          },
-        ]) {
-          it(`rejects a forged SAMLRequest and an empty Signature ${position} the signed ones`, async function () {
-            await assert.rejects(validate(parse(query), query), {
-              message: "The query string has more than one SAMLRequest parameter",
-            });
-          });
-        }
-
-        for (const [claim, message] of [
-          ["Signature=", "Invalid query signature"],
-          ["Signature", "Invalid query signature"],
-          ["[Signature]", "The query string has a Signature parameter in bracket notation"],
-        ]) {
-          it(`rejects an unsigned SAMLRequest that comes with ${claim}`, async function () {
-            const query = `${mallory}&${sigAlg}&${claim}`;
-
-            await assert.rejects(validate(lastValues(query), query), { message });
-          });
-        }
-
-        it("rejects an unsigned SAMLRequest whose [Signature] follows another bracketed parameter", async function () {
-          const query = `${mallory}&RelayState[]=x&[Signature]=x`;
-
-          await assert.rejects(validate(querystring.parse(query), query), {
-            message: "The query string has a RelayState parameter in bracket notation",
-          });
-        });
-
-        it("rejects an empty Signature in container when the query string does not hold the message", async function () {
-          const container = lastValues(`${mallory}&Signature=`);
-
-          await assert.rejects(validate(container, ""), {
-            message: "The query string has no SAMLRequest or SAMLResponse parameter",
-          });
-        });
-
-        it("verifies a Signature in the query string that container does not hold", async function () {
-          const query = `${mallory}&${sigAlg}&${param("Signature", "AAAA")}`;
-          const { SAMLRequest } = lastValues(query);
-
-          await assert.rejects(validate({ SAMLRequest }, query), {
-            message: "Invalid query signature",
-          });
-        });
-
-        it("returns the profile of the signed SAMLRequest when container holds another and no Signature", async function () {
-          const { SAMLRequest } = lastValues(mallory);
-
-          const { profile } = await validate({ SAMLRequest }, signedForAlice);
-          expect(profile?.nameID).to.equal("alice");
-        });
-
-        it("rejects a forged SAMLRequest whose name is percent-encoded", async function () {
-          const query = `${signedForAlice}&${mallory.replace("SAMLRequest", "SAML%52equest")}`;
-
-          await assert.rejects(validate(lastValues(query), query), {
-            message: "The query string has more than one SAMLRequest parameter",
-          });
-        });
-
-        for (const name of ["RelayState", "SigAlg", "Signature"]) {
-          it(`rejects a second ${name}`, async function () {
-            const signed = sign(alice, param("RelayState", "/home"), sigAlg);
-            const query = `${signed}&${param(name, "second")}`;
-
-            await assert.rejects(validate(lastValues(query), query), {
-              message: `The query string has more than one ${name} parameter`,
-            });
-          });
-        }
-
-        for (const [written, name] of [
-          ["RelayState[]", "RelayState"],
-          ["RelayState%5Bnext%5D", "RelayState"],
-          ["[RelayState]", "RelayState"],
-          ["[RelayState]next", "RelayState"],
-          ["SAMLRequest[]", "SAMLRequest"],
-        ]) {
-          it(`rejects ${written} beside the signed parameters`, async function () {
-            const query = `${signedForAlice}&${written}=${encodeURIComponent("https://evil.example")}`;
-
-            await assert.rejects(validate(lastValues(query), query), {
-              message: `The query string has a ${name} parameter in bracket notation`,
-            });
-          });
-        }
-
-        it("rejects a SAMLResponse beside the signed SAMLRequest", async function () {
-          const query = `${signedForAlice}&${mallory.replace("SAMLRequest", "SAMLResponse")}`;
-
-          await assert.rejects(validate(lastValues(query), query), {
-            message: "The query string has both a SAMLRequest and a SAMLResponse parameter",
-          });
-        });
-
-        it("returns the profile of the signed SAMLRequest when container holds another", async function () {
-          const container = lastValues(signedForAlice.replace(alice, mallory));
-
-          const { profile } = await validate(container, signedForAlice);
-          expect(profile?.nameID).to.equal("alice");
-        });
-
-        it("verifies under the signed SigAlg when container holds another", async function () {
-          const sha512 = param("SigAlg", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512");
-          const container = lastValues(signedForAlice.replace(sigAlg, sha512));
-
-          const { profile } = await validate(container, signedForAlice);
-          expect(profile?.nameID).to.equal("alice");
-        });
-
-        it("verifies the Signature in the query string when container holds another", async function () {
-          const container = { ...lastValues(signedForAlice), Signature: "AAAA" };
-
-          const { profile } = await validate(container, signedForAlice);
-          expect(profile?.nameID).to.equal("alice");
-        });
-
-        it("rejects a signed container when the Signature in the query string is another", async function () {
-          const container = lastValues(signedForAlice);
-
-          await assert.rejects(
-            validate(container, signedForAlice.replace(/Signature=[^&]*/, "Signature=AAAA")),
-            { message: "Invalid query signature" },
-          );
-        });
-
-        it("rejects a signed container when the query string has no Signature", async function () {
-          const container = lastValues(signedForAlice);
-
-          await assert.rejects(validate(container, `${alice}&${sigAlg}`), {
-            message: "The query string has no Signature parameter",
-          });
-        });
-
-        it("accepts a RelayState that contains the name of another parameter", async function () {
-          const query = sign(alice, param("RelayState", "/reports/SigAlgorithms"), sigAlg);
-
-          const { profile } = await validate(lastValues(query), query);
-          expect(profile?.nameID).to.equal("alice");
-        });
-
-        it("accepts a signed query string beside a parameter of the application's own", async function () {
-          const query = `tenant=acme&${signedForAlice}`;
-
-          const { profile } = await validate(lastValues(query), query);
-          expect(profile?.nameID).to.equal("alice");
-        });
-
-        it("rejects a Signature that comes with no SigAlg", async function () {
-          const query = `${alice}&${signatureOver(alice, sigAlg)}`;
-
-          await assert.rejects(validate(lastValues(query), query), {
-            message: "The query string has a Signature parameter but no SigAlg parameter",
-          });
-        });
-
-        it("rejects a signed container whose message is not in the query string", async function () {
-          const container = lastValues(signedForAlice);
-
-          await assert.rejects(validate(container, signedForAlice.replace(`${alice}&`, "")), {
-            message: "The query string has no SAMLRequest or SAMLResponse parameter",
-          });
-        });
-
-        describe("when the parser is set to read the query string another way", function () {
-          const evil = "https://evil.example";
-          const splittingOnSemicolons = (query: string) => lastValues(query.replace(/;/g, "&"));
-          const unsignedRelayState = {
-            message: "The parsed query has a RelayState that the query string does not",
-          };
-
-          it("rejects a RelayState that only a parser splitting on semicolons reads", async function () {
-            const query = `${signedForAlice}&x=1;${param("RelayState", evil)}`;
-
-            await assert.rejects(validate(splittingOnSemicolons(query), query), unsignedRelayState);
-          });
-
-          it("rejects a RelayState that such a parser reads in place of the signed one", async function () {
-            const signed = sign(alice, param("RelayState", "/home"), sigAlg);
-            const query = `${signed}&x=1;${param("RelayState", evil)}`;
-
-            await assert.rejects(validate(splittingOnSemicolons(query), query), unsignedRelayState);
-          });
-
-          it("rejects a RelayState that a parser nests from a dotted name", async function () {
-            const query = `${signedForAlice}&${param("RelayState.next", evil)}`;
-            const container = { ...lastValues(signedForAlice), RelayState: { next: evil } };
-
-            await assert.rejects(
-              validate(container as unknown as querystring.ParsedUrlQuery, query),
-              unsignedRelayState,
-            );
           });
         });
       });
