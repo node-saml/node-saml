@@ -12,11 +12,13 @@ import {
   NameID,
   SamlSigningOptions,
   XmlJsObject,
+  XmlParserLimits,
   XMLOutput,
   XmlSignatureLocation,
 } from "./types";
 import { assertRequired } from "./utility";
 import { decryptionPvkToPem, keyInfoToPem, privateKeyToPem } from "./crypto";
+import { checkXmlComplexity } from "./xml-limits";
 
 const debugLog = util.debuglog("node-saml");
 
@@ -392,7 +394,11 @@ export const signXml = (
   return sig.getSignedXml();
 };
 
-export const parseDomFromString = (xml: string): Promise<Document> => {
+export const parseDomFromString = async (
+  xml: string,
+  limits?: Partial<XmlParserLimits>,
+): Promise<Document> => {
+  checkXmlComplexity(xml, limits);
   return new Promise(function (resolve, reject) {
     function errHandler(msg: string) {
       return reject(new Error(msg));
@@ -418,7 +424,11 @@ export const parseDomFromString = (xml: string): Promise<Document> => {
   });
 };
 
-export const parseXml2JsFromString = async (xml: string | Buffer): Promise<XmlJsObject> => {
+export const parseXml2JsFromString = async (
+  xml: string | Buffer,
+  limits?: Partial<XmlParserLimits>,
+): Promise<XmlJsObject> => {
+  checkXmlComplexity(xml, limits);
   const parserConfig = {
     explicitRoot: true,
     explicitCharkey: true,
@@ -446,6 +456,7 @@ export const promiseWithNameId = async (nameid: Node): Promise<NameID> => {
 export const getNameIdAsync = async (
   doc: Node,
   decryptionPvk: string | Buffer | null,
+  limits?: Partial<XmlParserLimits>,
 ): Promise<NameID> => {
   const nameIds = xpath.selectElements(
     doc,
@@ -480,7 +491,7 @@ export const getNameIdAsync = async (
 
     const decryptedXml = await decryptXml(encryptedDataXml, decryptionPvk);
     warnIfDecryptionWillFailInNextMajor(encryptedIds[0]);
-    const decryptedDoc = await parseDomFromString(decryptedXml);
+    const decryptedDoc = await parseDomFromString(decryptedXml, limits);
     const decryptedIds = xpath.selectElements(decryptedDoc, "/*[local-name()='NameID']");
     if (decryptedIds.length !== 1) {
       throw new Error("Invalid EncryptedData content");

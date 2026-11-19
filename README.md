@@ -451,6 +451,26 @@ Turning both `wantAssertionsSigned` and `wantAuthnResponseSigned` off does not t
 checking off: either the response or the assertion still has to carry a valid signature, or the
 document is rejected.
 
+### XML parser resource limits
+
+Node-SAML checks uncompressed XML before it builds a DOM or an `xml2js` object.
+By default, `xmlParserLimits.maxBytes` is `5242880` (5 MiB) and
+`xmlParserLimits.maxTokens` is `50000`. These budgets follow
+[gosaml2](https://github.com/russellhaering/gosaml2/blob/main/decode_response.go).
+They are not limits defined by the SAML specification.
+
+The token guard estimates `3 × markup openers + 1`. It ignores literal `<`
+characters in CDATA, comments, and processing instructions, but counts each
+such construct once. This check uses string operations, not another XML parser.
+It also rejects DOCTYPE declarations.
+
+To accommodate a known IdP, set `xmlParserLimits: { maxTokens: 100000 }` or
+override `maxBytes`. Both settings require positive safe integers. Unknown
+settings and invalid values cause a `TypeError` at SAML construction.
+
+The limits apply to XML from POST, Redirect, verified assertion fragments, and
+decryption. The separate HTTP-Redirect decompression limit applies first.
+
 ### AuthnRequest content
 
 | Option                           | Default                                                                 | Description                                                                                                                                                                                                         |

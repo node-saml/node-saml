@@ -36,12 +36,14 @@ import {
   SamlStatusError,
   ValidateInResponseTo,
   XmlJsObject,
+  XmlParserLimits,
   XMLInput,
   XMLObject,
   XMLOutput,
   XMLValue,
 } from "./types";
 import { assertBooleanIfPresent, assertRequired } from "./utility";
+import { resolveXmlParserLimits } from "./xml-limits";
 import {
   buildXml2JsObject,
   buildXmlBuilderObject,
@@ -219,10 +221,13 @@ function warnIfNoBearerConfirmationNames(
   }
 }
 
-async function getSubjectInResponseTosAsync(assertionXml: string): Promise<string[]> {
+async function getSubjectInResponseTosAsync(
+  assertionXml: string,
+  limits?: Partial<XmlParserLimits>,
+): Promise<string[]> {
   return xpath
     .selectAttributes(
-      await parseDomFromString(assertionXml),
+      await parseDomFromString(assertionXml, limits),
       "/*[local-name()='Assertion']/*[local-name()='Subject']/*[local-name()='SubjectConfirmation']/*[local-name()='SubjectConfirmationData']/@InResponseTo",
     )
     .map((attribute) => attribute.nodeValue)
@@ -266,7 +271,7 @@ class ReplayedAssertionError extends Error {}
 // one rejected as not yet valid cannot be presented again once it is.
 // https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf
 async function recordAssertionAsync(assertionXml: string, options: SamlOptions): Promise<void> {
-  const doc: XMLOutput = await parseXml2JsFromString(assertionXml);
+  const doc: XMLOutput = await parseXml2JsFromString(assertionXml, options.xmlParserLimits);
   const assertion: XMLOutput = doc.Assertion;
   const id = assertion.$?.ID;
   if (id == null) {
@@ -452,6 +457,7 @@ class SAML {
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
       rejectReplayedAssertions: ctorOptions.rejectReplayedAssertions ?? false,
+      xmlParserLimits: resolveXmlParserLimits(ctorOptions.xmlParserLimits),
       maxRedirectMessageBytes:
         ctorOptions.maxRedirectMessageBytes ?? DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
       callbackUrl: ctorOptions.callbackUrl,
@@ -1097,7 +1103,7 @@ class SAML {
    */
   protected async getSignedAssertion(signedXml: string): Promise<string | null> {
     // case 1: Response signed
-    const verifiedDoc = await parseDomFromString(signedXml);
+    const verifiedDoc = await parseDomFromString(signedXml, this.options.xmlParserLimits);
     const rootNode = verifiedDoc.documentElement;
 
     // case 1: response is a verified assertion
@@ -1120,7 +1126,7 @@ class SAML {
         const encryptedAssertionXml = encryptedAssertions[0].toString();
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
-        const decryptedDoc = await parseDomFromString(decryptedXml);
+        const decryptedDoc = await parseDomFromString(decryptedXml, this.options.xmlParserLimits);
         const decryptedAssertion = decryptedDoc.documentElement;
         if (decryptedAssertion.localName !== "Assertion") {
           throw new Error("Invalid EncryptedAssertion content");
@@ -1139,6 +1145,7 @@ class SAML {
   async validatePostResponseAsync(
     container: Record<string, string>,
   ): Promise<{ profile: Profile | null; loggedOut: boolean }> {
+    const xmlLimits = this.options.xmlParserLimits;
     let xml: string;
     let doc: Document;
     let inResponseTo: string | null = null;
@@ -1148,7 +1155,7 @@ class SAML {
 
     try {
       xml = Buffer.from(container.SAMLResponse, "base64").toString("utf8");
-      doc = await parseDomFromString(xml);
+      doc = await parseDomFromString(xml, this.options.xmlParserLimits);
 
       const inResponseToNodes = xpath.selectAttributes(
         doc,
@@ -1170,7 +1177,10 @@ class SAML {
 
       if (responseVerifiedXml) {
         validSignature = true;
-        const verifiedDom = await parseDomFromString(responseVerifiedXml);
+        const verifiedDom = await parseDomFromString(
+          responseVerifiedXml,
+          this.options.xmlParserLimits,
+        );
         verifiedInResponseTo = getRootAttribute(verifiedDom, "InResponseTo");
         verifiedDestination = getRootAttribute(verifiedDom, "Destination");
         assertOneIssuer(
@@ -1179,7 +1189,10 @@ class SAML {
             .map((issuer) => issuer.textContent),
         );
         if (this.options.idpIssuer != null) {
-          const verifiedDoc: XMLOutput = await parseXml2JsFromString(responseVerifiedXml);
+          const verifiedDoc: XMLOutput = await parseXml2JsFromString(
+            responseVerifiedXml,
+            this.options.xmlParserLimits,
+          );
           // Checked only when present: an error response may omit it even when signed, and a login is
           // checked on its assertion's Issuer, which is required (SAML profiles §4.1.4.2, Errata 05 E17).
           if (verifiedDoc.Response?.Issuer) {
@@ -1223,7 +1236,7 @@ class SAML {
 
         const decryptedXml = await decryptXml(encryptedAssertionXml, this.options.decryptionPvk);
         warnIfDecryptionWillFailInNextMajor(encryptedAssertions[0]);
-        const decryptedDoc = await parseDomFromString(decryptedXml);
+        const decryptedDoc = await parseDomFromString(decryptedXml, this.options.xmlParserLimits);
         const decryptedAssertions = xpath.selectElements(
           decryptedDoc,
           "/*[local-name()='Assertion']",
@@ -1271,7 +1284,7 @@ class SAML {
         if (this.mustValidateInResponseTo(Boolean(inResponseTo))) {
           const answeredRequestId = responseVerifiedXml
             ? verifiedInResponseTo
-            : (await getSubjectInResponseTosAsync(signedAssertion)).find(
+            : (await getSubjectInResponseTosAsync(signedAssertion, xmlLimits)).find(
                 (subjectInResponseTo) => subjectInResponseTo === inResponseTo,
               );
           await consumeInResponseToAsync(this.cacheProvider, answeredRequestId ?? null);
@@ -1291,6 +1304,7 @@ class SAML {
       // With no signature on the root nothing here was verified, and every path below rejects.
       const xmljsDoc = (await parseXml2JsFromString(
         responseVerifiedXml ?? xml,
+        this.options.xmlParserLimits,
       )) as SamlResponseXmlJs;
       const response = xmljsDoc.Response;
       if (response) {
@@ -1379,7 +1393,7 @@ class SAML {
         const answeredRequestIds = new Set(
           verifiedAssertionXml == null
             ? []
-            : await getSubjectInResponseTosAsync(verifiedAssertionXml),
+            : await getSubjectInResponseTosAsync(verifiedAssertionXml, xmlLimits),
         );
         if (verifiedInResponseTo != null) {
           answeredRequestIds.add(verifiedInResponseTo);
@@ -1435,8 +1449,8 @@ class SAML {
       throw err;
     }
 
-    const dom = await parseDomFromString(inflated.toString());
-    const doc: XMLOutput = await parseXml2JsFromString(inflated);
+    const dom = await parseDomFromString(inflated.toString(), this.options.xmlParserLimits);
+    const doc: XMLOutput = await parseXml2JsFromString(inflated, this.options.xmlParserLimits);
     if (samlMessageType === "SAMLRequest") {
       this.verifyLogoutRequest(doc);
     } else {
@@ -1597,7 +1611,7 @@ class SAML {
     const profile = {} as Profile;
     let confirmationMethods: string[] = [];
     let timelyBearerRecipients: (string | undefined)[] = [];
-    const doc: XMLOutput = await parseXml2JsFromString(xml);
+    const doc: XMLOutput = await parseXml2JsFromString(xml, this.options.xmlParserLimits);
     const parsedAssertion: XMLOutput = doc;
     const assertion: XMLOutput = doc.Assertion;
     this.verifyIssuer(assertion);
@@ -1954,14 +1968,14 @@ class SAML {
     warnIgnoredInjectedDependencies(legacyInjectedDependencies);
     const xml = Buffer.from(container.SAMLRequest, "base64").toString("utf8");
     // The document as received locates the signature; only what that signature covers is read.
-    const receivedDom = await parseDomFromString(xml);
+    const receivedDom = await parseDomFromString(xml, this.options.xmlParserLimits);
     const pemFiles = await this.getKeyInfosAsPem();
     const verifiedXml = getVerifiedXml(xml, receivedDom.documentElement, pemFiles);
     if (verifiedXml == null) {
       throw new Error("Invalid signature on documentElement");
     }
-    const verifiedDom = await parseDomFromString(verifiedXml);
-    const verifiedDoc = await parseXml2JsFromString(verifiedXml);
+    const verifiedDom = await parseDomFromString(verifiedXml, this.options.xmlParserLimits);
+    const verifiedDoc = await parseXml2JsFromString(verifiedXml, this.options.xmlParserLimits);
     const result = await this.processValidlySignedPostRequestAsync(verifiedDoc, verifiedDom);
     warnIfDestinationIsNot(
       "logoutCallbackUrl",
@@ -1997,7 +2011,11 @@ class SAML {
       } else {
         throw new Error("Missing SAML issuer");
       }
-      const nameID = await getNameIdAsync(dom, this.options.decryptionPvk ?? null);
+      const nameID = await getNameIdAsync(
+        dom,
+        this.options.decryptionPvk ?? null,
+        this.options.xmlParserLimits,
+      );
       if (nameID.value) {
         profile.nameID = nameID.value;
         if (nameID.format) {
