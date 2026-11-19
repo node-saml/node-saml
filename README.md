@@ -548,7 +548,7 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 ### Logout
 
 | Option                          | Default             | Description                                                                                                                                    |
-| -------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `logoutUrl`                     | `entryPoint`        | Address to send logout requests to.                                                                                                            |
 | `additionalLogoutParams`        | `{}`                | Query parameters added to logout requests only.                                                                                                |
 | `logoutCallbackUrl`             | —                   | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata.                                              |
