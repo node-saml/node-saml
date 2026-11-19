@@ -1,8 +1,8 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import * as zlib from "zlib";
 import * as sinon from "sinon";
+import * as zlib from "zlib";
 import { SAML } from "../src/saml";
 import { SamlConfig } from "../src/types";
 
@@ -43,7 +43,10 @@ describe("HTTP-Redirect decompression limits", function () {
   });
 
   it("validates the optional signature requirement at construction", function () {
-    assert.strictEqual(makeSaml({ requireSignedRedirectMessages: true }).options.requireSignedRedirectMessages, true);
+    assert.strictEqual(
+      makeSaml({ requireSignedRedirectMessages: true }).options.requireSignedRedirectMessages,
+      true,
+    );
     assert.throws(() => makeSaml({ requireSignedRedirectMessages: "false" as unknown as boolean }), {
       name: "TypeError",
       message: "value is set but not boolean",
@@ -52,8 +55,10 @@ describe("HTTP-Redirect decompression limits", function () {
 
   it("rejects an invalid Redirect signature before decompressing invalid DEFLATE data", async function () {
     const query =
-      "SAMLRequest=" + encodeURIComponent(Buffer.from("invalid DEFLATE").toString("base64")) +
-      "&SigAlg=" + encodeURIComponent("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256") +
+      "SAMLRequest=" +
+      encodeURIComponent(Buffer.from("invalid DEFLATE").toString("base64")) +
+      "&SigAlg=" +
+      encodeURIComponent("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256") +
       "&Signature=not-valid";
     await assert.rejects(makeSaml().validateRedirectAsync(query), {
       message: "Invalid query signature",
@@ -82,7 +87,10 @@ describe("HTTP-Redirect decompression limits", function () {
   });
 
   it("accepts a signed message exactly at the configured inflated byte limit", async function () {
-    const clock = sinon.useFakeTimers({ now: Date.parse("2018-04-11T14:08:00Z"), toFake: ["Date"] });
+    const clock = sinon.useFakeTimers({
+      now: Date.parse("2018-04-11T14:08:00Z"),
+      toFake: ["Date"],
+    });
     try {
       const result = await makeSaml({
         maxRedirectMessageBytes: inflatedFixture.length,
