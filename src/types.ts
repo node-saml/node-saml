@@ -345,10 +345,10 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
    */
   requireSignedRedirectMessages?: boolean;
   /**
-   * Maximum size in bytes of an inflated HTTP-Redirect SAMLRequest or SAMLResponse.
-   * @default 2097152
+   * Optional maximum size in bytes of an inflated HTTP-Redirect SAMLRequest or SAMLResponse.
+   * Without this setting, Node.js uses its default maxOutputLength.
    */
-  maxRedirectMessageBytes: number;
+  maxRedirectMessageBytes?: number;
 
   // extras
   disableRequestAcsUrl: boolean;
