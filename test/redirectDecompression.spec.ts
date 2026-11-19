@@ -28,8 +28,8 @@ function unsignedQuery(data: Buffer): { encoded: string; query: string } {
 }
 
 describe("HTTP-Redirect decompression limits", function () {
-  it("uses a configurable 2 MiB maximum and validates the option at construction", function () {
-    assert.strictEqual(makeSaml().options.maxRedirectMessageBytes, 2 * 1024 * 1024);
+  it("leaves the decompression limit unset by default and validates opt-in limits", function () {
+    assert.strictEqual(makeSaml().options.maxRedirectMessageBytes, undefined);
     assert.strictEqual(
       makeSaml({ maxRedirectMessageBytes: 4 * 1024 * 1024 }).options.maxRedirectMessageBytes,
       4 * 1024 * 1024,
