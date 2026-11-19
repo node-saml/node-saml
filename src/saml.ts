@@ -8,7 +8,6 @@ import * as algorithms from "./algorithms";
 import {
   DEFAULT_IDENTIFIER_FORMAT,
   DEFAULT_WANT_ASSERTIONS_SIGNED,
-  DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
 } from "./constants";
 import { generateUniqueId, keyInfoToPem, privateKeyToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
@@ -531,8 +530,6 @@ class SAML {
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
       rejectReplayedAssertions: ctorOptions.rejectReplayedAssertions ?? false,
-      maxRedirectMessageBytes:
-        ctorOptions.maxRedirectMessageBytes ?? DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
       callbackUrl: ctorOptions.callbackUrl,
       issuer: ctorOptions.issuer,
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
@@ -1544,10 +1541,17 @@ class SAML {
     let inflated: Buffer;
     try {
       inflated = await inflateRawAsync(data, {
-        maxOutputLength: this.options.maxRedirectMessageBytes,
+        ...(this.options.maxRedirectMessageBytes === undefined
+          ? {}
+          : { maxOutputLength: this.options.maxRedirectMessageBytes }),
       });
     } catch (err) {
-      if (err instanceof Error && "code" in err && err.code === "ERR_BUFFER_TOO_LARGE") {
+      if (
+        this.options.maxRedirectMessageBytes !== undefined &&
+        err instanceof Error &&
+        "code" in err &&
+        err.code === "ERR_BUFFER_TOO_LARGE"
+      ) {
         throw new Error(
           `SAML Redirect message exceeds maxRedirectMessageBytes (${this.options.maxRedirectMessageBytes} bytes)`,
         );
