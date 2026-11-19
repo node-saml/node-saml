@@ -553,16 +553,17 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 | `additionalLogoutParams`        | `{}`              | Query parameters added to logout requests only.                                                                                                |
 | `logoutCallbackUrl`             | —                 | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata.                                              |
 | `requireSignedRedirectMessages` | —                 | Set to `true` to reject unsigned Redirect messages through the deprecated two-argument API. The one-argument API already requires a signature. |
-| `maxRedirectMessageBytes`       | `2097152` (2 MiB) | Maximum size, in bytes, of a decompressed Redirect-bound `SAMLRequest` or `SAMLResponse`.                                                      |
+| `maxRedirectMessageBytes`       | — (Node.js default) | Optional maximum size, in bytes, of a decompressed Redirect-bound `SAMLRequest` or `SAMLResponse`.                                                      |
 
 Redirect signature verification uses the original URL-encoded parameters before Node-SAML
 inflates or parses the XML ([SAML bindings §3.4.4.1](https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf)).
-The 2 MiB inflated-size limit also applies to unsigned messages accepted through the deprecated
-API, and to signed messages whose signatures verify. This is a resource limit, not a SAML protocol
-limit. If a known IdP legitimately sends larger logout messages, set `maxRedirectMessageBytes`
-to a larger positive safe integer after you assess the application's memory budget. The limit
-is applied by Node's `zlib.inflateRaw` before XML parsing. A message above the limit is rejected
-with a descriptive error; invalid DEFLATE data retains its normal decompression error.
+Node-SAML does not impose a new inflated-size limit by default in this minor version. To
+limit output, set `maxRedirectMessageBytes` to a positive safe integer chosen for your
+application. This is a resource budget, not a SAML protocol limit. It applies to signed
+messages and to unsigned messages accepted through the deprecated API. Node's `zlib.inflateRaw`
+enforces the configured limit before XML parsing. An oversized message is rejected with a
+specific error; invalid DEFLATE data retains its normal decompression error. Without this
+option, Node.js uses its own much larger `maxOutputLength` default.
 
 The next major version also compares the `Destination` of a signed `LogoutRequest` or
 `LogoutResponse` with `logoutCallbackUrl`, in the same way as for `callbackUrl` above. Until then
