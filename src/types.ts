@@ -340,13 +340,8 @@ export interface SamlOptions extends Partial<SamlSigningOptions>, MandatorySamlO
   additionalLogoutParams: Record<string, string>;
   logoutCallbackUrl?: string;
   /**
-   * Require signed HTTP-Redirect logout messages, including with the deprecated
-   * two-argument validateRedirectAsync API. The one-argument API always requires a signature.
-   */
-  requireSignedRedirectMessages?: boolean;
-  /**
-   * Optional maximum size in bytes of an inflated HTTP-Redirect SAMLRequest or SAMLResponse.
-   * Without this setting, Node.js uses its default maxOutputLength.
+   * Maximum size in bytes of an inflated HTTP-Redirect SAMLRequest or SAMLResponse.
+   * @default 5242880 (5 MiB)
    */
   maxRedirectMessageBytes?: number;
 
