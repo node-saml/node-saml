@@ -339,7 +339,7 @@ const { profile, loggedOut, relayState } = await saml.validateRedirectAsync(orig
 ```
 
 Node-SAML reads the `SAMLRequest` or `SAMLResponse`, `RelayState`, `SigAlg` and `Signature` from
-that string, requires the signature to verify, and returns the `RelayState` that was signed. Use
+that string, requires the signature to verify **before decompression**, and returns the `RelayState` that was signed. Use
 that `relayState`, and not the one in a parsed query object such as `req.query`: a query parser can
 read a parameter that the signature does not cover as `RelayState`. A query string with more than
 one of any of those five parameters, or with both a `SAMLRequest` and a `SAMLResponse`, is
@@ -370,7 +370,10 @@ query string by other rules: one that also splits on `;` reads `x=1;RelayState=.
 > `NODE_DEBUG=node-saml` to be told when this happens. Configure your IdP to sign its logout
 > messages before you move to `validateRedirectAsync(originalQuery)`, which rejects unsigned ones,
 > as the next major version does for every call. The POST binding is unaffected:
-> `validatePostRequestAsync` always requires a valid signature.
+> `validatePostRequestAsync` always requires a valid signature. For applications that cannot yet
+> migrate to the one-argument Redirect API, set `requireSignedRedirectMessages: true` to reject
+> unsigned messages through the deprecated API as well. The next major version removes that
+> deprecated API and its unsigned-message behavior.
 
 On the POST binding the profile is built only from the bytes that signature covers. The signature
 has to envelope the message the way
@@ -549,6 +552,17 @@ See [InResponseTo validation](#inresponseto-validation) below for what this prot
 | `logoutUrl`              | `entryPoint` | Address to send logout requests to.                                                               |
 | `additionalLogoutParams` | `{}`         | Query parameters added to logout requests only.                                                   |
 | `logoutCallbackUrl`      | —            | The `Location` for the `SingleLogoutService` elements in the generated service provider metadata. |
+| `requireSignedRedirectMessages` | — | Set to `true` to reject unsigned Redirect messages through the deprecated two-argument API. The one-argument API already requires a signature. |
+| `maxRedirectMessageBytes` | `2097152` (2 MiB) | Maximum size, in bytes, of a decompressed Redirect-bound `SAMLRequest` or `SAMLResponse`. |
+
+Redirect signature verification uses the original URL-encoded parameters before Node-SAML
+inflates or parses the XML ([SAML bindings §3.4.4.1](https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf)).
+The 2 MiB inflated-size limit also applies to unsigned messages accepted through the deprecated
+API, and to signed messages whose signatures verify. This is a resource limit, not a SAML protocol
+limit. If a known IdP legitimately sends larger logout messages, set `maxRedirectMessageBytes`
+to a larger positive safe integer after you assess the application's memory budget. The limit
+is applied by Node's `zlib.inflateRaw` before XML parsing. A message above the limit is rejected
+with a descriptive error; invalid DEFLATE data retains its normal decompression error.
 
 The next major version also compares the `Destination` of a signed `LogoutRequest` or
 `LogoutResponse` with `logoutCallbackUrl`, in the same way as for `callbackUrl` above. Until then
