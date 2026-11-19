@@ -5,7 +5,11 @@ import { URL, URLSearchParams } from "url";
 import * as util from "util";
 import * as zlib from "zlib";
 import * as algorithms from "./algorithms";
-import { DEFAULT_IDENTIFIER_FORMAT, DEFAULT_WANT_ASSERTIONS_SIGNED } from "./constants";
+import {
+  DEFAULT_IDENTIFIER_FORMAT,
+  DEFAULT_WANT_ASSERTIONS_SIGNED,
+  DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
+} from "./constants";
 import { generateUniqueId, keyInfoToPem, privateKeyToPem } from "./crypto";
 import { dateStringToTimestamp, generateInstant } from "./date-time";
 import { warnIfRequestExtensionsInvalid } from "./extensions";
@@ -498,6 +502,14 @@ class SAML {
     assertBooleanIfPresent(ctorOptions.wantAuthnResponseSigned);
     assertBooleanIfPresent(ctorOptions.signMetadata);
     assertBooleanIfPresent(ctorOptions.rejectReplayedAssertions);
+    assertBooleanIfPresent(ctorOptions.requireSignedRedirectMessages);
+    if (
+      ctorOptions.maxRedirectMessageBytes !== undefined &&
+      (!Number.isSafeInteger(ctorOptions.maxRedirectMessageBytes) ||
+        ctorOptions.maxRedirectMessageBytes <= 0)
+    ) {
+      throw new TypeError("maxRedirectMessageBytes must be a positive safe integer");
+    }
     assertValidAttributeConsumingServices(ctorOptions.metadataAttributeConsumingServices);
     if (isValidSamlSigningOptions(ctorOptions)) {
       algorithms.assertDigestAlgorithmChosen(
@@ -519,6 +531,8 @@ class SAML {
       acceptedClockSkewMs: ctorOptions.acceptedClockSkewMs ?? 0,
       maxAssertionAgeMs: ctorOptions.maxAssertionAgeMs ?? 0,
       rejectReplayedAssertions: ctorOptions.rejectReplayedAssertions ?? false,
+      maxRedirectMessageBytes:
+        ctorOptions.maxRedirectMessageBytes ?? DEFAULT_MAX_REDIRECT_MESSAGE_BYTES,
       callbackUrl: ctorOptions.callbackUrl,
       issuer: ctorOptions.issuer,
       audience: ctorOptions.audience ?? ctorOptions.issuer ?? "unknown_audience", // use issuer as default
@@ -1520,13 +1534,29 @@ class SAML {
     );
     const { samlMessageType, samlMessage, signed } = parameters;
 
+    if (!signed && this.options.requireSignedRedirectMessages) {
+      throw new Error("The query string has no Signature parameter");
+    }
+    // SAML bindings §3.4.4.1 signs the URL-encoded query parameters, not the inflated XML.
+    await this.hasValidSignatureForRedirect(container, originalQuery);
+
     const data = Buffer.from(samlMessage, "base64");
-    const inflated = await inflateRawAsync(data);
+    let inflated: Buffer;
+    try {
+      inflated = await inflateRawAsync(data, {
+        maxOutputLength: this.options.maxRedirectMessageBytes,
+      });
+    } catch (err) {
+      if (err instanceof Error && "code" in err && err.code === "ERR_BUFFER_TOO_LARGE") {
+        throw new Error(
+          `SAML Redirect message exceeds maxRedirectMessageBytes (${this.options.maxRedirectMessageBytes} bytes)`,
+        );
+      }
+      throw err;
+    }
 
     const dom = await parseDomFromString(inflated.toString());
     const doc: XMLOutput = await parseXml2JsFromString(inflated);
-    // Before the checks below, so a signed response that fails them still retires its request.
-    await this.hasValidSignatureForRedirect(container, originalQuery);
     if (samlMessageType === "SAMLRequest") {
       this.verifyLogoutRequest(doc);
     } else {
